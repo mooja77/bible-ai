@@ -1,0 +1,769 @@
+import { invoke } from "@tauri-apps/api/core";
+
+export type Testament = "OT" | "NT" | "DC";
+
+export interface Book {
+  id: number;
+  osis_code: string;
+  name: string;
+  testament: Testament;
+  chapter_count: number;
+}
+
+export interface Translation {
+  code: string;
+  name: string;
+  language: string;
+  year: number | null;
+  license: string;
+  kind: "translation" | "original" | "manuscript";
+}
+
+export interface Verse {
+  verse_id: number;
+  chapter: number;
+  verse: number;
+  text: string;
+}
+
+export interface SearchHit {
+  verse_id: number;
+  translation_code: string;
+  book_id: number;
+  book_name: string;
+  book_osis: string;
+  chapter: number;
+  verse: number;
+  text: string;
+  /** Snippet may contain <mark>...</mark> tags around matched terms. */
+  snippet: string;
+}
+
+export const listBooks = () => invoke<Book[]>("list_books");
+export const listTranslations = () => invoke<Translation[]>("list_translations");
+export const getChapter = (translationCode: string, bookId: number, chapter: number) =>
+  invoke<Verse[]>("get_chapter", {
+    translationCode,
+    bookId,
+    chapter,
+  });
+export const getVerseRange = (
+  translationCode: string,
+  startVerseId: number,
+  endVerseId: number,
+  limit = 200,
+) =>
+  invoke<Verse[]>("get_verse_range", {
+    translationCode,
+    startVerseId,
+    endVerseId,
+    limit,
+  });
+export const search = (
+  query: string,
+  translationCode: string | null,
+  limit = 50,
+  bookId?: number | null,
+  testament?: Testament | null,
+) =>
+  invoke<SearchHit[]>("search", {
+    query,
+    translationCode,
+    limit,
+    bookId,
+    testament,
+  });
+
+export interface CrossRef {
+  from_verse_id: number;
+  to_verse_id: number;
+  book_id: number;
+  book_name: string;
+  book_osis: string;
+  chapter: number;
+  verse: number;
+  text: string;
+  source: string;
+  weight: number | null;
+}
+
+export const getCrossRefs = (
+  verseId: number,
+  textTranslation: string = "KJV",
+  limit = 20,
+) =>
+  invoke<CrossRef[]>("get_cross_refs", {
+    verseId,
+    textTranslation,
+    limit,
+  });
+
+export interface CouncilEvidence {
+  verse_id: number;
+  citation: string;
+  translation_code: string;
+  quote: string;
+  reasoning: string;
+}
+
+export interface CouncilEvidenceClassification {
+  verse_id: number;
+  status: "used" | "supporting" | "conflicting" | "ignored";
+  reasoning: string;
+}
+
+export interface CouncilPosition {
+  label: string;
+  weight: number;
+  raw_weight?: number;
+  summary: string;
+  evidence: CouncilEvidence[];
+  supporting_evidence_ids?: number[];
+  challenging_evidence_ids?: number[];
+  why_not_higher?: string;
+  confidence_rationale?: string;
+  cluster_id?: string;
+  source_position_labels?: string[];
+}
+
+export interface CouncilResult {
+  positions: CouncilPosition[];
+  dissent_notes?: string;
+  unresolved_tensions?: string[];
+  synthesis: string;
+  confidence: "low" | "medium" | "high";
+  confidence_rationale?: string;
+  evidence_classification?: CouncilEvidenceClassification[];
+}
+
+export interface CouncilVoice {
+  provider: string;
+  display_name: string;
+  status: "ok" | "error" | "skipped";
+  result: CouncilResult | null;
+  error: string | null;
+  duration_ms: number;
+}
+
+export interface CouncilProviderInfo {
+  name: string;
+  display_name: string;
+  available: boolean;
+}
+
+export interface CouncilResponse {
+  synthesis: CouncilResult;
+  voices: CouncilVoice[];
+  manifest: CouncilProviderInfo[];
+  retrieval_mode?:
+    | "semantic"
+    | "fts"
+    | "hybrid"
+    | "hybrid+xref"
+    | "explicit+hybrid"
+    | "explicit+hybrid+xref";
+  evidence_count?: number;
+  retrieval_options?: CouncilRetrievalOptions;
+  retrieved_evidence?: RetrievedEvidence[];
+}
+
+export interface RetrievedEvidence {
+  verse_id: number;
+  translation_code: string;
+  book_id: number;
+  book_name: string;
+  book_osis: string;
+  chapter: number;
+  verse: number;
+  text: string;
+  source: string;
+  score?: number;
+  from_verse_id?: number;
+  matched_terms?: string[];
+  semantic_score?: number;
+  keyword_score?: number;
+  cross_reference_weight?: number;
+}
+
+export interface CouncilRetrievalOptions {
+  strategy?: "keyword" | "semantic" | "hybrid";
+  include_cross_refs?: boolean;
+  translation_code?: string;
+  book_id?: number | null;
+  testament?: Testament | null;
+  start_verse_id?: number | null;
+  end_verse_id?: number | null;
+  evidence_limit?: number;
+}
+
+export const askCouncil = (
+  question: string,
+  model?: string,
+  options: CouncilRetrievalOptions = {},
+) =>
+  invoke<CouncilResponse>("ask_council", {
+    question,
+    model,
+    retrievalStrategy: options.strategy,
+    includeCrossRefs: options.include_cross_refs,
+    retrievalTranslation: options.translation_code,
+    bookId: options.book_id,
+    testament: options.testament,
+    startVerseId: options.start_verse_id,
+    endVerseId: options.end_verse_id,
+    evidenceLimit: options.evidence_limit,
+  });
+
+export interface PassageExplanation {
+  citation: string;
+  summary: string;
+  context: string;
+  key_terms: string[];
+  cross_references: string[];
+  cautions: string[];
+}
+
+export const explainPassage = (
+  translationCode: string,
+  startVerseId: number,
+  endVerseId?: number | null,
+) =>
+  invoke<PassageExplanation>("explain_passage", {
+    translationCode,
+    startVerseId,
+    endVerseId,
+  });
+
+export interface AppSettings {
+  google_api_key?: string | null;
+  openai_api_key?: string | null;
+  anthropic_api_key?: string | null;
+  claude_model?: string | null;
+  openai_model?: string | null;
+  gemini_model?: string | null;
+  anthropic_model?: string | null;
+  ollama_host?: string | null;
+  retrieval_translation?: string | null;
+  active_translations?: string | null;
+  font_scale?: number | null;
+  reader_layout?: "columns" | "interleaved" | null;
+  reader_density?: "comfortable" | "compact" | null;
+  sync_scroll?: boolean | null;
+}
+
+export const getAppSettings = () => invoke<AppSettings>("get_app_settings");
+
+export const saveAppSettings = (settings: AppSettings) =>
+  invoke<void>("save_app_settings", { settings });
+
+export interface SetupCheck {
+  configured: boolean;
+  ok: boolean;
+  error: string | null;
+  host?: string;
+}
+
+export interface SetupDiagnostics {
+  sidecar: {
+    ok: boolean;
+    node: string;
+    platform: string;
+    arch: string;
+  };
+  providers: CouncilProviderInfo[];
+  checks: {
+    google: SetupCheck;
+    openai: SetupCheck;
+    anthropic: SetupCheck;
+    ollama: SetupCheck;
+  };
+}
+
+export const checkAppSetup = (settings: AppSettings) =>
+  invoke<SetupDiagnostics>("check_app_setup", { settings });
+
+// ---------- Study workspaces ----------
+
+export type StudyItemKind =
+  | "verse"
+  | "verse_range"
+  | "note"
+  | "search_hit"
+  | "search"
+  | "council_session"
+  | "council_result"
+  | "explanation"
+  | "module_entry"
+  | "freeform";
+
+export interface StudyWorkspaceSummary {
+  id: number;
+  title: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  item_count: number;
+}
+
+export interface StudyItem {
+  id: number;
+  workspace_id: number;
+  kind: StudyItemKind;
+  title: string | null;
+  payload: Record<string, unknown>;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudyWorkspace {
+  id: number;
+  title: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  items: StudyItem[];
+}
+
+export const listStudyWorkspaces = (includeArchived = false) =>
+  invoke<StudyWorkspaceSummary[]>("list_study_workspaces", { includeArchived });
+
+export const createStudyWorkspace = (title: string, description?: string | null) =>
+  invoke<number>("create_study_workspace", { title, description });
+
+export const updateStudyWorkspace = (
+  id: number,
+  title: string,
+  description?: string | null,
+  archived = false,
+) =>
+  invoke<number>("update_study_workspace", {
+    id,
+    title,
+    description,
+    archived,
+  });
+
+export const deleteStudyWorkspace = (id: number) =>
+  invoke<number>("delete_study_workspace", { id });
+
+export const getStudyWorkspace = (id: number) =>
+  invoke<StudyWorkspace | null>("get_study_workspace", { id });
+
+export const addStudyItem = (
+  workspaceId: number,
+  kind: StudyItemKind,
+  title: string | null,
+  payload: Record<string, unknown>,
+) =>
+  invoke<number>("add_study_item", {
+    workspaceId,
+    kind,
+    title,
+    payload,
+  });
+
+export const updateStudyItem = (
+  id: number,
+  title: string | null,
+  payload?: Record<string, unknown>,
+) =>
+  invoke<number>("update_study_item", {
+    id,
+    title,
+    payload: payload ?? null,
+  });
+
+export const deleteStudyItem = (id: number) =>
+  invoke<number>("delete_study_item", { id });
+
+export const reorderStudyItems = (workspaceId: number, itemIds: number[]) =>
+  invoke<void>("reorder_study_items", { workspaceId, itemIds });
+
+export const writeWorkspaceMarkdown = (title: string, markdown: string) =>
+  invoke<string>("write_workspace_markdown", { title, markdown });
+
+export const writeWorkspaceHtml = (title: string, html: string) =>
+  invoke<string>("write_workspace_html", { title, html });
+
+export const writeWorkspacePdf = (title: string, markdown: string) =>
+  invoke<string>("write_workspace_pdf", { title, markdown });
+
+// ---------- Bookmarks and reading history ----------
+
+export interface Bookmark {
+  id: number;
+  verse_id: number;
+  end_verse_id: number | null;
+  label: string | null;
+  created_at: string;
+}
+
+export interface ReadingHistoryItem {
+  id: number;
+  book_id: number;
+  chapter: number;
+  translation_codes: string;
+  visited_at: string;
+}
+
+export const listBookmarks = () => invoke<Bookmark[]>("list_bookmarks");
+
+export const addBookmark = (
+  verseId: number,
+  endVerseId?: number | null,
+  label?: string | null,
+) =>
+  invoke<number>("add_bookmark", {
+    verseId,
+    endVerseId,
+    label,
+  });
+
+export const deleteBookmark = (id: number) =>
+  invoke<number>("delete_bookmark", { id });
+
+export const recordReadingLocation = (
+  bookId: number,
+  chapter: number,
+  translationCodes: string,
+) =>
+  invoke<void>("record_reading_location", {
+    bookId,
+    chapter,
+    translationCodes,
+  });
+
+export const listReadingHistory = (limit = 20) =>
+  invoke<ReadingHistoryItem[]>("list_reading_history", { limit });
+
+// ---------- Saved searches ----------
+
+export interface SavedSearch {
+  id: number;
+  title: string;
+  query: string;
+  translation_code: string | null;
+  testament: Testament | null;
+  book_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const listSavedSearches = () =>
+  invoke<SavedSearch[]>("list_saved_searches");
+
+export const createSavedSearch = (
+  title: string,
+  query: string,
+  translationCode?: string | null,
+  testament?: Testament | null,
+  bookId?: number | null,
+) =>
+  invoke<number>("create_saved_search", {
+    title,
+    query,
+    translationCode,
+    testament,
+    bookId,
+  });
+
+export const updateSavedSearchTitle = (id: number, title: string) =>
+  invoke<number>("update_saved_search_title", { id, title });
+
+export const deleteSavedSearch = (id: number) =>
+  invoke<number>("delete_saved_search", { id });
+
+export interface CouncilSessionSummary {
+  id: number;
+  question: string;
+  created_at: string;
+  retrieval_mode: string | null;
+}
+
+export interface StoredCouncilSession {
+  id: number;
+  question: string;
+  created_at: string;
+  retrieval_mode: string | null;
+  response: CouncilResponse;
+}
+
+export const listCouncilSessions = (limit = 30) =>
+  invoke<CouncilSessionSummary[]>("list_council_sessions", { limit });
+
+export const getCouncilSession = (id: number) =>
+  invoke<StoredCouncilSession | null>("get_council_session", { id });
+
+export const deleteCouncilSession = (id: number) =>
+  invoke<number>("delete_council_session", { id });
+
+// ---------- Highlights ----------
+
+export interface Highlight {
+  verse_id: number;
+  color: string;
+}
+
+export interface RangeHighlight {
+  id: number;
+  start_verse_id: number;
+  end_verse_id: number;
+  color: string;
+}
+
+export const listHighlightsForChapter = (bookId: number, chapter: number) =>
+  invoke<Highlight[]>("list_highlights_for_chapter", { bookId, chapter });
+
+export const upsertHighlight = (verseId: number, color: string) =>
+  invoke<void>("upsert_highlight", { verseId, color });
+
+export const deleteHighlight = (verseId: number) =>
+  invoke<number>("delete_highlight", { verseId });
+
+export const listRangeHighlightsForChapter = (bookId: number, chapter: number) =>
+  invoke<RangeHighlight[]>("list_range_highlights_for_chapter", { bookId, chapter });
+
+export const upsertRangeHighlight = (
+  startVerseId: number,
+  endVerseId: number,
+  color: string,
+) =>
+  invoke<void>("upsert_range_highlight", {
+    startVerseId,
+    endVerseId,
+    color,
+  });
+
+export const deleteRangeHighlight = (startVerseId: number, endVerseId: number) =>
+  invoke<number>("delete_range_highlight", { startVerseId, endVerseId });
+
+// ---------- Notes ----------
+
+export interface Note {
+  verse_id: number;
+  body: string;
+  updated_at: string;
+}
+
+export interface RangeNote {
+  id: number;
+  start_verse_id: number;
+  end_verse_id: number;
+  body: string;
+  updated_at: string;
+}
+
+export const getNote = (verseId: number) =>
+  invoke<Note | null>("get_note", { verseId });
+
+export const upsertNote = (verseId: number, body: string) =>
+  invoke<void>("upsert_note", { verseId, body });
+
+export const deleteNote = (verseId: number) =>
+  invoke<number>("delete_note", { verseId });
+
+export const listNotesForChapter = (bookId: number, chapter: number) =>
+  invoke<Note[]>("list_notes_for_chapter", { bookId, chapter });
+
+export const getRangeNote = (startVerseId: number, endVerseId: number) =>
+  invoke<RangeNote | null>("get_range_note", { startVerseId, endVerseId });
+
+export const upsertRangeNote = (
+  startVerseId: number,
+  endVerseId: number,
+  body: string,
+) =>
+  invoke<void>("upsert_range_note", {
+    startVerseId,
+    endVerseId,
+    body,
+  });
+
+export const deleteRangeNote = (startVerseId: number, endVerseId: number) =>
+  invoke<number>("delete_range_note", { startVerseId, endVerseId });
+
+export const listRangeNotesForChapter = (bookId: number, chapter: number) =>
+  invoke<RangeNote[]>("list_range_notes_for_chapter", { bookId, chapter });
+
+// ---------- Word tokens (Strong's) ----------
+
+export interface WordToken {
+  verse_id: number;
+  position: number;
+  surface: string;
+  lemma: string | null;
+  /** Comma-separated Strong's codes, e.g. "Hb,H7225". */
+  strongs: string | null;
+  morph: string | null;
+}
+
+export interface StrongsEntry {
+  code: string;
+  lemma: string;
+  translit: string | null;
+  gloss: string | null;
+  definition: string | null;
+}
+
+export interface StrongsOccurrence {
+  translation_code: string;
+  verse_id: number;
+  surface: string;
+  lemma: string | null;
+  morph: string | null;
+  book_id: number;
+  book_name: string;
+  book_osis: string;
+  chapter: number;
+  verse: number;
+  text: string;
+}
+
+export const getWordTokens = (translationCode: string, bookId: number, chapter: number) =>
+  invoke<WordToken[]>("get_word_tokens", { translationCode, bookId, chapter });
+
+export const getStrongs = (codes: string[]) =>
+  invoke<StrongsEntry[]>("get_strongs", { codes });
+
+export const getStrongsOccurrences = (code: string, limit = 80) =>
+  invoke<StrongsOccurrence[]>("get_strongs_occurrences", { code, limit });
+
+// ---------- Modules and backup ----------
+
+export interface ModuleSummary {
+  id: number;
+  slug: string;
+  title: string;
+  kind: "commentary" | "lexicon" | "dictionary" | "map" | "timeline";
+  source: string | null;
+  license: string | null;
+  version: string | null;
+  installed_at: string;
+}
+
+export interface ModuleEntry {
+  id: number;
+  module_id: number;
+  module_title: string;
+  key_type: "verse" | "verse_range" | "strongs" | "topic";
+  key_value: string;
+  title: string | null;
+  body: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface ModuleTopic {
+  key_value: string;
+  title: string | null;
+  entry_count: number;
+}
+
+export interface ModuleImportManifest {
+  slug: string;
+  title: string;
+  kind: ModuleSummary["kind"];
+  source?: string | null;
+  license?: string | null;
+  version?: string | null;
+}
+
+export interface ModuleImportReport {
+  module_id: number;
+  entry_count: number;
+}
+
+export type UserDataImportStrategy = "skip_existing" | "replace_existing" | "duplicate";
+
+export interface UserDataImportReport {
+  imported: number;
+  skipped: number;
+  replaced: number;
+  tables: number;
+}
+
+export const listModules = () => invoke<ModuleSummary[]>("list_modules");
+
+export const createModule = (
+  slug: string,
+  title: string,
+  kind: ModuleSummary["kind"],
+  source?: string | null,
+  license?: string | null,
+  version?: string | null,
+) =>
+  invoke<number>("create_module", {
+    slug,
+    title,
+    kind,
+    source,
+    license,
+    version,
+  });
+
+export const deleteModule = (id: number) =>
+  invoke<number>("delete_module", { id });
+
+export const addModuleEntry = (
+  moduleId: number,
+  keyType: ModuleEntry["key_type"],
+  keyValue: string,
+  title: string | null,
+  body: string,
+  metadata?: Record<string, unknown> | null,
+) =>
+  invoke<number>("add_module_entry", {
+    moduleId,
+    keyType,
+    keyValue,
+    title,
+    body,
+    metadata,
+  });
+
+export const importModuleJsonl = (
+  manifest: ModuleImportManifest,
+  entriesJsonl: string,
+) =>
+  invoke<ModuleImportReport>("import_module_jsonl", {
+    manifest,
+    entriesJsonl,
+  });
+
+export const listModuleEntriesForVerse = (verseId: number) =>
+  invoke<ModuleEntry[]>("list_module_entries_for_verse", { verseId });
+
+export const listModuleEntriesForRange = (startVerseId: number, endVerseId: number) =>
+  invoke<ModuleEntry[]>("list_module_entries_for_range", { startVerseId, endVerseId });
+
+export const listModuleEntriesForStrongs = (codes: string[]) =>
+  invoke<ModuleEntry[]>("list_module_entries_for_strongs", { codes });
+
+export const listModuleTopics = () =>
+  invoke<ModuleTopic[]>("list_module_topics");
+
+export const listModuleEntriesForTopic = (topic: string) =>
+  invoke<ModuleEntry[]>("list_module_entries_for_topic", { topic });
+
+export const exportUserDataJson = () =>
+  invoke<Record<string, unknown>>("export_user_data_json");
+
+export const importUserDataJson = (
+  payload: Record<string, unknown>,
+  conflictStrategy: UserDataImportStrategy,
+) =>
+  invoke<UserDataImportReport>("import_user_data_json", {
+    payload,
+    conflictStrategy,
+  });
+
+export const writeUserDataBackup = () =>
+  invoke<string>("write_user_data_backup");
+
+export const backupUserSqlite = () =>
+  invoke<string>("backup_user_sqlite");
+
+export const restoreUserSqlite = (sourcePath: string) =>
+  invoke<string>("restore_user_sqlite", { sourcePath });

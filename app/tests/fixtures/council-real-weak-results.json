@@ -1,0 +1,1144 @@
+{
+  "captured_at": "2026-05-02T15:21:00Z",
+  "mock_mode": false,
+  "model": "sonnet",
+  "question_count": 2,
+  "provider_diagnostics": {
+    "sidecar": {
+      "ok": true,
+      "node": "v22.20.0",
+      "platform": "win32",
+      "arch": "x64"
+    },
+    "providers": [
+      {
+        "name": "claude",
+        "display_name": "Claude (sonnet)",
+        "available": true
+      },
+      {
+        "name": "gemini",
+        "display_name": "Gemini (gemini-2.5-flash)",
+        "available": false
+      },
+      {
+        "name": "openai",
+        "display_name": "OpenAI (gpt-5)",
+        "available": false
+      }
+    ],
+    "checks": {
+      "google": {
+        "configured": false,
+        "ok": false,
+        "error": "No Google API key configured"
+      },
+      "openai": {
+        "configured": false,
+        "ok": false,
+        "error": "No OpenAI API key configured"
+      }
+    }
+  },
+  "results": [
+    {
+      "slug": "what-is-the-biblical-basis-for-the-trinity",
+      "question": "What is the biblical basis for the Trinity?",
+      "captured_at": "2026-05-02T15:11:31Z",
+      "duration_ms": 26682,
+      "evidence": [
+        {
+          "verse_id": 42023004,
+          "translation_code": "WEB",
+          "book_id": 42,
+          "book_name": "Luke",
+          "book_osis": "Luke",
+          "chapter": 23,
+          "verse": 4,
+          "text": "Pilate said to the chief priests and the multitudes, “I find no basis for a charge against this man.”",
+          "source": "qa-fts",
+          "keyword_score": 11.68873857205225,
+          "matched_terms": [
+            "basis",
+            "trinity"
+          ]
+        },
+        {
+          "verse_id": 43019004,
+          "translation_code": "WEB",
+          "book_id": 43,
+          "book_name": "John",
+          "book_osis": "John",
+          "chapter": 19,
+          "verse": 4,
+          "text": "Then Pilate went out again, and said to them, “Behold, I bring him out to you, that you may know that I find no basis for a charge against him.”",
+          "source": "qa-fts",
+          "keyword_score": 9.885954426661051,
+          "matched_terms": [
+            "basis",
+            "trinity"
+          ]
+        },
+        {
+          "verse_id": 43018038,
+          "translation_code": "WEB",
+          "book_id": 43,
+          "book_name": "John",
+          "book_osis": "John",
+          "chapter": 18,
+          "verse": 38,
+          "text": "Pilate said to him, “What is truth?” When he had said this, he went out again to the Jews, and said to them, “I find no basis for a charge against him.",
+          "source": "qa-fts",
+          "keyword_score": 9.616291638204846,
+          "matched_terms": [
+            "basis",
+            "trinity"
+          ]
+        },
+        {
+          "verse_id": 43019006,
+          "translation_code": "WEB",
+          "book_id": 43,
+          "book_name": "John",
+          "book_osis": "John",
+          "chapter": 19,
+          "verse": 6,
+          "text": "When therefore the chief priests and the officers saw him, they shouted, saying, “Crucify! Crucify!” Pilate said to them, “Take him yourselves and crucify him, for I find no basis for a charge against him.”",
+          "source": "qa-fts",
+          "keyword_score": 9.238297036189431,
+          "matched_terms": [
+            "basis",
+            "trinity"
+          ]
+        },
+        {
+          "verse_id": 42023014,
+          "translation_code": "WEB",
+          "book_id": 42,
+          "book_name": "Luke",
+          "book_osis": "Luke",
+          "chapter": 23,
+          "verse": 14,
+          "text": "and said to them, “You brought this man to me as one that perverts the people, and behold, having examined him before you, I found no basis for a charge against this man concerning those things of which you accuse him.",
+          "source": "qa-fts",
+          "keyword_score": 8.564958844790834,
+          "matched_terms": [
+            "basis",
+            "trinity"
+          ]
+        }
+      ],
+      "response": {
+        "synthesis": {
+          "positions": [
+            {
+              "label": "The question cannot be answered from the provided evidence",
+              "weight": 1,
+              "summary": "The retrieved verses are entirely about Pilate's trial of Jesus and contain no theological content regarding the nature of God, Christ's divinity, the Holy Spirit, or the relationship between Father, Son, and Spirit. They are retrieval noise that does not address the Trinity question.",
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "This position already receives maximum weight because no other position can be defended from the evidence.",
+              "confidence_rationale": "High confidence that these verses do not address the Trinity, but this reflects retrieval failure rather than a theological answer.",
+              "evidence": [],
+              "source_position_labels": []
+            }
+          ],
+          "dissent_notes": "The user asked for the biblical basis for the Trinity, a question that traditionally draws on passages like Matthew 28:19 (the baptismal formula), John 1:1-14 (the Word as God), 2 Corinthians 13:14 (the Trinitarian benediction), passages affirming monotheism (Deuteronomy 6:4), and texts distinguishing the persons (John 14-16, the Spirit as 'another Advocate'). None of these passages appear in the candidate evidence. Instead, all five verses are from Pilate's trial narrative and concern only his declaration of Jesus' legal innocence. This is a catastrophic retrieval failure: the keyword/concept search returned no verses that bear on the nature of God, the divinity of Christ, the personhood of the Spirit, or their unity and distinction. No defensible theological position on the Trinity can be constructed from statements about Roman criminal procedure.",
+          "unresolved_tensions": [
+            "The retrieval system failed entirely to surface verses relevant to the Trinity question.",
+            "Without access to key Trinitarian texts, we cannot model the spectrum of views (Nicene Trinitarianism, modalism, Arianism, Unitarianism, etc.) that scholars defend from scripture."
+          ],
+          "synthesis": "The central issue is not a tension between competing interpretations but the absence of relevant data. A rigorous answer to the Trinity question would weigh evidence for one God in three persons (drawing on the baptismal formula, the distinctness of Father, Son, and Spirit in the Gospels, and the full divinity of Christ in John and Hebrews) against alternative readings (modalist interpretations of divine self-revelation, subordinationist readings of Philippians 2 or 1 Corinthians 15:28, or unitarian emphasis on monotheism). No such weighing is possible here because the retrieved verses discuss only Pilate's verdict, not theology.",
+          "confidence": "low",
+          "confidence_rationale": "Confidence is low not because the Trinity is ambiguous, but because the evidence set is empty of relevant material. We are certain these verses do not support any position on the Trinity, but we cannot produce the requested distribution over defensible Trinitarian positions without passages that actually discuss God's nature.",
+          "evidence_classification": [
+            {
+              "verse_id": 42023004,
+              "status": "ignored",
+              "reasoning": "Pilate's declaration of no legal basis for charges against Jesus; irrelevant to the nature of God or the Trinity."
+            },
+            {
+              "verse_id": 43019004,
+              "status": "ignored",
+              "reasoning": "Pilate's statement during the trial; concerns Roman jurisprudence, not theology."
+            },
+            {
+              "verse_id": 43018038,
+              "status": "ignored",
+              "reasoning": "Pilate's question 'What is truth?' and declaration of no charges; narrative context is legal, not doctrinal."
+            },
+            {
+              "verse_id": 43019006,
+              "status": "ignored",
+              "reasoning": "Pilate tells the crowd to crucify Jesus themselves, finding no legal basis for charges; unrelated to Trinitarian doctrine."
+            },
+            {
+              "verse_id": 42023014,
+              "status": "ignored",
+              "reasoning": "Pilate's summary of his examination; addresses accusations against Jesus, not the relationship between Father, Son, and Spirit."
+            }
+          ]
+        },
+        "voices": [
+          {
+            "provider": "claude",
+            "display_name": "Claude (sonnet)",
+            "status": "ok",
+            "result": {
+              "positions": [
+                {
+                  "label": "The question cannot be answered from the provided evidence",
+                  "weight": 1,
+                  "summary": "The retrieved verses are entirely about Pilate's trial of Jesus and contain no theological content regarding the nature of God, Christ's divinity, the Holy Spirit, or the relationship between Father, Son, and Spirit. They are retrieval noise that does not address the Trinity question.",
+                  "supporting_evidence_ids": [],
+                  "challenging_evidence_ids": [],
+                  "why_not_higher": "This position already receives maximum weight because no other position can be defended from the evidence.",
+                  "confidence_rationale": "High confidence that these verses do not address the Trinity, but this reflects retrieval failure rather than a theological answer.",
+                  "evidence": [],
+                  "source_position_labels": []
+                }
+              ],
+              "dissent_notes": "The user asked for the biblical basis for the Trinity, a question that traditionally draws on passages like Matthew 28:19 (the baptismal formula), John 1:1-14 (the Word as God), 2 Corinthians 13:14 (the Trinitarian benediction), passages affirming monotheism (Deuteronomy 6:4), and texts distinguishing the persons (John 14-16, the Spirit as 'another Advocate'). None of these passages appear in the candidate evidence. Instead, all five verses are from Pilate's trial narrative and concern only his declaration of Jesus' legal innocence. This is a catastrophic retrieval failure: the keyword/concept search returned no verses that bear on the nature of God, the divinity of Christ, the personhood of the Spirit, or their unity and distinction. No defensible theological position on the Trinity can be constructed from statements about Roman criminal procedure.",
+              "unresolved_tensions": [
+                "The retrieval system failed entirely to surface verses relevant to the Trinity question.",
+                "Without access to key Trinitarian texts, we cannot model the spectrum of views (Nicene Trinitarianism, modalism, Arianism, Unitarianism, etc.) that scholars defend from scripture."
+              ],
+              "synthesis": "The central issue is not a tension between competing interpretations but the absence of relevant data. A rigorous answer to the Trinity question would weigh evidence for one God in three persons (drawing on the baptismal formula, the distinctness of Father, Son, and Spirit in the Gospels, and the full divinity of Christ in John and Hebrews) against alternative readings (modalist interpretations of divine self-revelation, subordinationist readings of Philippians 2 or 1 Corinthians 15:28, or unitarian emphasis on monotheism). No such weighing is possible here because the retrieved verses discuss only Pilate's verdict, not theology.",
+              "confidence": "low",
+              "confidence_rationale": "Confidence is low not because the Trinity is ambiguous, but because the evidence set is empty of relevant material. We are certain these verses do not support any position on the Trinity, but we cannot produce the requested distribution over defensible Trinitarian positions without passages that actually discuss God's nature.",
+              "evidence_classification": [
+                {
+                  "verse_id": 42023004,
+                  "status": "ignored",
+                  "reasoning": "Pilate's declaration of no legal basis for charges against Jesus; irrelevant to the nature of God or the Trinity."
+                },
+                {
+                  "verse_id": 43019004,
+                  "status": "ignored",
+                  "reasoning": "Pilate's statement during the trial; concerns Roman jurisprudence, not theology."
+                },
+                {
+                  "verse_id": 43018038,
+                  "status": "ignored",
+                  "reasoning": "Pilate's question 'What is truth?' and declaration of no charges; narrative context is legal, not doctrinal."
+                },
+                {
+                  "verse_id": 43019006,
+                  "status": "ignored",
+                  "reasoning": "Pilate tells the crowd to crucify Jesus themselves, finding no legal basis for charges; unrelated to Trinitarian doctrine."
+                },
+                {
+                  "verse_id": 42023014,
+                  "status": "ignored",
+                  "reasoning": "Pilate's summary of his examination; addresses accusations against Jesus, not the relationship between Father, Son, and Spirit."
+                }
+              ]
+            },
+            "error": null,
+            "duration_ms": 26682
+          }
+        ],
+        "manifest": [
+          {
+            "name": "claude",
+            "display_name": "Claude (sonnet)",
+            "available": true
+          },
+          {
+            "name": "gemini",
+            "display_name": "Gemini (gemini-2.5-flash)",
+            "available": false
+          },
+          {
+            "name": "openai",
+            "display_name": "OpenAI (gpt-5)",
+            "available": false
+          }
+        ]
+      },
+      "weakness_flags": [
+        "limited_provider_coverage",
+        "position_without_cited_evidence",
+        "single_position"
+      ]
+    },
+    {
+      "slug": "how-should-the-sermon-on-the-mount-relate-to-christian-ethics",
+      "question": "How should the Sermon on the Mount relate to Christian ethics?",
+      "captured_at": "2026-05-02T15:21:00Z",
+      "duration_ms": 84704,
+      "evidence": [
+        {
+          "verse_id": 2019015,
+          "translation_code": "WEB",
+          "book_id": 2,
+          "book_name": "Exodus",
+          "book_osis": "Exod",
+          "chapter": 19,
+          "verse": 15,
+          "text": "He said to the people, “Be ready by the third day. Don’t have sexual relations with a woman.”",
+          "source": "qa-fts",
+          "keyword_score": 10.841397123774714,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 42024035,
+          "translation_code": "WEB",
+          "book_id": 42,
+          "book_name": "Luke",
+          "book_osis": "Luke",
+          "chapter": 24,
+          "verse": 35,
+          "text": "They related the things that happened along the way, and how he was recognized by them in the breaking of the bread.",
+          "source": "qa-fts",
+          "keyword_score": 10.32775613868518,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 2024015,
+          "translation_code": "KJV",
+          "book_id": 2,
+          "book_name": "Exodus",
+          "book_osis": "Exod",
+          "chapter": 24,
+          "verse": 15,
+          "text": "And Moses went up into the mount, and a cloud covered the mount.",
+          "source": "qa-fts",
+          "keyword_score": 8.52419068071317,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 2019020,
+          "translation_code": "ASV",
+          "book_id": 2,
+          "book_name": "Exodus",
+          "book_osis": "Exod",
+          "chapter": 19,
+          "verse": 20,
+          "text": "And Jehovah came down upon mount Sinai, to the top of the mount: and Jehovah called Moses to the top of the mount; and Moses went up.",
+          "source": "qa-fts",
+          "keyword_score": 8.347607093068694,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 14013004,
+          "translation_code": "KJV",
+          "book_id": 14,
+          "book_name": "2 Chronicles",
+          "book_osis": "2Chr",
+          "chapter": 13,
+          "verse": 4,
+          "text": "And Abijah stood up upon mount Zemaraim, which {is} in mount Ephraim, and said, Hear me, thou Jeroboam, and all Israel;",
+          "source": "qa-fts",
+          "keyword_score": 7.799545917633492,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 31001021,
+          "translation_code": "ASV",
+          "book_id": 31,
+          "book_name": "Obadiah",
+          "book_osis": "Obad",
+          "chapter": 1,
+          "verse": 21,
+          "text": "And saviours shall come up on mount Zion to judge the mount of Esau; and the kingdom shall be Jehovah’s.",
+          "source": "qa-fts",
+          "keyword_score": 7.799545917633492,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 6011017,
+          "translation_code": "KJV",
+          "book_id": 6,
+          "book_name": "Joshua",
+          "book_osis": "Josh",
+          "chapter": 11,
+          "verse": 17,
+          "text": "{Even} from the mount Halak, that goeth up to Seir, even unto Baalgad in the valley of Lebanon under mount Hermon: and all their kings he took, and smote them, and slew them. {the mount...: or, the smooth mountain}",
+          "source": "qa-fts",
+          "keyword_score": 7.651448274684543,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 43008001,
+          "translation_code": "KJV",
+          "book_id": 43,
+          "book_name": "John",
+          "book_osis": "John",
+          "chapter": 8,
+          "verse": 1,
+          "text": "Jesus went unto the mount of Olives.",
+          "source": "qa-fts",
+          "keyword_score": 7.5949096248606764,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 1031025,
+          "translation_code": "KJV",
+          "book_id": 1,
+          "book_name": "Genesis",
+          "book_osis": "Gen",
+          "chapter": 31,
+          "verse": 25,
+          "text": "Then Laban overtook Jacob. Now Jacob had pitched his tent in the mount: and Laban with his brethren pitched in the mount of Gilead.",
+          "source": "qa-fts",
+          "keyword_score": 7.558586525682931,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 26010017,
+          "translation_code": "WEB",
+          "book_id": 26,
+          "book_name": "Ezekiel",
+          "book_osis": "Ezek",
+          "chapter": 10,
+          "verse": 17,
+          "text": "When they stood, these stood. When they mounted up, these mounted up with them; for the spirit of the living creature was in them.",
+          "source": "qa-fts",
+          "keyword_score": 7.558586525682931,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 3025001,
+          "translation_code": "WEB",
+          "book_id": 3,
+          "book_name": "Leviticus",
+          "book_osis": "Lev",
+          "chapter": 25,
+          "verse": 1,
+          "text": "The LORD said to Moses on Mount Sinai,",
+          "source": "qa-fts",
+          "keyword_score": 7.4409198346159355,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 2024018,
+          "translation_code": "ASV",
+          "book_id": 2,
+          "book_name": "Exodus",
+          "book_osis": "Exod",
+          "chapter": 24,
+          "verse": 18,
+          "text": "And Moses entered into the midst of the cloud, and went up into the mount: and Moses was in the mount forty days and forty nights.",
+          "source": "qa-fts",
+          "keyword_score": 7.406051352524174,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 2019023,
+          "translation_code": "KJV",
+          "book_id": 2,
+          "book_name": "Exodus",
+          "book_osis": "Exod",
+          "chapter": 19,
+          "verse": 23,
+          "text": "And Moses said unto the LORD, The people cannot come up to mount Sinai: for thou chargedst us, saying, Set bounds about the mount, and sanctify it.",
+          "source": "qa-fts",
+          "keyword_score": 7.332069367481033,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 2034002,
+          "translation_code": "KJV",
+          "book_id": 2,
+          "book_name": "Exodus",
+          "book_osis": "Exod",
+          "chapter": 34,
+          "verse": 2,
+          "text": "And be ready in the morning, and come up in the morning unto mount Sinai, and present thyself there to me in the top of the mount.",
+          "source": "qa-fts",
+          "keyword_score": 7.332069367481033,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 5009015,
+          "translation_code": "KJV",
+          "book_id": 5,
+          "book_name": "Deuteronomy",
+          "book_osis": "Deut",
+          "chapter": 9,
+          "verse": 15,
+          "text": "So I turned and came down from the mount, and the mount burned with fire: and the two tables of the covenant {were} in my two hands.",
+          "source": "qa-fts",
+          "keyword_score": 7.332069367481033,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 6020007,
+          "translation_code": "KJV",
+          "book_id": 6,
+          "book_name": "Joshua",
+          "book_osis": "Josh",
+          "chapter": 20,
+          "verse": 7,
+          "text": "And they appointed Kedesh in Galilee in mount Naphtali, and Shechem in mount Ephraim, and Kirjatharba, which {is} Hebron, in the mountain of Judah. {appointed: Heb. sanctified}",
+          "source": "qa-fts",
+          "keyword_score": 7.332069367481033,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 1036008,
+          "translation_code": "KJV",
+          "book_id": 1,
+          "book_name": "Genesis",
+          "book_osis": "Gen",
+          "chapter": 36,
+          "verse": 8,
+          "text": "Thus dwelt Esau in mount Seir: Esau {is} Edom.",
+          "source": "qa-fts",
+          "keyword_score": 7.29305036010362,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 4033023,
+          "translation_code": "WEB",
+          "book_id": 4,
+          "book_name": "Numbers",
+          "book_osis": "Num",
+          "chapter": 33,
+          "verse": 23,
+          "text": "They traveled from Kehelathah, and encamped in Mount Shepher.",
+          "source": "qa-fts",
+          "keyword_score": 7.29305036010362,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 4033024,
+          "translation_code": "WEB",
+          "book_id": 4,
+          "book_name": "Numbers",
+          "book_osis": "Num",
+          "chapter": 33,
+          "verse": 24,
+          "text": "They traveled from Mount Shepher, and encamped in Haradah.",
+          "source": "qa-fts",
+          "keyword_score": 7.29305036010362,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 4033041,
+          "translation_code": "WEB",
+          "book_id": 4,
+          "book_name": "Numbers",
+          "book_osis": "Num",
+          "chapter": 33,
+          "verse": 41,
+          "text": "They traveled from Mount Hor, and encamped in Zalmonah.",
+          "source": "qa-fts",
+          "keyword_score": 7.29305036010362,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 2034003,
+          "translation_code": "KJV",
+          "book_id": 2,
+          "book_name": "Exodus",
+          "book_osis": "Exod",
+          "chapter": 34,
+          "verse": 3,
+          "text": "And no man shall come up with thee, neither let any man be seen throughout all the mount; neither let the flocks nor herds feed before that mount.",
+          "source": "qa-fts",
+          "keyword_score": 7.2595508342338695,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 42019029,
+          "translation_code": "KJV",
+          "book_id": 42,
+          "book_name": "Luke",
+          "book_osis": "Luke",
+          "chapter": 19,
+          "verse": 29,
+          "text": "And it came to pass, when he was come nigh to Bethphage and Bethany, at the mount called {the mount} of Olives, he sent two of his disciples,",
+          "source": "qa-fts",
+          "keyword_score": 7.2595508342338695,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        },
+        {
+          "verse_id": 7003003,
+          "translation_code": "WEB",
+          "book_id": 7,
+          "book_name": "Judges",
+          "book_osis": "Judg",
+          "chapter": 3,
+          "verse": 3,
+          "text": "the five lords of the Philistines, all the Canaanites, the Sidonians, and the Hivites who lived on Mount Lebanon, from Mount Baal Hermon to the entrance of Hamath.",
+          "source": "qa-fts",
+          "keyword_score": 7.2595508342338695,
+          "matched_terms": [
+            "sermon",
+            "mount",
+            "relate",
+            "ethic"
+          ]
+        }
+      ],
+      "response": {
+        "synthesis": {
+          "positions": [
+            {
+              "label": "Literal-Direct Ethic (Anabaptist / Radical Discipleship)",
+              "weight": 0.18,
+              "summary": "The Sermon on the Mount is Jesus's binding ethical code for all disciples in all times, to be obeyed literally and directly without qualification or contextualization.",
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "No direct textual evidence from the Sermon itself appears in the candidate set; this position relies entirely on Matthew 5–7 passages absent from retrieval, making it impossible to cite supporting verses and limiting weight despite its historical prominence.",
+              "confidence_rationale": "Cannot cite any verse from the candidate evidence because the retrieval returned only geographic/narrative 'mount' references, not the ethical content of Matthew 5–7.",
+              "evidence": [],
+              "source_position_labels": []
+            },
+            {
+              "label": "Impossible Ideal / Convicting Mirror (Lutheran Two-Kingdom)",
+              "weight": 0.15,
+              "summary": "The Sermon functions primarily to expose human sinfulness and drive believers to grace, not as a practicable ethic; it shows what God demands but cannot be fulfilled apart from Christ's righteousness.",
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "Like the first position, this view depends on reading Matthew 5–7 (e.g., 'Be perfect,' the antitheses), none of which appear in the candidate evidence; weight remains low because no verse_id can be cited.",
+              "confidence_rationale": "The candidate evidence contains no passages from the Sermon on the Mount or Pauline texts on justification that would undergird this interpretive tradition.",
+              "evidence": [],
+              "source_position_labels": []
+            },
+            {
+              "label": "Interim Ethic (Schweitzer / Eschatological Postponement)",
+              "weight": 0.12,
+              "summary": "Jesus gave these radical commands expecting the imminent arrival of God's kingdom; they are suited to a brief interim period, not normative for ongoing Christian life in history.",
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "No eschatological or kingdom-imminence texts from Matthew or the Gospels appear in the evidence; the position cannot be anchored in any cited verse_id.",
+              "confidence_rationale": "Schweitzer's thesis requires Matthew 5–7 plus kingdom-timing sayings (e.g., Matt 10:23, 16:28), none of which are present.",
+              "evidence": [],
+              "source_position_labels": []
+            },
+            {
+              "label": "Disposition / Attitude Ethic (Augustinian Internalization)",
+              "weight": 0.14,
+              "summary": "The Sermon prescribes inner attitudes (humility, mercy, purity of heart) rather than external legal compliance; love fulfills the deeper spirit of the commands even when outward form differs.",
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "No Sermon text (Matt 5:8, 5:21–22, 5:27–28) or love-summaries (Matt 22:37–40) appear in the evidence to demonstrate the attitude/spirit distinction.",
+              "confidence_rationale": "This reading depends on verses contrasting external act and internal motive, which the candidate set does not include.",
+              "evidence": [],
+              "source_position_labels": []
+            },
+            {
+              "label": "General Principles Requiring Prudential Application",
+              "weight": 0.16,
+              "summary": "The Sermon offers broad moral principles (non-retaliation, generosity, truthfulness) that must be contextualized through wisdom and circumstances rather than applied as universal rules.",
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "Without access to the antitheses (Matt 5:38–42) or the 'do not resist evil' command, we cannot cite the specific texts that defenders invoke to argue for principled flexibility.",
+              "confidence_rationale": "The evidence set lacks both the Sermon passages and New Testament prudential texts (e.g., Paul's case-by-case counsel in 1 Corinthians) needed to support this position.",
+              "evidence": [],
+              "source_position_labels": []
+            },
+            {
+              "label": "Monastic / Counsels-of-Perfection (Catholic Dual-Track)",
+              "weight": 0.13,
+              "summary": "The Sermon's most rigorous demands (poverty, celibacy, non-resistance) are 'counsels of perfection' binding on those with a special vocation (religious orders), not universal precepts for all Christians.",
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "Medieval exegesis of Matt 5:48 and 19:21 is required to ground the precept/counsel distinction; none of those verses appear in the candidate evidence.",
+              "confidence_rationale": "This position relies on texts distinguishing commandments from supererogatory counsels, which are absent from the retrieval.",
+              "evidence": [],
+              "source_position_labels": []
+            },
+            {
+              "label": "Kingdom Ethic Already-and-Not-Yet (Inaugurated Eschatology)",
+              "weight": 0.12,
+              "summary": "The Sermon describes the ethics of God's kingdom, which has broken into the present age in Jesus but awaits consummation; Christians live the kingdom life now as a sign and foretaste, empowered by the Spirit.",
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "This synthetic view requires both Sermon content (Matt 5:3–10, 6:10, 6:33) and inaugurated-kingdom texts (Luke 11:20, Rom 14:17); the evidence contains none.",
+              "confidence_rationale": "Without Matthew 5–7 or Paul's 'already/not yet' language, the position cannot be textually anchored in the candidate set.",
+              "evidence": [],
+              "source_position_labels": []
+            }
+          ],
+          "dissent_notes": "The candidate evidence consists almost entirely of geographic references to 'mount' (Sinai, Zion, Olives, etc.) and contains zero verses from Matthew 5–7 (the Sermon on the Mount itself) or from New Testament ethical discourse. Consequently, every major interpretive tradition—Anabaptist literalism, Lutheran law/gospel dialectic, Schweitzer's interim ethic, Augustinian dispositional reading, prudential-application models, Catholic dual-track, and inaugurated-eschatology syntheses—remains entirely unsupported by citeable text. The weights above reflect the relative strength and historical influence of each tradition within Christian theology, not the evidence retrieved, because no evidence was retrieved. A rigorous answer to 'How should the Sermon relate to Christian ethics?' requires access to the Sermon; this retrieval returned none.",
+          "unresolved_tensions": [
+            "Literal obedience vs. grace-centered impossibility: Does the Sermon set forth achievable commands or a mirror to expose sin and point to Christ?",
+            "Universal norm vs. vocational counsel: Are the radical demands (e.g., Matt 5:39–42) binding on every believer or reserved for those with a special calling?",
+            "Timeless principle vs. eschatological context: Did Jesus intend these teachings for an imminent kingdom or for the ongoing life of the church across history?",
+            "Outward compliance vs. inner disposition: Does obedience mean performing the specified acts or cultivating the heart-attitudes they express?",
+            "Individual piety vs. social-political witness: Is the Sermon addressed to personal sanctification, to the community's corporate life, or to engagement with the surrounding world?",
+            "Already-inaugurated vs. not-yet-consummated kingdom: How does the overlap of ages affect the Sermon's application—do we live it now or await its full realization?"
+          ],
+          "synthesis": "Seven major traditions offer competing frameworks for relating the Sermon on the Mount to Christian ethics. **Literal-Direct** advocates (Anabaptists, Mennonites) read Matthew 5–7 as Jesus's plain instructions for disciples—'turn the other cheek' means exactly that. **Impossible-Ideal** interpreters (Luther, classic Protestantism) argue the Sermon's perfection (Matt 5:48) convicts us of sin and drives us to justification by faith, not a to-do list. **Interim-Ethic** scholars (Schweitzer) situate the commands in Jesus's expectation of the imminent end, rendering them time-bound. **Disposition-Ethic** readers (Augustine, much of the tradition) locate the Sermon's force in attitudes—humility, purity of motive—rather than external rules. **Prudential-Application** models treat the Sermon as general principles requiring contextual wisdom. **Counsels-of-Perfection** (medieval Catholicism) reserve the most demanding sayings for those under vows. **Inaugurated-Kingdom** frameworks (Ladd, Wright) see the Sermon as the ethic of God's reign breaking into the present, to be lived now in the power of the Spirit and awaiting full realization. The central interpretive tension is whether the Sermon is **direct law** (to be obeyed as stated) or **theological pointer** (law that convicts, ideal that inspires, or kingdom vision that transcends the present age), and whether its audience is **all Christians** or a **subset with special vocation**. No single reading resolves all these tensions; each captures aspects of the text's rhetoric and function.",
+          "confidence": "low",
+          "confidence_rationale": "The candidate evidence contains zero verses from the Sermon on the Mount (Matthew 5–7) and no New Testament ethical or theological commentary that would support any of the classical positions. All retrieved verses are geographic or narrative references to various mountains. The question 'How should the Sermon on the Mount relate to Christian ethics?' is well-defined and has generated centuries of serious exegesis, but the evidence set is completely orthogonal to it. Weights assigned above reflect the relative scholarly and traditional strength of each interpretive school when the full canon is in view, not the non-existent support in this retrieval. Confidence is necessarily low because no position can cite a single relevant verse_id.",
+          "evidence_classification": [
+            {
+              "verse_id": 2019015,
+              "status": "ignored",
+              "reasoning": "Exodus 19:15 (preparation for Sinai theophany) is unrelated to the Sermon on the Mount or Christian ethics."
+            },
+            {
+              "verse_id": 42024035,
+              "status": "ignored",
+              "reasoning": "Luke 24:35 (Emmaus road) concerns resurrection recognition, not ethical teaching or the Sermon."
+            },
+            {
+              "verse_id": 2024015,
+              "status": "ignored",
+              "reasoning": "Exodus 24:15 (Moses ascending Sinai) is geographic/narrative, not relevant to New Testament ethics."
+            },
+            {
+              "verse_id": 2019020,
+              "status": "ignored",
+              "reasoning": "Exodus 19:20 (YHWH descending on Sinai) is part of the Sinai covenant narrative, not the Sermon on the Mount."
+            },
+            {
+              "verse_id": 14013004,
+              "status": "ignored",
+              "reasoning": "2 Chronicles 13:4 (Abijah's speech on Mount Zemaraim) is historical narrative, unrelated to Jesus's ethical teaching."
+            },
+            {
+              "verse_id": 31001021,
+              "status": "ignored",
+              "reasoning": "Obadiah 1:21 (eschatological judgment on Edom) does not address the Sermon or Christian conduct."
+            },
+            {
+              "verse_id": 6011017,
+              "status": "ignored",
+              "reasoning": "Joshua 11:17 (conquest geography) is irrelevant to the Sermon on the Mount or ethics."
+            },
+            {
+              "verse_id": 43008001,
+              "status": "ignored",
+              "reasoning": "John 8:1 (Jesus at the Mount of Olives) is a location note; the pericope that follows (if present) is not the Sermon on the Mount."
+            },
+            {
+              "verse_id": 1031025,
+              "status": "ignored",
+              "reasoning": "Genesis 31:25 (Jacob and Laban on Mount Gilead) is patriarchal narrative, unrelated to Christian ethics."
+            },
+            {
+              "verse_id": 26010017,
+              "status": "ignored",
+              "reasoning": "Ezekiel 10:17 (cherubim's movement) uses 'mounted' in a vision context, not relevant to the Sermon."
+            },
+            {
+              "verse_id": 3025001,
+              "status": "ignored",
+              "reasoning": "Leviticus 25:1 (Sabbath/Jubilee law given on Sinai) is Old Testament legislation, not New Testament ethical instruction."
+            },
+            {
+              "verse_id": 2024018,
+              "status": "ignored",
+              "reasoning": "Exodus 24:18 (Moses on Sinai forty days) is narrative background to the covenant, not the Sermon on the Mount."
+            },
+            {
+              "verse_id": 2019023,
+              "status": "ignored",
+              "reasoning": "Exodus 19:23 (boundary around Sinai) is part of theophany protocol, unrelated to Jesus's teaching."
+            },
+            {
+              "verse_id": 2034002,
+              "status": "ignored",
+              "reasoning": "Exodus 34:2 (Moses ascending Sinai for second tablets) is covenant-renewal narrative, not Christian ethics."
+            },
+            {
+              "verse_id": 5009015,
+              "status": "ignored",
+              "reasoning": "Deuteronomy 9:15 (Moses descending with tablets) is part of Israel's history, not the Sermon on the Mount."
+            },
+            {
+              "verse_id": 6020007,
+              "status": "ignored",
+              "reasoning": "Joshua 20:7 (cities of refuge) is Old Testament legal/geographic detail, unrelated to the Sermon."
+            },
+            {
+              "verse_id": 1036008,
+              "status": "ignored",
+              "reasoning": "Genesis 36:8 (Esau dwelling in Mount Seir) is genealogical/geographic, not ethical or theological."
+            },
+            {
+              "verse_id": 4033023,
+              "status": "ignored",
+              "reasoning": "Numbers 33:23 (wilderness itinerary) is geographic log, unrelated to Christian ethics."
+            },
+            {
+              "verse_id": 4033024,
+              "status": "ignored",
+              "reasoning": "Numbers 33:24 (wilderness itinerary) is geographic log, unrelated to the Sermon on the Mount."
+            },
+            {
+              "verse_id": 4033041,
+              "status": "ignored",
+              "reasoning": "Numbers 33:41 (wilderness itinerary) is geographic log, unrelated to Christian ethics."
+            },
+            {
+              "verse_id": 2034003,
+              "status": "ignored",
+              "reasoning": "Exodus 34:3 (Moses alone on Sinai) is covenant narrative, not relevant to the Sermon or ethics."
+            },
+            {
+              "verse_id": 42019029,
+              "status": "ignored",
+              "reasoning": "Luke 19:29 (Jesus approaching Jerusalem via Mount of Olives) is passion-week narrative, not the Sermon on the Mount."
+            },
+            {
+              "verse_id": 7003003,
+              "status": "ignored",
+              "reasoning": "Judges 3:3 (peoples left in the land, including those on Mount Lebanon) is conquest/settlement history, unrelated to Christian ethics."
+            }
+          ]
+        },
+        "voices": [
+          {
+            "provider": "claude",
+            "display_name": "Claude (sonnet)",
+            "status": "ok",
+            "result": {
+              "positions": [
+                {
+                  "label": "Literal-Direct Ethic (Anabaptist / Radical Discipleship)",
+                  "weight": 0.18,
+                  "summary": "The Sermon on the Mount is Jesus's binding ethical code for all disciples in all times, to be obeyed literally and directly without qualification or contextualization.",
+                  "supporting_evidence_ids": [],
+                  "challenging_evidence_ids": [],
+                  "why_not_higher": "No direct textual evidence from the Sermon itself appears in the candidate set; this position relies entirely on Matthew 5–7 passages absent from retrieval, making it impossible to cite supporting verses and limiting weight despite its historical prominence.",
+                  "confidence_rationale": "Cannot cite any verse from the candidate evidence because the retrieval returned only geographic/narrative 'mount' references, not the ethical content of Matthew 5–7.",
+                  "evidence": [],
+                  "source_position_labels": []
+                },
+                {
+                  "label": "Impossible Ideal / Convicting Mirror (Lutheran Two-Kingdom)",
+                  "weight": 0.15,
+                  "summary": "The Sermon functions primarily to expose human sinfulness and drive believers to grace, not as a practicable ethic; it shows what God demands but cannot be fulfilled apart from Christ's righteousness.",
+                  "supporting_evidence_ids": [],
+                  "challenging_evidence_ids": [],
+                  "why_not_higher": "Like the first position, this view depends on reading Matthew 5–7 (e.g., 'Be perfect,' the antitheses), none of which appear in the candidate evidence; weight remains low because no verse_id can be cited.",
+                  "confidence_rationale": "The candidate evidence contains no passages from the Sermon on the Mount or Pauline texts on justification that would undergird this interpretive tradition.",
+                  "evidence": [],
+                  "source_position_labels": []
+                },
+                {
+                  "label": "Interim Ethic (Schweitzer / Eschatological Postponement)",
+                  "weight": 0.12,
+                  "summary": "Jesus gave these radical commands expecting the imminent arrival of God's kingdom; they are suited to a brief interim period, not normative for ongoing Christian life in history.",
+                  "supporting_evidence_ids": [],
+                  "challenging_evidence_ids": [],
+                  "why_not_higher": "No eschatological or kingdom-imminence texts from Matthew or the Gospels appear in the evidence; the position cannot be anchored in any cited verse_id.",
+                  "confidence_rationale": "Schweitzer's thesis requires Matthew 5–7 plus kingdom-timing sayings (e.g., Matt 10:23, 16:28), none of which are present.",
+                  "evidence": [],
+                  "source_position_labels": []
+                },
+                {
+                  "label": "Disposition / Attitude Ethic (Augustinian Internalization)",
+                  "weight": 0.14,
+                  "summary": "The Sermon prescribes inner attitudes (humility, mercy, purity of heart) rather than external legal compliance; love fulfills the deeper spirit of the commands even when outward form differs.",
+                  "supporting_evidence_ids": [],
+                  "challenging_evidence_ids": [],
+                  "why_not_higher": "No Sermon text (Matt 5:8, 5:21–22, 5:27–28) or love-summaries (Matt 22:37–40) appear in the evidence to demonstrate the attitude/spirit distinction.",
+                  "confidence_rationale": "This reading depends on verses contrasting external act and internal motive, which the candidate set does not include.",
+                  "evidence": [],
+                  "source_position_labels": []
+                },
+                {
+                  "label": "General Principles Requiring Prudential Application",
+                  "weight": 0.16,
+                  "summary": "The Sermon offers broad moral principles (non-retaliation, generosity, truthfulness) that must be contextualized through wisdom and circumstances rather than applied as universal rules.",
+                  "supporting_evidence_ids": [],
+                  "challenging_evidence_ids": [],
+                  "why_not_higher": "Without access to the antitheses (Matt 5:38–42) or the 'do not resist evil' command, we cannot cite the specific texts that defenders invoke to argue for principled flexibility.",
+                  "confidence_rationale": "The evidence set lacks both the Sermon passages and New Testament prudential texts (e.g., Paul's case-by-case counsel in 1 Corinthians) needed to support this position.",
+                  "evidence": [],
+                  "source_position_labels": []
+                },
+                {
+                  "label": "Monastic / Counsels-of-Perfection (Catholic Dual-Track)",
+                  "weight": 0.13,
+                  "summary": "The Sermon's most rigorous demands (poverty, celibacy, non-resistance) are 'counsels of perfection' binding on those with a special vocation (religious orders), not universal precepts for all Christians.",
+                  "supporting_evidence_ids": [],
+                  "challenging_evidence_ids": [],
+                  "why_not_higher": "Medieval exegesis of Matt 5:48 and 19:21 is required to ground the precept/counsel distinction; none of those verses appear in the candidate evidence.",
+                  "confidence_rationale": "This position relies on texts distinguishing commandments from supererogatory counsels, which are absent from the retrieval.",
+                  "evidence": [],
+                  "source_position_labels": []
+                },
+                {
+                  "label": "Kingdom Ethic Already-and-Not-Yet (Inaugurated Eschatology)",
+                  "weight": 0.12,
+                  "summary": "The Sermon describes the ethics of God's kingdom, which has broken into the present age in Jesus but awaits consummation; Christians live the kingdom life now as a sign and foretaste, empowered by the Spirit.",
+                  "supporting_evidence_ids": [],
+                  "challenging_evidence_ids": [],
+                  "why_not_higher": "This synthetic view requires both Sermon content (Matt 5:3–10, 6:10, 6:33) and inaugurated-kingdom texts (Luke 11:20, Rom 14:17); the evidence contains none.",
+                  "confidence_rationale": "Without Matthew 5–7 or Paul's 'already/not yet' language, the position cannot be textually anchored in the candidate set.",
+                  "evidence": [],
+                  "source_position_labels": []
+                }
+              ],
+              "dissent_notes": "The candidate evidence consists almost entirely of geographic references to 'mount' (Sinai, Zion, Olives, etc.) and contains zero verses from Matthew 5–7 (the Sermon on the Mount itself) or from New Testament ethical discourse. Consequently, every major interpretive tradition—Anabaptist literalism, Lutheran law/gospel dialectic, Schweitzer's interim ethic, Augustinian dispositional reading, prudential-application models, Catholic dual-track, and inaugurated-eschatology syntheses—remains entirely unsupported by citeable text. The weights above reflect the relative strength and historical influence of each tradition within Christian theology, not the evidence retrieved, because no evidence was retrieved. A rigorous answer to 'How should the Sermon relate to Christian ethics?' requires access to the Sermon; this retrieval returned none.",
+              "unresolved_tensions": [
+                "Literal obedience vs. grace-centered impossibility: Does the Sermon set forth achievable commands or a mirror to expose sin and point to Christ?",
+                "Universal norm vs. vocational counsel: Are the radical demands (e.g., Matt 5:39–42) binding on every believer or reserved for those with a special calling?",
+                "Timeless principle vs. eschatological context: Did Jesus intend these teachings for an imminent kingdom or for the ongoing life of the church across history?",
+                "Outward compliance vs. inner disposition: Does obedience mean performing the specified acts or cultivating the heart-attitudes they express?",
+                "Individual piety vs. social-political witness: Is the Sermon addressed to personal sanctification, to the community's corporate life, or to engagement with the surrounding world?",
+                "Already-inaugurated vs. not-yet-consummated kingdom: How does the overlap of ages affect the Sermon's application—do we live it now or await its full realization?"
+              ],
+              "synthesis": "Seven major traditions offer competing frameworks for relating the Sermon on the Mount to Christian ethics. **Literal-Direct** advocates (Anabaptists, Mennonites) read Matthew 5–7 as Jesus's plain instructions for disciples—'turn the other cheek' means exactly that. **Impossible-Ideal** interpreters (Luther, classic Protestantism) argue the Sermon's perfection (Matt 5:48) convicts us of sin and drives us to justification by faith, not a to-do list. **Interim-Ethic** scholars (Schweitzer) situate the commands in Jesus's expectation of the imminent end, rendering them time-bound. **Disposition-Ethic** readers (Augustine, much of the tradition) locate the Sermon's force in attitudes—humility, purity of motive—rather than external rules. **Prudential-Application** models treat the Sermon as general principles requiring contextual wisdom. **Counsels-of-Perfection** (medieval Catholicism) reserve the most demanding sayings for those under vows. **Inaugurated-Kingdom** frameworks (Ladd, Wright) see the Sermon as the ethic of God's reign breaking into the present, to be lived now in the power of the Spirit and awaiting full realization. The central interpretive tension is whether the Sermon is **direct law** (to be obeyed as stated) or **theological pointer** (law that convicts, ideal that inspires, or kingdom vision that transcends the present age), and whether its audience is **all Christians** or a **subset with special vocation**. No single reading resolves all these tensions; each captures aspects of the text's rhetoric and function.",
+              "confidence": "low",
+              "confidence_rationale": "The candidate evidence contains zero verses from the Sermon on the Mount (Matthew 5–7) and no New Testament ethical or theological commentary that would support any of the classical positions. All retrieved verses are geographic or narrative references to various mountains. The question 'How should the Sermon on the Mount relate to Christian ethics?' is well-defined and has generated centuries of serious exegesis, but the evidence set is completely orthogonal to it. Weights assigned above reflect the relative scholarly and traditional strength of each interpretive school when the full canon is in view, not the non-existent support in this retrieval. Confidence is necessarily low because no position can cite a single relevant verse_id.",
+              "evidence_classification": [
+                {
+                  "verse_id": 2019015,
+                  "status": "ignored",
+                  "reasoning": "Exodus 19:15 (preparation for Sinai theophany) is unrelated to the Sermon on the Mount or Christian ethics."
+                },
+                {
+                  "verse_id": 42024035,
+                  "status": "ignored",
+                  "reasoning": "Luke 24:35 (Emmaus road) concerns resurrection recognition, not ethical teaching or the Sermon."
+                },
+                {
+                  "verse_id": 2024015,
+                  "status": "ignored",
+                  "reasoning": "Exodus 24:15 (Moses ascending Sinai) is geographic/narrative, not relevant to New Testament ethics."
+                },
+                {
+                  "verse_id": 2019020,
+                  "status": "ignored",
+                  "reasoning": "Exodus 19:20 (YHWH descending on Sinai) is part of the Sinai covenant narrative, not the Sermon on the Mount."
+                },
+                {
+                  "verse_id": 14013004,
+                  "status": "ignored",
+                  "reasoning": "2 Chronicles 13:4 (Abijah's speech on Mount Zemaraim) is historical narrative, unrelated to Jesus's ethical teaching."
+                },
+                {
+                  "verse_id": 31001021,
+                  "status": "ignored",
+                  "reasoning": "Obadiah 1:21 (eschatological judgment on Edom) does not address the Sermon or Christian conduct."
+                },
+                {
+                  "verse_id": 6011017,
+                  "status": "ignored",
+                  "reasoning": "Joshua 11:17 (conquest geography) is irrelevant to the Sermon on the Mount or ethics."
+                },
+                {
+                  "verse_id": 43008001,
+                  "status": "ignored",
+                  "reasoning": "John 8:1 (Jesus at the Mount of Olives) is a location note; the pericope that follows (if present) is not the Sermon on the Mount."
+                },
+                {
+                  "verse_id": 1031025,
+                  "status": "ignored",
+                  "reasoning": "Genesis 31:25 (Jacob and Laban on Mount Gilead) is patriarchal narrative, unrelated to Christian ethics."
+                },
+                {
+                  "verse_id": 26010017,
+                  "status": "ignored",
+                  "reasoning": "Ezekiel 10:17 (cherubim's movement) uses 'mounted' in a vision context, not relevant to the Sermon."
+                },
+                {
+                  "verse_id": 3025001,
+                  "status": "ignored",
+                  "reasoning": "Leviticus 25:1 (Sabbath/Jubilee law given on Sinai) is Old Testament legislation, not New Testament ethical instruction."
+                },
+                {
+                  "verse_id": 2024018,
+                  "status": "ignored",
+                  "reasoning": "Exodus 24:18 (Moses on Sinai forty days) is narrative background to the covenant, not the Sermon on the Mount."
+                },
+                {
+                  "verse_id": 2019023,
+                  "status": "ignored",
+                  "reasoning": "Exodus 19:23 (boundary around Sinai) is part of theophany protocol, unrelated to Jesus's teaching."
+                },
+                {
+                  "verse_id": 2034002,
+                  "status": "ignored",
+                  "reasoning": "Exodus 34:2 (Moses ascending Sinai for second tablets) is covenant-renewal narrative, not Christian ethics."
+                },
+                {
+                  "verse_id": 5009015,
+                  "status": "ignored",
+                  "reasoning": "Deuteronomy 9:15 (Moses descending with tablets) is part of Israel's history, not the Sermon on the Mount."
+                },
+                {
+                  "verse_id": 6020007,
+                  "status": "ignored",
+                  "reasoning": "Joshua 20:7 (cities of refuge) is Old Testament legal/geographic detail, unrelated to the Sermon."
+                },
+                {
+                  "verse_id": 1036008,
+                  "status": "ignored",
+                  "reasoning": "Genesis 36:8 (Esau dwelling in Mount Seir) is genealogical/geographic, not ethical or theological."
+                },
+                {
+                  "verse_id": 4033023,
+                  "status": "ignored",
+                  "reasoning": "Numbers 33:23 (wilderness itinerary) is geographic log, unrelated to Christian ethics."
+                },
+                {
+                  "verse_id": 4033024,
+                  "status": "ignored",
+                  "reasoning": "Numbers 33:24 (wilderness itinerary) is geographic log, unrelated to the Sermon on the Mount."
+                },
+                {
+                  "verse_id": 4033041,
+                  "status": "ignored",
+                  "reasoning": "Numbers 33:41 (wilderness itinerary) is geographic log, unrelated to Christian ethics."
+                },
+                {
+                  "verse_id": 2034003,
+                  "status": "ignored",
+                  "reasoning": "Exodus 34:3 (Moses alone on Sinai) is covenant narrative, not relevant to the Sermon or ethics."
+                },
+                {
+                  "verse_id": 42019029,
+                  "status": "ignored",
+                  "reasoning": "Luke 19:29 (Jesus approaching Jerusalem via Mount of Olives) is passion-week narrative, not the Sermon on the Mount."
+                },
+                {
+                  "verse_id": 7003003,
+                  "status": "ignored",
+                  "reasoning": "Judges 3:3 (peoples left in the land, including those on Mount Lebanon) is conquest/settlement history, unrelated to Christian ethics."
+                }
+              ]
+            },
+            "error": null,
+            "duration_ms": 84703
+          }
+        ],
+        "manifest": [
+          {
+            "name": "claude",
+            "display_name": "Claude (sonnet)",
+            "available": true
+          },
+          {
+            "name": "gemini",
+            "display_name": "Gemini (gemini-2.5-flash)",
+            "available": false
+          },
+          {
+            "name": "openai",
+            "display_name": "OpenAI (gpt-5)",
+            "available": false
+          }
+        ]
+      },
+      "weakness_flags": [
+        "limited_provider_coverage",
+        "position_without_cited_evidence"
+      ]
+    }
+  ],
+  "errors": [],
+  "run_warnings": [
+    "limited_provider_coverage"
+  ]
+}

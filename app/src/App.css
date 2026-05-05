@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* App-wide defaults. Tailwind v4 reads theme tokens from CSS below. */
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+  --font-serif: "Crimson Pro", "Iowan Old Style", Georgia, serif;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: #0b0d10;
+  color: #e6e6e6;
+  margin: 0;
+}
+
+/* Style FTS snippet highlights — <mark> tags come from SQLite. */
+mark {
+  background: rgba(251, 191, 36, 0.28);
+  color: #fde68a;
+  padding: 0 0.15em;
+  border-radius: 2px;
+}
+
+.settings-input {
+  width: 100%;
+  border: 1px solid #262626;
+  border-radius: 4px;
+  background: #171717;
+  color: #f5f5f5;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.5rem 0.625rem;
+}
+
+.settings-input:focus {
+  border-color: rgba(245, 158, 11, 0.55);
+  outline: none;
+}
+
+/* Briefly flash a verse that was navigated to from a search result. */
+.verse-flash {
+  animation: verse-flash 1.6s ease-out;
+}
+@keyframes verse-flash {
+  0% { background: rgba(251, 191, 36, 0.35); }
+  100% { background: transparent; }
+}

@@ -1,0 +1,307 @@
+{
+  "captured_at": "2026-05-02T00:00:00Z",
+  "capture_status": "synthetic_fixture_until_real_provider_keys_are_available",
+  "purpose": "Hard-topic Council responses used to keep transparency views stable when providers disagree, fail, or return sparse evidence.",
+  "fixtures": [
+    {
+      "slug": "heavy-disagreement",
+      "title": "Council fixture: heavy disagreement",
+      "question": "How should Romans 9 be weighed in debates about election?",
+      "weakness": "Positions disagree heavily and the UI must explain why one argument ranked higher.",
+      "response": {
+        "synthesis": {
+          "positions": [
+            {
+              "label": "Corporate election emphasis",
+              "weight": 0.52,
+              "summary": "Romans 9 can be read as emphasizing covenant history and corporate identity before individual salvation mechanics.",
+              "evidence": [
+                {
+                  "verse_id": 45009006,
+                  "citation": "Romans 9:6",
+                  "translation_code": "KJV",
+                  "quote": "For they are not all Israel, which are of Israel.",
+                  "reasoning": "The argument turns on the identity of Israel within the covenant line."
+                }
+              ],
+              "supporting_evidence_ids": [45009006],
+              "challenging_evidence_ids": [45009015],
+              "why_not_higher": "It must still account for individual-sounding mercy language.",
+              "confidence_rationale": "The position has contextual support but faces direct challenge from nearby verses."
+            },
+            {
+              "label": "Individual election emphasis",
+              "weight": 0.48,
+              "summary": "Romans 9 can be read as teaching God's freedom in individual election and mercy.",
+              "evidence": [
+                {
+                  "verse_id": 45009015,
+                  "citation": "Romans 9:15",
+                  "translation_code": "KJV",
+                  "quote": "I will have mercy on whom I will have mercy.",
+                  "reasoning": "The verse gives the strongest direct support for an individual-election reading."
+                }
+              ],
+              "supporting_evidence_ids": [45009015],
+              "challenging_evidence_ids": [45009006],
+              "why_not_higher": "It can understate the chapter's covenant-history frame.",
+              "confidence_rationale": "Strong textual support remains contested by context."
+            }
+          ],
+          "dissent_notes": "Both positions retain plausible readings; the fixture should never hide the near tie.",
+          "unresolved_tensions": ["Corporate context and individual mercy language both remain visible."],
+          "synthesis": "The Council narrowly ranks the corporate emphasis higher because it explains the chapter's Israel frame while preserving the force of the mercy text.",
+          "confidence": "medium",
+          "confidence_rationale": "The leading position wins narrowly, with direct evidence on both sides.",
+          "evidence_classification": [
+            { "verse_id": 45009006, "status": "used", "reasoning": "Primary evidence for the leading position." },
+            { "verse_id": 45009015, "status": "conflicting", "reasoning": "Strong challenge from the alternative position." }
+          ]
+        },
+        "voices": [
+          {
+            "provider": "claude",
+            "display_name": "Claude fixture",
+            "status": "ok",
+            "result": {
+              "positions": [
+                { "label": "Corporate election emphasis", "weight": 0.6, "summary": "Corporate frame receives priority.", "evidence": [] },
+                { "label": "Individual election emphasis", "weight": 0.4, "summary": "Individual language remains significant.", "evidence": [] }
+              ],
+              "dissent_notes": "",
+              "unresolved_tensions": [],
+              "synthesis": "Corporate frame prioritized.",
+              "confidence": "medium"
+            },
+            "error": null,
+            "duration_ms": 1200
+          },
+          {
+            "provider": "openai",
+            "display_name": "OpenAI fixture",
+            "status": "ok",
+            "result": {
+              "positions": [
+                { "label": "Individual election emphasis", "weight": 0.55, "summary": "Mercy language receives priority.", "evidence": [] },
+                { "label": "Corporate election emphasis", "weight": 0.45, "summary": "Corporate frame remains relevant.", "evidence": [] }
+              ],
+              "dissent_notes": "",
+              "unresolved_tensions": [],
+              "synthesis": "Individual mercy prioritized.",
+              "confidence": "medium"
+            },
+            "error": null,
+            "duration_ms": 1300
+          }
+        ],
+        "manifest": [
+          { "name": "claude", "display_name": "Claude fixture", "available": true },
+          { "name": "openai", "display_name": "OpenAI fixture", "available": true }
+        ],
+        "retrieval_mode": "hybrid+xref",
+        "evidence_count": 2,
+        "retrieval_options": { "strategy": "hybrid", "include_cross_refs": true, "translation_code": "KJV", "evidence_limit": 60 },
+        "retrieved_evidence": [
+          {
+            "verse_id": 45009006,
+            "translation_code": "KJV",
+            "book_id": 45,
+            "book_name": "Romans",
+            "book_osis": "Rom",
+            "chapter": 9,
+            "verse": 6,
+            "text": "Not as though the word of God hath taken none effect. For they are not all Israel, which are of Israel:",
+            "source": "fts",
+            "keyword_score": 0.92,
+            "matched_terms": ["Israel", "word"]
+          },
+          {
+            "verse_id": 45009015,
+            "translation_code": "KJV",
+            "book_id": 45,
+            "book_name": "Romans",
+            "book_osis": "Rom",
+            "chapter": 9,
+            "verse": 15,
+            "text": "For he saith to Moses, I will have mercy on whom I will have mercy...",
+            "source": "semantic",
+            "semantic_score": 0.88,
+            "matched_terms": ["mercy"]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "provider-failure",
+      "title": "Council fixture: provider failure",
+      "question": "How should James 2 and Romans 4 be compared?",
+      "weakness": "One provider fails and the confidence view must surface the failure without breaking the explanation.",
+      "response": {
+        "synthesis": {
+          "positions": [
+            {
+              "label": "Different questions, compatible answers",
+              "weight": 0.7,
+              "summary": "Romans 4 addresses justification apart from works of law; James 2 addresses a dead claim of faith without works.",
+              "evidence": [
+                {
+                  "verse_id": 45004005,
+                  "citation": "Romans 4:5",
+                  "translation_code": "KJV",
+                  "quote": "his faith is counted for righteousness",
+                  "reasoning": "Romans emphasizes faith apart from works."
+                },
+                {
+                  "verse_id": 59002017,
+                  "citation": "James 2:17",
+                  "translation_code": "KJV",
+                  "quote": "faith, if it hath not works, is dead",
+                  "reasoning": "James challenges empty profession rather than living faith."
+                }
+              ],
+              "supporting_evidence_ids": [45004005, 59002017],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "The synthesis depends on careful distinction between uses of works and justify.",
+              "confidence_rationale": "Evidence is strong, but one provider failed."
+            },
+            {
+              "label": "Tension remains unresolved",
+              "weight": 0.3,
+              "summary": "The texts use overlapping language, so the tension should remain visible.",
+              "evidence": [],
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [45004005, 59002017],
+              "why_not_higher": "It explains difficulty but not the different argumentative settings as well.",
+              "confidence_rationale": "This position mainly preserves caution."
+            }
+          ],
+          "dissent_notes": "Provider failure should lower confidence and remain visible in the audit trail.",
+          "unresolved_tensions": ["The word justify is used in distinguishable but overlapping contexts."],
+          "synthesis": "The compatible-reading position ranks higher because it accounts for both passages' stated targets.",
+          "confidence": "medium",
+          "confidence_rationale": "Direct evidence supports the synthesis, but provider failure reduces confidence.",
+          "evidence_classification": [
+            { "verse_id": 45004005, "status": "used", "reasoning": "Primary Romans evidence." },
+            { "verse_id": 59002017, "status": "used", "reasoning": "Primary James evidence." }
+          ]
+        },
+        "voices": [
+          {
+            "provider": "claude",
+            "display_name": "Claude fixture",
+            "status": "ok",
+            "result": {
+              "positions": [
+                { "label": "Different questions, compatible answers", "weight": 0.72, "summary": "The passages can be harmonized contextually.", "evidence": [] },
+                { "label": "Tension remains unresolved", "weight": 0.28, "summary": "The tension should be preserved.", "evidence": [] }
+              ],
+              "dissent_notes": "",
+              "unresolved_tensions": [],
+              "synthesis": "Compatible contexts.",
+              "confidence": "medium"
+            },
+            "error": null,
+            "duration_ms": 1100
+          },
+          {
+            "provider": "gemini",
+            "display_name": "Gemini fixture",
+            "status": "error",
+            "result": null,
+            "error": "Fixture provider timeout while testing failure rendering.",
+            "duration_ms": 30000
+          }
+        ],
+        "manifest": [
+          { "name": "claude", "display_name": "Claude fixture", "available": true },
+          { "name": "gemini", "display_name": "Gemini fixture", "available": true }
+        ],
+        "retrieval_mode": "hybrid",
+        "evidence_count": 2,
+        "retrieval_options": { "strategy": "hybrid", "include_cross_refs": false, "translation_code": "KJV", "evidence_limit": 60 },
+        "retrieved_evidence": [
+          {
+            "verse_id": 45004005,
+            "translation_code": "KJV",
+            "book_id": 45,
+            "book_name": "Romans",
+            "book_osis": "Rom",
+            "chapter": 4,
+            "verse": 5,
+            "text": "But to him that worketh not, but believeth on him that justifieth the ungodly...",
+            "source": "fts",
+            "keyword_score": 0.9,
+            "matched_terms": ["faith", "works"]
+          },
+          {
+            "verse_id": 59002017,
+            "translation_code": "KJV",
+            "book_id": 59,
+            "book_name": "James",
+            "book_osis": "Jas",
+            "chapter": 2,
+            "verse": 17,
+            "text": "Even so faith, if it hath not works, is dead, being alone.",
+            "source": "semantic",
+            "semantic_score": 0.86,
+            "matched_terms": ["faith", "works"]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "sparse-evidence",
+      "title": "Council fixture: sparse evidence",
+      "question": "What can be said about a topic when retrieval returns little direct evidence?",
+      "weakness": "Sparse evidence should produce cautious explanations instead of overconfident claims.",
+      "response": {
+        "synthesis": {
+          "positions": [
+            {
+              "label": "Cautious answer",
+              "weight": 1,
+              "summary": "The Council should say what the limited evidence supports and name what remains uncertain.",
+              "evidence": [],
+              "supporting_evidence_ids": [],
+              "challenging_evidence_ids": [],
+              "why_not_higher": "No direct evidence was retrieved.",
+              "confidence_rationale": "Confidence stays low because the fixture intentionally lacks evidence."
+            }
+          ],
+          "dissent_notes": "Sparse retrieval should be visible rather than silently filled with confident prose.",
+          "unresolved_tensions": ["No direct evidence is available in this fixture."],
+          "synthesis": "A cautious answer is the only defensible output when supporting evidence is sparse.",
+          "confidence": "low",
+          "confidence_rationale": "Sparse evidence and one voice only.",
+          "evidence_classification": []
+        },
+        "voices": [
+          {
+            "provider": "claude",
+            "display_name": "Claude fixture",
+            "status": "ok",
+            "result": {
+              "positions": [
+                { "label": "Cautious answer", "weight": 1, "summary": "Avoid overclaiming.", "evidence": [] }
+              ],
+              "dissent_notes": "",
+              "unresolved_tensions": [],
+              "synthesis": "Caution required.",
+              "confidence": "low"
+            },
+            "error": null,
+            "duration_ms": 900
+          }
+        ],
+        "manifest": [
+          { "name": "claude", "display_name": "Claude fixture", "available": true },
+          { "name": "openai", "display_name": "OpenAI fixture", "available": false }
+        ],
+        "retrieval_mode": "fts",
+        "evidence_count": 0,
+        "retrieval_options": { "strategy": "keyword", "include_cross_refs": false, "translation_code": "KJV", "evidence_limit": 10 },
+        "retrieved_evidence": []
+      }
+    }
+  ]
+}

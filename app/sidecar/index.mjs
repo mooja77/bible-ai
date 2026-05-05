@@ -1,0 +1,187 @@
+/**
+ * Long-running Node sidecar for Bible AI.
+ *
+ * Communicates with the Tauri Rust host via newline-delimited JSON on stdio:
+ * each inbound line is one request, each outbound line is one response. All
+ * log output goes to stderr so stdout stays clean as an RPC channel.
+ *
+ * Request shape:
+ *   { "id": string, "type": "council", ...type-specific-fields }
+ *
+ * Response shape:
+ *   { "id": string, "type": "<orig-type>_result", "result": any }
+ *   { "id": string, "type": "error", "error": string }
+ */
+
+import { createInterface } from "node:readline";
+import { runCouncil } from "./council.mjs";
+import { providerManifest } from "./providers/index.mjs";
+
+const log = (...args) => console.error("[sidecar]", ...args);
+
+function send(msg) {
+  // Single line per message — Rust reads with BufRead::lines().
+  process.stdout.write(JSON.stringify(msg) + "\n");
+}
+
+function envWithSettings(settings = {}) {
+  const env = { ...process.env };
+  if (settings.google_api_key) env.GOOGLE_API_KEY = settings.google_api_key;
+  if (settings.openai_api_key) env.OPENAI_API_KEY = settings.openai_api_key;
+  if (settings.anthropic_api_key) env.ANTHROPIC_API_KEY = settings.anthropic_api_key;
+  if (settings.openai_model) env.OPENAI_MODEL = settings.openai_model;
+  if (settings.gemini_model) env.GEMINI_MODEL = settings.gemini_model;
+  if (settings.anthropic_model) env.ANTHROPIC_MODEL = settings.anthropic_model;
+  if (settings.claude_model) env.CLAUDE_MODEL = settings.claude_model;
+  if (settings.ollama_host) env.OLLAMA_HOST = settings.ollama_host;
+  return env;
+}
+
+async function checkJsonEndpoint({ name, url, headers }) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const resp = await fetch(url, { headers, signal: controller.signal });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      return {
+        configured: true,
+        ok: false,
+        error: `${name} ${resp.status} ${resp.statusText}: ${body.slice(0, 180)}`,
+      };
+    }
+    return { configured: true, ok: true, error: null };
+  } catch (err) {
+    return {
+      configured: true,
+      ok: false,
+      error: err?.message ?? String(err),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function runDiagnostics({ settings = {}, model = "sonnet" }) {
+  const env = envWithSettings(settings);
+  const checks = {
+    google: env.GOOGLE_API_KEY
+      ? await checkJsonEndpoint({
+          name: "Google",
+          url: `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(env.GOOGLE_API_KEY)}`,
+        })
+      : { configured: false, ok: false, error: "No Google API key configured" },
+    openai: env.OPENAI_API_KEY
+      ? await checkJsonEndpoint({
+          name: "OpenAI",
+          url: "https://api.openai.com/v1/models",
+          headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
+        })
+      : { configured: false, ok: false, error: "No OpenAI API key configured" },
+    anthropic: env.ANTHROPIC_API_KEY
+      ? await checkJsonEndpoint({
+          name: "Anthropic",
+          url: "https://api.anthropic.com/v1/models",
+          headers: {
+            "x-api-key": env.ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+        })
+      : { configured: false, ok: false, error: "No Anthropic API key configured" },
+    ollama: await checkJsonEndpoint({
+      name: "Ollama",
+      url: `${env.OLLAMA_HOST || "http://localhost:11434"}/api/tags`,
+    }),
+  };
+
+  return {
+    sidecar: {
+      ok: true,
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+    },
+    providers: providerManifest(env, model),
+    checks,
+  };
+}
+
+function explainPassage({ passage = [] }) {
+  const citation =
+    passage.length > 0
+      ? `${passage[0].book_name ?? "Passage"} ${passage[0].chapter}:${passage[0].verse}${passage.length > 1 ? `-${passage[passage.length - 1].verse}` : ""}`
+      : "Passage";
+  return {
+    citation,
+    summary: `${citation} is presented in its immediate textual context. Read the surrounding chapter before building a doctrine from the passage alone.`,
+    context: "This explanation mode is intentionally concise and distinct from the Council workflow. Use Council for disputed theological questions.",
+    key_terms: [],
+    cross_references: [],
+    cautions: ["Check genre, speaker, covenant context, and surrounding argument."],
+  };
+}
+
+async function handle(msg) {
+  if (!msg || typeof msg !== "object") {
+    return { id: msg?.id ?? null, type: "error", error: "invalid message" };
+  }
+  const id = msg.id;
+  try {
+    switch (msg.type) {
+      case "ping":
+        return { id, type: "pong", result: { now: Date.now() } };
+      case "diagnostics": {
+        const result = await runDiagnostics({
+          settings: msg.settings ?? {},
+          model: msg.model ?? "sonnet",
+        });
+        return { id, type: "diagnostics_result", result };
+      }
+      case "explain": {
+        return {
+          id,
+          type: "explain_result",
+          result: explainPassage({ passage: msg.passage ?? [] }),
+        };
+      }
+      case "council": {
+        const result = await runCouncil({
+          question: msg.question,
+          evidence: msg.evidence ?? [],
+          model: msg.model ?? "sonnet",
+          settings: msg.settings ?? {},
+        });
+        return { id, type: "council_result", result };
+      }
+      default:
+        return { id, type: "error", error: `unknown request type: ${msg.type}` };
+    }
+  } catch (err) {
+    log("handler error:", err);
+    return { id, type: "error", error: err?.message ?? String(err) };
+  }
+}
+
+async function main() {
+  log("ready");
+  const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
+  for await (const line of rl) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let msg;
+    try {
+      msg = JSON.parse(trimmed);
+    } catch {
+      send({ id: null, type: "error", error: "malformed JSON" });
+      continue;
+    }
+    const reply = await handle(msg);
+    send(reply);
+  }
+  log("stdin closed, exiting");
+}
+
+main().catch((err) => {
+  log("fatal:", err);
+  process.exit(1);
+});

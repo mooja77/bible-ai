@@ -1,0 +1,40 @@
+# Node / Vite / Tauri
+node_modules/
+app/node_modules/
+app/sidecar/node_modules/
+app/sidecar/node/
+app/dist/
+app/src-tauri/target/
+app/src-tauri/gen/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Built + user data (regenerable)
+data/corpus.sqlite
+data/user.sqlite
+data/sources/
+
+# Secrets
+.env
+.env.local
+*.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Voice memos (kept local; transcripts are OK to commit)
+*.m4a
+*.mp3
+*.wav
+
+# E2E debug artifacts
+app/tests/e2e/_debug.*
+.mcp-check/
+.playwright-mcp/
