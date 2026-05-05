@@ -26,6 +26,7 @@ Release-readiness additions since that run:
 - E2E coverage now checks that Council source JSON does not expose Windows paths or provider key names.
 - Settings includes in-app license, attribution, and privacy disclosures.
 - Provider keys are now stored in the OS credential vault; the active local `user.sqlite` has no `app_settings` rows matching `api_key` or `token`.
+- The 2026-05-05 multi-provider QA attempt detected Claude Code and Gemini, but Gemini quota failures prevented a release-satisfying two-provider run.
 
 Manual clean-profile Windows testing still requires a separate Windows user profile or clean VM. That cannot be proven by source edits alone.
 
@@ -45,4 +46,4 @@ Manual clean-profile Windows testing still requires a separate Windows user prof
 
 ## Public Release Gate
 
-Public release remains blocked until the clean-profile installer checklist is signed off and multi-provider Council QA is completed with at least two non-mock providers.
+Public release remains blocked until the clean-profile installer checklist is signed off and multi-provider Council QA is completed with at least two non-mock providers successfully contributing answers.

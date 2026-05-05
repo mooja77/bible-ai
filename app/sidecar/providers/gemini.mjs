@@ -20,34 +20,49 @@ function endpointFor(model) {
 }
 
 async function callGemini({ apiKey, systemPrompt, userPrompt, model }) {
-  const resp = await fetch(endpointFor(model), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    }),
-  });
+  const maxAttempts = 3;
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const resp = await fetch(endpointFor(model), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: { responseMimeType: "application/json" },
+      }),
+    });
 
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => "");
-    throw new Error(`Gemini ${resp.status} ${resp.statusText}: ${errText.slice(0, 300)}`);
-  }
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
+      lastError = new Error(`Gemini ${resp.status} ${resp.statusText}: ${errText.slice(0, 300)}`);
+      if (attempt < maxAttempts && (resp.status === 429 || resp.status >= 500)) {
+        await delay(1500 * attempt);
+        continue;
+      }
+      throw lastError;
+    }
 
-  const data = await resp.json();
-  const parts = data?.candidates?.[0]?.content?.parts;
-  const text = Array.isArray(parts)
-    ? parts.map((p) => p?.text ?? "").filter(Boolean).join("\n")
-    : null;
-  if (!text) {
-    throw new Error(
-      `Gemini: no text in response (${JSON.stringify(data).slice(0, 300)})`,
-    );
+    const data = await resp.json();
+    const parts = data?.candidates?.[0]?.content?.parts;
+    const text = Array.isArray(parts)
+      ? parts.map((p) => p?.text ?? "").filter(Boolean).join("\n")
+      : null;
+    if (!text) {
+      throw new Error(
+        `Gemini: no text in response (${JSON.stringify(data).slice(0, 300)})`,
+      );
+    }
+    return text;
   }
-  return text;
+  throw lastError ?? new Error("Gemini: request failed");
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export const gemini = {

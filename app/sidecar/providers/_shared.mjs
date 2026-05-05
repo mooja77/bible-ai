@@ -19,6 +19,8 @@ Rules:
 9. For each position, explain why_not_higher: the strongest reason this position did not receive a larger weight. This is not hidden reasoning; it is a concise user-facing weakness/limitation.
 10. Do not use "high" confidence unless the answer has multiple direct cited passages, few unresolved tensions, and no major provider/evidence gaps. Prefer "medium" or "low" when the evidence is indirect, retrieval is sparse, or serious traditions weigh the same texts differently.
 11. Make every user-facing explanation inspectable: name the specific interpretive move that made the leading argument stronger than the nearest alternative. Avoid vague phrases like "the evidence is stronger" unless you say which evidence and why.
+12. If the retrieved evidence does not support a real position, do not create uncited doctrinal positions. Return one low-confidence "insufficient retrieved evidence" position with citations to the closest retrieved verses, then explain what evidence is missing in dissent_notes and confidence_rationale.
+13. Never return an empty evidence array for a position. If a position cannot cite at least one provided verse_id, merge it into dissent_notes or unresolved_tensions instead of listing it as a position.
 
 # Output format
 
@@ -68,6 +70,7 @@ Rules:
 10. Carry forward each final position's strongest supporting_evidence_ids, challenging_evidence_ids, why_not_higher, and confidence_rationale from the contributing voices. If a field is missing, infer a concise user-facing fallback from the visible voice summaries and evidence only.
 11. If only a narrow margin separates the top positions, say so directly in dissent_notes and keep confidence below "high" unless the voices and citations clearly justify otherwise.
 12. Do not hide provider failures or sparse evidence behind a smooth synthesis. Mention those limits in confidence_rationale using only visible provider status and evidence data.
+13. Never emit a final position with an empty evidence array. If a voice supplied an uncited position, either attach the closest cited evidence from that voice's supporting_evidence_ids or move that claim into dissent_notes/unresolved_tensions.
 
 # Output format
 

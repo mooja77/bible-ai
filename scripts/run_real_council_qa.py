@@ -312,6 +312,66 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def build_payload(
+    *,
+    model: str,
+    diag: dict[str, Any],
+    results: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    complete: bool,
+) -> dict[str, Any]:
+    return {
+        "captured_at": iso_now(),
+        "complete": complete,
+        "mock_mode": False,
+        "model": model,
+        "question_count": len(results),
+        "run_warnings": sorted(
+            {
+                flag
+                for result in results
+                for flag in result.get("weakness_flags", [])
+                if flag in RUN_LEVEL_FLAGS
+            }
+        ),
+        "provider_diagnostics": diag,
+        "results": results,
+        "errors": errors,
+    }
+
+
+def weak_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    weak_results = [
+        result for result in payload["results"] if has_output_weakness(result)
+    ]
+    return {
+        **payload,
+        "question_count": len(weak_results),
+        "results": weak_results,
+    }
+
+
+def write_run_outputs(
+    out: Path,
+    weak_out: Path,
+    *,
+    model: str,
+    diag: dict[str, Any],
+    results: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    complete: bool,
+) -> None:
+    payload = build_payload(
+        model=model,
+        diag=diag,
+        results=results,
+        errors=errors,
+        complete=complete,
+    )
+    write_json(out, payload)
+    write_json(weak_out, weak_payload(payload))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=20, choices=range(1, 31))
@@ -340,6 +400,7 @@ def main() -> int:
     conn = sqlite3.connect(CORPUS_DB)
     results = []
     errors = []
+    diag: dict[str, Any] = {}
     try:
         diag = diagnostics(proc, args.model)
         available = [p for p in diag.get("providers", []) if p.get("available")]
@@ -352,9 +413,27 @@ def main() -> int:
             print(f"[{index}/{args.limit}] {question} ({len(evidence)} evidence rows)")
             try:
                 results.append(run_question(proc, question, evidence, args.model, index))
+                write_run_outputs(
+                    args.out,
+                    args.weak_out,
+                    model=args.model,
+                    diag=diag,
+                    results=results,
+                    errors=errors,
+                    complete=False,
+                )
             except Exception as exc:
                 errors.append({"question": question, "error": str(exc), "captured_at": iso_now()})
                 print(f"  failed: {exc}", file=sys.stderr)
+                write_run_outputs(
+                    args.out,
+                    args.weak_out,
+                    model=args.model,
+                    diag=diag,
+                    results=results,
+                    errors=errors,
+                    complete=False,
+                )
                 if not args.continue_on_error:
                     raise
     finally:
@@ -364,30 +443,15 @@ def main() -> int:
         proc.terminate()
         log_file.close()
 
-    payload = {
-        "captured_at": iso_now(),
-        "mock_mode": False,
-        "model": args.model,
-        "question_count": len(results),
-        "run_warnings": sorted(
-            {
-                flag
-                for result in results
-                for flag in result.get("weakness_flags", [])
-                if flag in RUN_LEVEL_FLAGS
-            }
-        ),
-        "provider_diagnostics": diag,
-        "results": results,
-        "errors": errors,
-    }
-    weak = {
-        **payload,
-        "question_count": len([result for result in results if has_output_weakness(result)]),
-        "results": [result for result in results if has_output_weakness(result)],
-    }
-    write_json(args.out, payload)
-    write_json(args.weak_out, weak)
+    write_run_outputs(
+        args.out,
+        args.weak_out,
+        model=args.model,
+        diag=diag,
+        results=results,
+        errors=errors,
+        complete=True,
+    )
     print(f"Wrote {args.out}")
     print(f"Wrote {args.weak_out}")
     if errors:

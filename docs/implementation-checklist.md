@@ -256,6 +256,9 @@ Use this checklist to drive the feature roadmap without losing track of backend,
 - [x] Document manual release QA checklist and public release gate.
 - [x] Document Phase 13 corpus decisions for WEB, Douay-Rheims, LXX, and apocrypha.
 - [x] Run full verification after Phase 13 implementation.
+- [x] Attempt multi-provider Council QA with Claude Code and Gemini detected.
+- [x] Add Gemini retry handling for quota/rate/temporary provider failures.
+- [x] Preserve partial real-QA output after each question.
 - [ ] Run multi-provider Council QA with at least two non-mock providers.
 - [ ] Run manual clean-profile installer QA on a separate Windows profile or VM.
 - [ ] Manually verify OS credential vault storage on clean and upgraded Windows profiles.

@@ -1,10 +1,31 @@
 # Council Real-World QA
 
-Status: partially complete as of 2026-05-02.
+Status: partially complete as of 2026-05-05.
 
 The app has synthetic fixture coverage for heavy provider disagreement, provider failure, and sparse evidence in `app/tests/fixtures/council-quality.json`; those fixtures are exercised by `app/tests/e2e/release-readiness.spec.ts`.
 
-The first non-mock QA pass has also been run against Claude Code with mock mode disabled. Google/Gemini and OpenAI were not configured on this machine, so full multi-provider QA remains blocked until those keys are available.
+The first non-mock QA pass was run against Claude Code with mock mode disabled. A later multi-provider attempt detected Claude Code and Gemini, but Gemini quota/rate limits prevented a release-satisfying two-provider run. OpenAI and Anthropic API keys were not configured on this machine.
+
+## 2026-05-05 Multi-Provider Attempt
+
+- Command: `python scripts/run_real_council_qa.py --limit 20 --continue-on-error`
+- Providers detected: Claude Code and Gemini.
+- Results: 20 questions completed, 0 sidecar request errors.
+- Provider failures: Gemini failed on 20/20 questions with `429 Too Many Requests` after retry handling.
+- Full fixture: `app/tests/fixtures/council-real-results.json`
+- Output-weak fixture: `app/tests/fixtures/council-real-weak-results.json`
+- Sidecar log: `app/tests/fixtures/council-real-qa-sidecar.log`
+
+Findings:
+
+- The run proves the multi-provider path can discover two non-mock providers, but it does not satisfy the release gate because the second provider did not contribute successful answers.
+- Gemini provider handling now retries temporary `429` and `5xx` responses and requests JSON output where supported.
+- Prompt rules now explicitly forbid uncited doctrinal positions; sparse retrieval should become a low-confidence evidence limitation rather than a list of uncited views.
+
+Follow-up gate:
+
+- Re-run the same script after Gemini quota resets or with a valid OpenAI/Anthropic API key configured.
+- Treat the gate as passed only if at least two non-mock providers contribute successful answers across the QA set.
 
 ## 2026-05-02 Non-Mock Run
 
