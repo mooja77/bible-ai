@@ -6,6 +6,7 @@
 - Settings includes provider setup status, provider test actions, data sources, backup/restore, and release/distribution status.
 - Settings includes in-app license, attribution, and privacy disclosures for bundled sources and provider calls.
 - Users can connect their own Anthropic, OpenAI, and Gemini API subscriptions; provider keys are stored in the OS credential vault and JSON backups redact provider keys.
+- Release packages do not include shared provider keys; each user configures their own local provider access in Settings.
 - Managed Gateway setup lets team/public deployments route Council calls through an app-specific backend without exposing direct provider keys to end users.
 - Workspaces support notes, saved Council results, Markdown/HTML/PDF export, backup/restore, and item filtering.
 - A command palette provides faster navigation to modes, books, bookmarks, searches, and workspaces.

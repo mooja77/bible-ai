@@ -59,7 +59,16 @@ The generated corpus database is not committed. See [`docs/data-sources.md`](doc
 
 ## Provider Setup
 
-Copy `.env.example` to `.env` for local development, or use the in-app Settings screen. Never commit `.env`.
+Bible AI does not ship with shared OpenAI, Anthropic, Gemini, or gateway credentials. Test keys used during development are not included in the repository or release packages. Each user connects their own provider accounts on their own machine.
+
+For normal desktop use:
+
+1. Open `Settings`.
+2. Paste the user's own OpenAI, Anthropic, or Gemini API key into the matching field.
+3. Click the provider test buttons.
+4. Open `Council` and confirm the voice preview shows which providers will run.
+
+For local development, copy `.env.example` to `.env` and fill only your own local keys. Never commit `.env`.
 
 Supported hosted providers require user-owned API access:
 

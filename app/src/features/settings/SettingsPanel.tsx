@@ -396,6 +396,10 @@ export function SettingsPanel({
             label="Managed gateway"
             value="Point the app at a team/public gateway that owns provider routing and billing."
           />
+          <InfoBlock
+            label="No shared keys"
+            value="Bible AI ships without provider credentials. Keys entered here stay local to this OS user."
+          />
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Google API key">
