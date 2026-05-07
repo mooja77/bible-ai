@@ -1,77 +1,88 @@
 # Bible AI
 
-Bible AI is an offline-first desktop Bible study app with a transparent multi-provider "Council" workflow for disputed theological questions. It is built to help users inspect evidence, compare arguments, record their own judgments, and build a personal systematic theology without handing their thinking over to an AI answer.
+Bible AI is an offline-first desktop Bible study app for reading Scripture, comparing arguments, saving research, and building a personal systematic theology.
 
-The current app is Windows-first, with macOS distribution scripts and release gates documented for a future Apple build.
+The app is designed around one principle: AI should assist learning and judgment, not replace them. Its Council workflow makes provider voices, retrieved evidence, disagreement, confidence, and source data visible so users can inspect why one argument worked better than another.
 
-## Features
+## What You Can Do
 
-- Public-domain Bible corpus architecture with SQLite search.
-- Reader, search, notes, highlights, bookmarks, workspaces, and exports.
-- Council workflow with multiple provider voices, visible evidence, disagreement, argument maps, and user judgment panels.
-- User-owned provider setup for OpenAI, Anthropic, Gemini, Claude Code, Ollama, and managed gateways.
-- Provider credentials stored in the operating-system credential vault.
-- Dynamic systematic theology workspace with linked passages, Council sessions, resources, conclusions, and guided study.
-- Open-resource ingestion workflow with source review and attribution gates.
-- Windows release packaging with NSIS/MSI verification.
-- macOS release plan and scripts for `.app`/`.dmg` builds on a Mac.
+- Read and search public-domain Bible translations in a local desktop app.
+- Compare passages, translations, notes, highlights, bookmarks, and saved searches.
+- Ask theological questions through a transparent multi-provider Council.
+- Review the Council process, evidence use, argument maps, voice disagreement, confidence rationale, and raw source drawer.
+- Save studies into Workspaces and export them to Markdown, HTML, or PDF.
+- Build a dynamic systematic theology by linking passages, Council sessions, resources, positions, and your own conclusions.
+- Search open resources with visible source, license, and attribution metadata.
+- Use your own AI provider access, local tools, or a managed gateway.
 
-## Repository Layout
+## Who It Is For
 
-```text
-app/                 Tauri 2 desktop app: React, TypeScript, Rust
-app/sidecar/         Node sidecar for Council/provider orchestration
-data/                SQLite schema and local corpus build outputs
-docs/                Architecture, roadmap, release, data-source, and UX docs
-scripts/             Corpus ingestion and real-provider QA helpers
-prompts/             Prompt and planning artifacts
-```
+Bible AI is for people who want help studying Scripture without turning the study process into a black box.
 
-## Development Setup
+It is especially useful for:
 
-Prerequisites:
+- Bible readers who want searchable local study notes.
+- Students comparing theological arguments.
+- Pastors, teachers, and small groups preparing studies.
+- Users building a long-term systematic theology notebook.
+- Developers experimenting with transparent AI-assisted research workflows.
 
-- Node.js 22 or newer
-- Rust stable toolchain
-- Tauri 2 prerequisites for your operating system
-- Python 3 for corpus ingestion scripts
+Bible AI is not intended to be a theological authority. The app keeps the user responsible for reading the evidence, weighing arguments, and recording their own judgment.
 
-Install app dependencies:
+## Main App Areas
 
-```bash
-cd app
-npm install
-```
+### Reader
 
-Run checks:
+Read Scripture by book and chapter, switch translations, adjust reader layout, search the corpus, save bookmarks, add notes, highlight verses, and select verse ranges for deeper study.
 
-```bash
-npm run check
-```
+### Council
 
-Start the app in development:
+Ask interpretive or disputed theological questions. The Council retrieves candidate evidence, runs configured AI voices, compares positions, and shows the reasoning artifacts used to form the synthesis.
 
-```bash
-npm run dev
-```
+After a Council answer, users can inspect:
 
-The generated corpus database is not committed. See [`docs/data-sources.md`](docs/data-sources.md) and the scripts in [`scripts/`](scripts/) for source and ingestion details.
+- Which provider voices ran, failed, or were skipped.
+- Which passages were retrieved and why.
+- Which evidence supported, challenged, or was ignored by each position.
+- Why one position ranked above another.
+- Confidence rationale and unresolved tensions.
+- Source JSON for audit and export verification.
 
-## Provider Setup
+### Theology
 
-Bible AI does not ship with shared OpenAI, Anthropic, Gemini, or gateway credentials. Test keys used during development are not included in the repository or release packages. Each user connects their own provider accounts on their own machine.
+Build a living systematic theology. Create doctrine topics, write conclusions, record unresolved questions, add competing positions, and link evidence from Scripture, resources, workspaces, and Council sessions.
 
-For normal desktop use:
+### Resources
 
-1. Open `Settings`.
-2. Use `Guided AI setup` to choose `Personal keys`, `Local/no hosted key`, or `Managed gateway`.
-3. Paste the user's own OpenAI, Anthropic, or Gemini API key into the matching field, or enter the local/gateway settings for that setup path.
-4. Click `Save & test`.
-5. Open `Council` and confirm the voice preview shows which providers will run.
+Search imported open resources and review license/attribution information before using them in studies or exports.
 
-For local development, copy `.env.example` to `.env` and fill only your own local keys. Never commit `.env`.
+### Workspaces
 
-Supported hosted providers require user-owned API access:
+Collect passages, search hits, notes, explanations, resource entries, and Council sessions into reusable studies. Export workspaces when you want to share or archive a study.
+
+### Settings
+
+Configure AI providers, run provider tests, review data sources, manage backups, view privacy/distribution notes, and inspect app release status.
+
+## First-Time Use
+
+1. Open the app.
+2. Use the built-in guided tour to understand Reader, Council, Theology, Resources, Workspaces, and Settings.
+3. Read and search Scripture without any AI setup.
+4. Open `Settings` when you want AI-assisted Council answers.
+5. Use `Guided AI setup`.
+6. Choose one setup path:
+   - `Personal keys`: your own OpenAI, Anthropic, or Gemini API keys.
+   - `Local/no hosted key`: Claude Code login if available, plus optional Ollama.
+   - `Managed gateway`: a team/public gateway URL and optional token.
+7. Click `Save & test`.
+8. Open `Council` and check `Voices before submit` before asking a question.
+
+## AI Provider Setup
+
+Bible AI does not ship with shared OpenAI, Anthropic, Gemini, or gateway credentials. Each user configures their own provider access on their own machine.
+
+Supported hosted providers:
 
 - OpenAI API
 - Anthropic API
@@ -81,40 +92,133 @@ Other supported options:
 
 - Claude Code login
 - Ollama
-- Managed gateway for team deployments
+- Managed gateway for team or public deployments
 
-See [`docs/user-owned-ai-setup.md`](docs/user-owned-ai-setup.md).
+Important subscription note: a ChatGPT, Claude, or Gemini consumer subscription is not the same thing as API billing. Hosted API use generally requires provider API access and billing from that provider.
 
-## Release Status
+Provider credentials are stored in the operating-system credential vault and are excluded from JSON backups.
 
-Windows packaging is the active release lane:
+See [User-Owned AI Provider Setup](docs/user-owned-ai-setup.md).
+
+## Privacy And Data
+
+Bible AI is local-first.
+
+- Reading data, notes, highlights, workspaces, theology topics, bookmarks, and Council history are stored on the local machine.
+- Provider calls send the user question and retrieved evidence only to the configured provider or gateway.
+- Provider keys and gateway tokens are not committed, bundled, exported, or included in release packages.
+- JSON backups redact provider secrets.
+- Source drawers and release checks are designed to avoid leaking local paths or provider key names.
+
+See [Privacy And Distribution](docs/privacy-and-distribution.md).
+
+## Data Sources
+
+The app is built around public-domain and open-license source review. Bundled and imported resources have visible source and license metadata in Settings.
+
+Current source areas include:
+
+- Public-domain Bible translations.
+- Original-language and word-study data where available.
+- Cross-reference and resource metadata.
+- User-imported open resources with attribution gates.
+
+See [Data Sources](docs/data-sources.md) and [Notice](NOTICE.md).
+
+## Installation Status
+
+This project is currently open-source and Windows-first.
+
+Windows packaging exists, but the public release gate still requires clean-profile installer QA and credential-vault verification before publishing a general-use installer.
+
+When public releases are available, they should be distributed through the GitHub Releases page. Until then, run the app from source.
+
+macOS distribution is planned and scripted, but macOS builds must be produced and verified on a Mac. See [macOS Distribution Plan](docs/macos-distribution-plan.md).
+
+## Run From Source
+
+Prerequisites:
+
+- Node.js 22 or newer
+- Rust stable toolchain
+- Tauri 2 prerequisites for your operating system
+- Python 3 for corpus ingestion scripts
+
+Install dependencies:
+
+```bash
+cd app
+npm install
+```
+
+Start development mode:
+
+```bash
+npm run dev
+```
+
+Run checks:
+
+```bash
+npm run check
+```
+
+Build a Windows release package:
 
 ```bash
 cd app
 npm run release:build
 ```
 
-The public Windows release gate still requires clean-profile manual installer and credential-vault verification. See [`docs/manual-release-qa-report.md`](docs/manual-release-qa-report.md).
-
-macOS packaging must run on macOS:
+Build a macOS package on macOS:
 
 ```bash
 cd app
 npm run macos:release:build
 ```
 
-See [`docs/macos-distribution-plan.md`](docs/macos-distribution-plan.md).
+The generated corpus database is not committed. See the data-source docs and scripts for ingestion details.
+
+## Repository Layout
+
+```text
+app/                 Tauri 2 desktop app: React, TypeScript, Rust
+app/sidecar/         Node sidecar for Council/provider orchestration
+data/                SQLite schema and local corpus build outputs
+docs/                Architecture, roadmap, release, data-source, and UX docs
+scripts/             Corpus ingestion and QA helpers
+prompts/             Prompt and planning artifacts
+```
 
 ## Documentation
 
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/feature-roadmap.md`](docs/feature-roadmap.md)
-- [`docs/technical-implementation-plan.md`](docs/technical-implementation-plan.md)
-- [`docs/testing-and-release-plan.md`](docs/testing-and-release-plan.md)
-- [`docs/data-sources.md`](docs/data-sources.md)
-- [`docs/privacy-and-distribution.md`](docs/privacy-and-distribution.md)
-- [`docs/learning-and-systematic-theology-plan.md`](docs/learning-and-systematic-theology-plan.md)
+- [Architecture](docs/architecture.md)
+- [Feature Roadmap](docs/feature-roadmap.md)
+- [Technical Implementation Plan](docs/technical-implementation-plan.md)
+- [Testing And Release Plan](docs/testing-and-release-plan.md)
+- [Council Transparency Plan](docs/council-transparency-visualization-plan.md)
+- [Learning And Systematic Theology Plan](docs/learning-and-systematic-theology-plan.md)
+- [Open Resource Ingestion Plan](docs/open-resource-ingestion-plan.md)
+- [Data Sources](docs/data-sources.md)
+- [User-Owned AI Provider Setup](docs/user-owned-ai-setup.md)
+- [Privacy And Distribution](docs/privacy-and-distribution.md)
+- [Release Notes](docs/release-notes.md)
+
+## Contributing
+
+Contributions are welcome, especially around testing, documentation, UI polish, source review, corpus ingestion, and release verification.
+
+Before opening a pull request:
+
+1. Keep provider keys and local secrets out of commits.
+2. Run `npm run check` from `app/`.
+3. Update docs when behavior changes.
+4. Keep transparency and user judgment central to AI features.
+
+See [Contributing](CONTRIBUTING.md) and [Security](SECURITY.md).
 
 ## License
 
-Source code is licensed under the MIT License. Study data, Bible texts, lexicons, and other resources may have separate licenses and attribution requirements; see [`NOTICE.md`](NOTICE.md) and [`docs/data-sources.md`](docs/data-sources.md).
+Source code is licensed under the MIT License.
+
+Study data, Bible texts, lexicons, cross-references, and other resources may have separate licenses and attribution requirements. See [LICENSE](LICENSE), [NOTICE](NOTICE.md), and [Data Sources](docs/data-sources.md).
