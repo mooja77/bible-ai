@@ -73,6 +73,7 @@ type TourStep = {
 };
 
 const TOUR_DISMISSED_KEY = "bible-ai-tour-dismissed-v1";
+const PROVIDER_SETUP_DISMISSED_KEY = "bible-ai-provider-setup-dismissed-v1";
 const TOUR_AUTO_ADVANCE_MS = 6500;
 
 const TOUR_STEPS: TourStep[] = [
@@ -215,6 +216,7 @@ function App() {
   const [tourOpen, setTourOpen] = useState(false);
   const [tourStepIndex, setTourStepIndex] = useState(0);
   const [tourDismissed, setTourDismissed] = useState(true);
+  const [providerSetupDismissed, setProviderSetupDismissed] = useState(true);
 
   // Per-chapter user data (highlights + which verses have notes).
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -274,6 +276,9 @@ function App() {
   useEffect(() => {
     const dismissed = window.localStorage.getItem(TOUR_DISMISSED_KEY) === "1";
     setTourDismissed(dismissed);
+    setProviderSetupDismissed(
+      window.localStorage.getItem(PROVIDER_SETUP_DISMISSED_KEY) === "1",
+    );
   }, []);
 
   const refreshNavigationLists = useCallback(async () => {
@@ -608,6 +613,11 @@ function App() {
     setTourDismissed(true);
   };
 
+  const dismissProviderSetupPrompt = () => {
+    window.localStorage.setItem(PROVIDER_SETUP_DISMISSED_KEY, "1");
+    setProviderSetupDismissed(true);
+  };
+
   const closeTour = (dismiss = false) => {
     setTourOpen(false);
     if (dismiss) dismissTourPrompt();
@@ -626,6 +636,14 @@ function App() {
   };
 
   const searchActive = searchQuery.trim().length > 0;
+  const providerSetupComplete = settingsHasConfiguredAi(settings);
+  const showProviderSetupPrompt = !providerSetupComplete && !providerSetupDismissed;
+
+  useEffect(() => {
+    if (providerSetupComplete && !providerSetupDismissed) {
+      dismissProviderSetupPrompt();
+    }
+  }, [providerSetupComplete, providerSetupDismissed]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -676,6 +694,21 @@ function App() {
         label: "Open Settings",
         detail: "Providers, data sources, backups",
         run: () => selectMode("settings"),
+      },
+      {
+        id: "setup-ai-providers",
+        label: "Set Up AI Providers",
+        detail: "Guided user-owned key, local, or gateway setup",
+        run: () => {
+          setSearchQuery("");
+          selectMode("settings");
+        },
+      },
+      {
+        id: "open-guide",
+        label: "Open Guided Tour",
+        detail: "Pause, rewind, and step through the app workflow",
+        run: () => openTour(0),
       },
       ...books.map((book) => ({
         id: `book-${book.id}`,
@@ -847,6 +880,36 @@ function App() {
               )}
             </div>
           </div>
+
+          {showProviderSetupPrompt && (
+            <div className="soft-card p-3 space-y-3" data-testid="provider-setup-prompt">
+              <div>
+                <p className="text-sm font-medium text-neutral-100">Connect AI when ready</p>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Reading, search, notes, and workspaces work offline. Council voices need a local login, Ollama, a user-owned API key, or a managed gateway.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    selectMode("settings");
+                  }}
+                  className="btn-primary px-2.5 py-1 text-xs"
+                >
+                  Set up AI
+                </button>
+                <button
+                  type="button"
+                  onClick={dismissProviderSetupPrompt}
+                  className="btn-ghost px-2.5 py-1 text-xs"
+                >
+                  Use offline
+                </button>
+              </div>
+            </div>
+          )}
 
           <SearchInput value={searchQuery} onChange={updateSearchQuery} />
           <div className="grid grid-cols-2 gap-2">
@@ -1659,6 +1722,16 @@ function formatVerseId(verseId: number, books: Book[]) {
   const verse = verseId % 1000;
   const book = books.find((b) => b.id === bookId);
   return `${book?.name ?? `Book ${bookId}`} ${chapter}:${verse}`;
+}
+
+function settingsHasConfiguredAi(settings: AppSettings) {
+  return [
+    settings.anthropic_api_key,
+    settings.openai_api_key,
+    settings.google_api_key,
+    settings.managed_gateway_url,
+    settings.ollama_host,
+  ].some((value) => Boolean(value?.trim()));
 }
 
 function ModeButton({

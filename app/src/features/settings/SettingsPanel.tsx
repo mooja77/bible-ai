@@ -87,6 +87,8 @@ const SOURCE_ATTRIBUTIONS = [
   },
 ];
 
+type SetupPath = "personal" | "local" | "gateway";
+
 export function SettingsPanel({
   settings,
   translations,
@@ -116,6 +118,7 @@ export function SettingsPanel({
   const [resourceSources, setResourceSources] = useState<ResourceSource[]>([]);
   const [topicBusy, setTopicBusy] = useState(false);
   const [topicStatus, setTopicStatus] = useState<string | null>(null);
+  const [setupPath, setSetupPath] = useState<SetupPath>("personal");
 
   useEffect(() => {
     setDraft(settings);
@@ -148,6 +151,7 @@ export function SettingsPanel({
     try {
       await onSave(draft);
       setSaved(true);
+      return true;
     } finally {
       setSaving(false);
     }
@@ -165,6 +169,11 @@ export function SettingsPanel({
     } finally {
       setChecking(false);
     }
+  };
+
+  const saveAndRunChecks = async () => {
+    const ok = await submit();
+    if (ok) await runChecks("guided setup");
   };
 
   const copyBackup = async () => {
@@ -372,6 +381,27 @@ export function SettingsPanel({
     }
   };
 
+  const hasGoogleKey = hasSettingValue(draft.google_api_key);
+  const hasOpenAiKey = hasSettingValue(draft.openai_api_key);
+  const hasAnthropicKey = hasSettingValue(draft.anthropic_api_key);
+  const hasPersonalKey = hasGoogleKey || hasOpenAiKey || hasAnthropicKey;
+  const hasGateway = hasSettingValue(draft.managed_gateway_url);
+  const hasOllama = hasSettingValue(draft.ollama_host);
+  const personalProviderCount = [hasAnthropicKey, hasGoogleKey, hasOpenAiKey]
+    .filter(Boolean)
+    .length;
+  const passingVoiceCount = diagnostics?.providers.filter((provider) => provider.available)
+    .length ?? 0;
+  const setupReady =
+    setupPath === "personal"
+      ? hasPersonalKey
+      : setupPath === "gateway"
+        ? hasGateway
+        : hasOllama ||
+          diagnostics?.providers.some(
+            (provider) => provider.name === "claude" && provider.available,
+          ) === true;
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
       <header>
@@ -400,6 +430,107 @@ export function SettingsPanel({
             label="No shared keys"
             value="Bible AI ships without provider credentials. Keys entered here stay local to this OS user."
           />
+        </div>
+        <div
+          className="soft-card p-4 space-y-4 border-amber-500/20"
+          data-testid="provider-setup-guide"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-neutral-100">
+                Guided AI setup
+              </h3>
+              <p className="text-sm text-neutral-500 mt-1">
+                Pick how this install should run Council voices, then save and test before asking a question.
+              </p>
+            </div>
+            <span
+              className={
+                "text-xs px-2 py-1 rounded border " +
+                (setupReady
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-200")
+              }
+            >
+              {setupReady ? "ready to test" : "needs setup"}
+            </span>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-2" role="tablist" aria-label="AI setup path">
+            <SetupPathButton
+              active={setupPath === "personal"}
+              label="Personal keys"
+              detail={`${personalProviderCount || "No"} hosted provider${personalProviderCount === 1 ? "" : "s"} configured`}
+              onClick={() => setSetupPath("personal")}
+              testId="provider-setup-path-personal"
+            />
+            <SetupPathButton
+              active={setupPath === "local"}
+              label="Local/no hosted key"
+              detail={hasOllama ? "Ollama host set" : "Claude Code or Ollama"}
+              onClick={() => setSetupPath("local")}
+              testId="provider-setup-path-local"
+            />
+            <SetupPathButton
+              active={setupPath === "gateway"}
+              label="Managed gateway"
+              detail={hasGateway ? "Gateway URL set" : "Team/public routing"}
+              onClick={() => setSetupPath("gateway")}
+              testId="provider-setup-path-gateway"
+            />
+          </div>
+
+          <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-4">
+            <div className="space-y-3">
+              <SetupPathDetails path={setupPath} />
+              <div className="grid sm:grid-cols-2 gap-2">
+                <SetupCheckPill
+                  label="Settings saved"
+                  state={saved ? "ok" : "pending"}
+                  detail={saved ? "Latest edits saved." : "Save after editing credentials."}
+                />
+                <SetupCheckPill
+                  label="Tested providers"
+                  state={diagnostics ? (passingVoiceCount > 0 ? "ok" : "warning") : "pending"}
+                  detail={
+                    diagnostics
+                      ? `${passingVoiceCount} Council voice${passingVoiceCount === 1 ? "" : "s"} available.`
+                      : "Run a provider test after saving."
+                  }
+                />
+              </div>
+            </div>
+            <div className="soft-card px-3 py-3 space-y-3">
+              <p className="text-xs uppercase tracking-wider text-neutral-500">
+                Current setup
+              </p>
+              <div className="grid gap-2">
+                <ProviderMiniStatus label="Anthropic" active={hasAnthropicKey} />
+                <ProviderMiniStatus label="OpenAI" active={hasOpenAiKey} />
+                <ProviderMiniStatus label="Gemini" active={hasGoogleKey} />
+                <ProviderMiniStatus label="Gateway" active={hasGateway} />
+                <ProviderMiniStatus label="Ollama" active={hasOllama} />
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={saving}
+                  className="btn-primary px-3 py-1.5 text-sm"
+                >
+                  {saving ? "Saving..." : "Save setup"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void saveAndRunChecks()}
+                  disabled={saving || checking}
+                  className="btn-secondary px-3 py-1.5 text-sm"
+                >
+                  {checking ? "Testing..." : "Save & test"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Google API key">
@@ -547,55 +678,55 @@ export function SettingsPanel({
           />
           <ProviderStatusCard
             label="Anthropic API"
-            configured={hasSettingValue(draft.anthropic_api_key)}
+            configured={hasAnthropicKey}
             status={diagnostics?.checks.anthropic.ok}
             detail={
               diagnostics
                 ? diagnostics.checks.anthropic.error ?? "Anthropic API key accepted."
-                : hasSettingValue(draft.anthropic_api_key)
+                : hasAnthropicKey
                   ? "Anthropic API key saved in settings."
                   : "Optional: add an Anthropic API key instead of relying on Claude Code login."
             }
           />
           <ProviderStatusCard
             label="Gemini"
-            configured={hasSettingValue(draft.google_api_key)}
+            configured={hasGoogleKey}
             status={diagnostics?.checks.google.ok}
             detail={
               diagnostics
                 ? diagnostics.checks.google.error ?? "Google API key accepted."
-                : hasSettingValue(draft.google_api_key)
+                : hasGoogleKey
                   ? "Google API key saved in settings."
                   : "Add a Google API key to enable Gemini."
             }
           />
           <ProviderStatusCard
             label="OpenAI"
-            configured={hasSettingValue(draft.openai_api_key)}
+            configured={hasOpenAiKey}
             status={diagnostics?.checks.openai.ok}
             detail={
               diagnostics
                 ? diagnostics.checks.openai.error ?? "OpenAI API key accepted."
-                : hasSettingValue(draft.openai_api_key)
+                : hasOpenAiKey
                   ? "OpenAI API key saved in settings."
                   : "Add an OpenAI API key to enable OpenAI."
             }
           />
           <ProviderStatusCard
             label="Managed Gateway"
-            configured={hasSettingValue(draft.managed_gateway_url)}
+            configured={hasGateway}
             status={diagnostics?.checks.gateway.ok}
             detail={
               diagnostics
                 ? diagnostics.checks.gateway.error ?? "Gateway health check accepted."
-                : hasSettingValue(draft.managed_gateway_url)
+                : hasGateway
                   ? "Gateway URL is set; token is stored in the OS credential vault when provided."
                   : "Optional: use an app-specific gateway instead of direct provider keys."
             }
           />
           <ProviderStatusCard
             label="Ollama"
-            configured={hasSettingValue(draft.ollama_host)}
+            configured={hasOllama}
             status={diagnostics?.checks.ollama.ok}
             detail={
               diagnostics
@@ -620,7 +751,7 @@ export function SettingsPanel({
           <button
             type="button"
             onClick={() => void runChecks("Anthropic")}
-            disabled={checking || !hasSettingValue(draft.anthropic_api_key)}
+            disabled={checking || !hasAnthropicKey}
             className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test Anthropic
@@ -628,7 +759,7 @@ export function SettingsPanel({
           <button
             type="button"
             onClick={() => void runChecks("Google")}
-            disabled={checking || !hasSettingValue(draft.google_api_key)}
+            disabled={checking || !hasGoogleKey}
             className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test Google
@@ -636,7 +767,7 @@ export function SettingsPanel({
           <button
             type="button"
             onClick={() => void runChecks("OpenAI")}
-            disabled={checking || !hasSettingValue(draft.openai_api_key)}
+            disabled={checking || !hasOpenAiKey}
             className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test OpenAI
@@ -644,7 +775,7 @@ export function SettingsPanel({
           <button
             type="button"
             onClick={() => void runChecks("Gateway")}
-            disabled={checking || !hasSettingValue(draft.managed_gateway_url)}
+            disabled={checking || !hasGateway}
             className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test Gateway
@@ -1206,6 +1337,130 @@ function resourceSourceMetadata(source: ResourceSource) {
 
 function hasSettingValue(value: string | null | undefined) {
   return Boolean(value?.trim());
+}
+
+function SetupPathButton({
+  active,
+  label,
+  detail,
+  onClick,
+  testId,
+}: {
+  active: boolean;
+  label: string;
+  detail: string;
+  onClick: () => void;
+  testId: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      data-testid={testId}
+      className={
+        "text-left rounded-md border px-3 py-2 transition-colors " +
+        (active
+          ? "border-amber-500/45 bg-amber-500/12 text-amber-100"
+          : "border-neutral-800 bg-neutral-950/35 text-neutral-300 hover:border-neutral-600")
+      }
+    >
+      <span className="block text-sm font-medium">{label}</span>
+      <span className="block text-xs text-neutral-500 mt-0.5">{detail}</span>
+    </button>
+  );
+}
+
+function SetupPathDetails({ path }: { path: SetupPath }) {
+  const details =
+    path === "personal"
+      ? {
+          title: "Use the user's own API subscriptions",
+          body: "Best for hosted quality. Add one or more provider API keys, save, then test. A ChatGPT or Claude consumer subscription is separate from API billing.",
+          steps: [
+            "Create an API key in OpenAI, Anthropic, or Google AI Studio.",
+            "Paste only the providers this user wants billed to their own account.",
+            "Save and test, then check Council voice preview before submitting.",
+          ],
+        }
+      : path === "gateway"
+        ? {
+            title: "Use a managed team gateway",
+            body: "Best for public or team deployments. The gateway owns provider routing, policy, and billing so end users do not manage provider keys.",
+            steps: [
+              "Enter the gateway URL supplied by the app owner or team.",
+              "Paste the optional gateway token if the gateway requires one.",
+              "Save and test gateway health before running Council.",
+            ],
+          }
+        : {
+            title: "Use local or no hosted-key mode",
+            body: "Best for offline reading or users who already have Claude Code or Ollama configured locally. Hosted provider voices may be skipped until a key or gateway is added.",
+            steps: [
+              "Use Claude Code login if available for Claude voice and synthesis.",
+              "Set an Ollama host if local semantic retrieval should be tested.",
+              "Run the setup test so skipped voices are visible before Council use.",
+            ],
+          };
+
+  return (
+    <div>
+      <p className="text-sm font-medium text-neutral-100">{details.title}</p>
+      <p className="text-sm text-neutral-500 mt-1 leading-relaxed">{details.body}</p>
+      <ol className="mt-3 grid gap-2">
+        {details.steps.map((step, index) => (
+          <li key={step} className="grid grid-cols-[1.5rem_1fr] gap-2 text-sm text-neutral-300">
+            <span className="grid place-items-center h-6 w-6 rounded-full bg-neutral-900 text-xs text-amber-200 border border-neutral-800">
+              {index + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function SetupCheckPill({
+  label,
+  state,
+  detail,
+}: {
+  label: string;
+  state: "ok" | "warning" | "pending";
+  detail: string;
+}) {
+  const tone =
+    state === "ok"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+      : state === "warning"
+        ? "border-red-500/25 bg-red-500/10 text-red-200"
+        : "border-neutral-800 bg-neutral-950/35 text-neutral-300";
+  return (
+    <div className={`rounded-md border px-3 py-2 ${tone}`}>
+      <p className="text-xs uppercase tracking-wider opacity-75">{label}</p>
+      <p className="text-sm mt-0.5">{detail}</p>
+    </div>
+  );
+}
+
+function ProviderMiniStatus({ label, active }: { label: string; active: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-sm">
+      <span className="text-neutral-300">{label}</span>
+      <span
+        className={
+          "text-[11px] px-2 py-0.5 rounded " +
+          (active
+            ? "bg-emerald-500/15 text-emerald-300"
+            : "bg-neutral-900 text-neutral-500")
+        }
+      >
+        {active ? "set" : "not set"}
+      </span>
+    </div>
+  );
 }
 
 function SourceStatusBadge({ status }: { status: DataSourceStatus }) {

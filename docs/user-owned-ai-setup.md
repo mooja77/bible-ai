@@ -18,30 +18,32 @@ No OpenAI, Anthropic, Gemini, or managed-gateway credentials are bundled with th
 ## In-App Flow
 
 1. Open Settings.
-2. Choose the setup mode:
-   - No key: Claude Code login or Ollama.
-   - Personal keys: Anthropic, OpenAI, or Gemini API credentials.
-   - Managed gateway: a URL and optional gateway token supplied by the app owner/team.
-3. Enter provider keys or managed gateway settings for the accounts the user wants to use.
-4. Optionally override provider model IDs:
+2. Use the `Guided AI setup` panel at the top of Settings.
+3. Choose the setup path:
+   - `Personal keys`: Anthropic, OpenAI, or Gemini API credentials from the user's own provider accounts.
+   - `Local/no hosted key`: Claude Code login if available, plus optional Ollama.
+   - `Managed gateway`: a URL and optional gateway token supplied by the app owner/team.
+4. Enter provider keys, local settings, or managed gateway settings for the path chosen.
+5. Optionally override provider model IDs:
    - Anthropic API: `claude-sonnet-4-6`
    - OpenAI: `gpt-5`
    - Gemini: `gemini-2.5-flash`
-5. Click the provider test buttons.
-6. Open Council and confirm the “Voices before submit” cards show which providers will run.
+6. Click `Save & test` in the guided setup panel, or use the individual provider test buttons in Provider Status.
+7. Open Council and confirm the “Voices before submit” cards show which providers will run.
 
 ## First-Run User Setup
 
 For an end user on a fresh install:
 
 1. Open `Settings`.
-2. Choose one setup path:
+2. If the sidebar prompt appears, click `Set up AI`; otherwise use the Settings screen directly.
+3. Choose one setup path in `Guided AI setup`:
    - Local/no hosted key: use Claude Code login if available, plus Ollama for local model support.
    - Hosted quality: paste the user's own OpenAI, Anthropic, or Gemini API key.
    - Team deployment: enter a managed gateway URL/token supplied by the team.
-3. Save settings.
-4. Use `Test all providers`.
-5. Open `Council` and check the voice cards before submitting a question.
+4. Save settings.
+5. Use `Save & test` or `Test all providers`.
+6. Open `Council` and check the voice cards before submitting a question.
 
 If no provider key, Claude Code login, gateway, or local model is configured, the app still supports offline reading/search/workspaces, but hosted Council voices will be skipped.
 

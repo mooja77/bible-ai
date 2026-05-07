@@ -4,6 +4,7 @@
 
 - Council transparency explains process, ranking, position comparison, evidence use, confidence, retrieval trace, source data, and provider failures.
 - Settings includes provider setup status, provider test actions, data sources, backup/restore, and release/distribution status.
+- Settings now starts provider configuration with a guided setup path for personal API keys, local/no-hosted-key use, or a managed gateway, plus a one-click save-and-test action.
 - Settings includes in-app license, attribution, and privacy disclosures for bundled sources and provider calls.
 - Users can connect their own Anthropic, OpenAI, and Gemini API subscriptions; provider keys are stored in the OS credential vault and JSON backups redact provider keys.
 - Release packages do not include shared provider keys; each user configures their own local provider access in Settings.

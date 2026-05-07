@@ -64,9 +64,10 @@ Bible AI does not ship with shared OpenAI, Anthropic, Gemini, or gateway credent
 For normal desktop use:
 
 1. Open `Settings`.
-2. Paste the user's own OpenAI, Anthropic, or Gemini API key into the matching field.
-3. Click the provider test buttons.
-4. Open `Council` and confirm the voice preview shows which providers will run.
+2. Use `Guided AI setup` to choose `Personal keys`, `Local/no hosted key`, or `Managed gateway`.
+3. Paste the user's own OpenAI, Anthropic, or Gemini API key into the matching field, or enter the local/gateway settings for that setup path.
+4. Click `Save & test`.
+5. Open `Council` and confirm the voice preview shows which providers will run.
 
 For local development, copy `.env.example` to `.env` and fill only your own local keys. Never commit `.env`.
 

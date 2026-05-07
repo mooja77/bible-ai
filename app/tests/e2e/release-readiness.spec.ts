@@ -14,6 +14,12 @@ describe("Release readiness surfaces", () => {
     const providerStatus = await $("h2=Provider Status");
     await providerStatus.waitForDisplayed({ timeout: 10_000 });
     await expect(providerStatus).toBeDisplayed();
+    const providerGuide = await $('[data-testid="provider-setup-guide"]');
+    await expect(providerGuide).toHaveText(expect.stringContaining("Guided AI setup"));
+    await expect(providerGuide).toHaveText(expect.stringContaining("Personal keys"));
+    await expect(providerGuide).toHaveText(expect.stringContaining("Local/no hosted key"));
+    await expect(providerGuide).toHaveText(expect.stringContaining("Managed gateway"));
+    await expect(await $("button=Save & test")).toBeDisplayed();
     await expect(await $("button=Test all providers")).toBeDisplayed();
     await expect(await $("button=Test Anthropic")).toBeDisplayed();
     await expect(await $("button=Test Google")).toBeDisplayed();
