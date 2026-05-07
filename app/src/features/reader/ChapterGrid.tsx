@@ -14,10 +14,10 @@ export function ChapterGrid({ chapterCount, selectedChapter, onSelect }: Props) 
           type="button"
           onClick={() => onSelect(n)}
           className={
-            "text-xs py-1 rounded transition-colors " +
+            "text-xs py-1 rounded-md transition-colors " +
             (n === selectedChapter
-              ? "bg-amber-500/30 text-amber-100"
-              : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300")
+              ? "bg-amber-500/25 text-amber-100"
+              : "bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800")
           }
         >
           {n}

@@ -1,0 +1,20 @@
+{
+  "source_title": "Fixture Public Domain Creeds",
+  "source_url": "Built-in fixture",
+  "maintainer": "Bible AI test fixture",
+  "license": "Public Domain",
+  "license_clarity": "clear",
+  "attribution": "Traditional public-domain creed text used for offline workflow testing.",
+  "version": "fixture-1",
+  "redistribution_permission": true,
+  "modification_rules": "No restrictions for this fixture text.",
+  "share_alike_requirements": "None.",
+  "trademark_restrictions": "None.",
+  "import_format": "JSONL fixture",
+  "reference_compatibility": "Standalone creed entries, no Bible versification dependency.",
+  "known_data_quality_risks": "Small fixture text only; not a critical edition.",
+  "source_quality": "usable",
+  "decision": "accept",
+  "reviewed_by": "Bible AI fixture",
+  "reviewed_at": "2026-05-05"
+}

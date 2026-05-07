@@ -10,7 +10,8 @@ export function SearchInput({ value, onChange }: Props) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "/" && document.activeElement?.tagName !== "INPUT") {
+      const tag = document.activeElement?.tagName;
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
         e.preventDefault();
         inputRef.current?.focus();
       }
@@ -27,7 +28,7 @@ export function SearchInput({ value, onChange }: Props) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Search (press / )"
-        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 pr-7 text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/50"
+        className="settings-input pr-8 text-sm"
       />
       {value && (
         <button

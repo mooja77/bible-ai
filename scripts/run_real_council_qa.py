@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import re
@@ -33,6 +34,13 @@ SIDECAR = ROOT / "app" / "sidecar" / "index.mjs"
 DEFAULT_OUT = ROOT / "app" / "tests" / "fixtures" / "council-real-results.json"
 DEFAULT_WEAK_OUT = ROOT / "app" / "tests" / "fixtures" / "council-real-weak-results.json"
 RUN_LEVEL_FLAGS = {"limited_provider_coverage"}
+CREDENTIAL_SERVICE = "Bible AI"
+CREDENTIAL_ENV_KEYS = {
+    "google_api_key": "GOOGLE_API_KEY",
+    "openai_api_key": "OPENAI_API_KEY",
+    "anthropic_api_key": "ANTHROPIC_API_KEY",
+    "managed_gateway_token": "MANAGED_GATEWAY_TOKEN",
+}
 
 QUESTION_BANK = [
     "How should Romans 9 be weighed in debates about election?",
@@ -67,6 +75,17 @@ QUESTION_BANK = [
     "What does Scripture teach about the deuterocanonical books, if anything?",
 ]
 
+TOPICAL_REFERENCE_SEEDS = [
+    {
+        "keywords": ["trinity", "triune"],
+        "references": (
+            "Matthew 28:19; John 1:1-3; John 1:14; John 10:30; "
+            "John 14:16-17; 2 Corinthians 13:14; Colossians 2:9; "
+            "Acts 5:3-4; Hebrews 1:3"
+        ),
+    },
+]
+
 STOPWORDS = {
     "about", "again", "against", "among", "and", "are", "biblical", "case",
     "christian", "debates", "does", "for", "from", "have", "how", "into",
@@ -92,6 +111,13 @@ def question_terms(question: str) -> list[str]:
 def retrieve_evidence(conn: sqlite3.Connection, question: str, limit: int) -> list[dict[str, Any]]:
     evidence = explicit_reference_evidence(conn, question, limit)
     seen = {row["verse_id"] for row in evidence}
+    for row in topical_reference_evidence(conn, question, limit):
+        if len(evidence) >= limit:
+            break
+        if row["verse_id"] in seen:
+            continue
+        seen.add(row["verse_id"])
+        evidence.append(row)
     terms = question_terms(question)
     if not terms:
         terms = ["faith", "works", "law", "grace"]
@@ -132,6 +158,31 @@ def retrieve_evidence(conn: sqlite3.Connection, question: str, limit: int) -> li
             }
         )
     return evidence
+
+
+def topical_reference_evidence(
+    conn: sqlite3.Connection,
+    question: str,
+    limit: int,
+    translation: str = "KJV",
+) -> list[dict[str, Any]]:
+    lowered = question.lower()
+    rows = []
+    for seed in TOPICAL_REFERENCE_SEEDS:
+        if not any(keyword in lowered for keyword in seed["keywords"]):
+            continue
+        for row in explicit_reference_evidence(
+            conn,
+            seed["references"],
+            limit - len(rows),
+            translation,
+        ):
+            row["source"] = "qa-topical-reference"
+            row["matched_terms"] = seed["keywords"]
+            rows.append(row)
+            if len(rows) >= limit:
+                return rows
+    return rows
 
 
 def explicit_reference_evidence(
@@ -225,6 +276,24 @@ def send_sidecar(proc: subprocess.Popen[str], payload: dict[str, Any]) -> dict[s
     return message["result"]
 
 
+def terminate_process_tree(proc: subprocess.Popen[str]) -> None:
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    else:
+        proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
 def diagnostics(proc: subprocess.Popen[str], model: str) -> dict[str, Any]:
     return send_sidecar(
         proc,
@@ -312,6 +381,91 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+class FILETIME(ctypes.Structure):
+    _fields_ = [("dwLowDateTime", ctypes.c_uint32), ("dwHighDateTime", ctypes.c_uint32)]
+
+
+class CREDENTIALW(ctypes.Structure):
+    _fields_ = [
+        ("Flags", ctypes.c_uint32),
+        ("Type", ctypes.c_uint32),
+        ("TargetName", ctypes.c_wchar_p),
+        ("Comment", ctypes.c_wchar_p),
+        ("LastWritten", FILETIME),
+        ("CredentialBlobSize", ctypes.c_uint32),
+        ("CredentialBlob", ctypes.POINTER(ctypes.c_ubyte)),
+        ("Persist", ctypes.c_uint32),
+        ("AttributeCount", ctypes.c_uint32),
+        ("Attributes", ctypes.c_void_p),
+        ("TargetAlias", ctypes.c_wchar_p),
+        ("UserName", ctypes.c_wchar_p),
+    ]
+
+
+def read_windows_credential(target: str) -> str | None:
+    if os.name != "nt":
+        return None
+    credential_ptr = ctypes.POINTER(CREDENTIALW)()
+    ok = ctypes.windll.advapi32.CredReadW(
+        ctypes.c_wchar_p(target),
+        ctypes.c_uint32(1),  # CRED_TYPE_GENERIC
+        ctypes.c_uint32(0),
+        ctypes.byref(credential_ptr),
+    )
+    if not ok:
+        return None
+    try:
+        credential = credential_ptr.contents
+        blob_size = int(credential.CredentialBlobSize or 0)
+        if blob_size <= 0:
+            return None
+        blob = ctypes.string_at(credential.CredentialBlob, blob_size)
+        value = blob.decode("utf-16-le").strip()
+        return value or None
+    finally:
+        ctypes.windll.advapi32.CredFree(credential_ptr)
+
+
+def apply_credential_vault_env(env: dict[str, str], enabled: bool) -> list[str]:
+    if not enabled or os.name != "nt":
+        return []
+    loaded = []
+    for credential_name, env_key in CREDENTIAL_ENV_KEYS.items():
+        if env.get(env_key):
+            continue
+        value = read_windows_credential(f"{credential_name}.{CREDENTIAL_SERVICE}")
+        if value:
+            env[env_key] = value
+            loaded.append(env_key)
+    return loaded
+
+
+def restrict_provider_env(env: dict[str, str], providers: str | None) -> list[str]:
+    if not providers:
+        return []
+    allowed = {provider.strip().lower() for provider in providers.split(",") if provider.strip()}
+    valid = {"claude", "openai", "gemini", "gateway"}
+    unknown = sorted(allowed - valid)
+    if unknown:
+        raise ValueError(f"Unknown provider(s): {', '.join(unknown)}")
+    disabled = []
+    if "claude" not in allowed:
+        env["DISABLE_CLAUDE_VOICE"] = "1"
+        env.pop("ANTHROPIC_API_KEY", None)
+        disabled.append("claude")
+    if "openai" not in allowed:
+        env.pop("OPENAI_API_KEY", None)
+        disabled.append("openai")
+    if "gemini" not in allowed:
+        env.pop("GOOGLE_API_KEY", None)
+        disabled.append("gemini")
+    if "gateway" not in allowed:
+        env.pop("MANAGED_GATEWAY_URL", None)
+        env.pop("MANAGED_GATEWAY_TOKEN", None)
+        disabled.append("gateway")
+    return disabled
+
+
 def build_payload(
     *,
     model: str,
@@ -375,15 +529,42 @@ def write_run_outputs(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=20, choices=range(1, 31))
+    parser.add_argument("--start", type=int, default=1, choices=range(1, 31))
     parser.add_argument("--evidence-limit", type=int, default=36)
     parser.add_argument("--model", default="sonnet")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--weak-out", type=Path, default=DEFAULT_WEAK_OUT)
     parser.add_argument("--continue-on-error", action="store_true")
+    parser.add_argument(
+        "--no-credential-vault",
+        action="store_true",
+        help="Do not load provider credentials from the Windows Credential Manager.",
+    )
+    parser.add_argument(
+        "--providers",
+        help="Comma-separated provider allowlist for this QA run, e.g. claude,openai.",
+    )
+    parser.add_argument(
+        "--claude-code",
+        action="store_true",
+        help="Ignore ANTHROPIC_API_KEY for this run and use the local Claude Code login for the Claude voice.",
+    )
     args = parser.parse_args()
 
     env = os.environ.copy()
     env.pop("BIBLE_AI_MOCK_COUNCIL", None)
+    loaded_credentials = apply_credential_vault_env(env, not args.no_credential_vault)
+    if loaded_credentials:
+        print(
+            "Loaded provider credential flags from Windows Credential Manager:",
+            ", ".join(loaded_credentials),
+        )
+    if args.claude_code:
+        env.pop("ANTHROPIC_API_KEY", None)
+        print("Claude voice will use local Claude Code login for this run.")
+    disabled_providers = restrict_provider_env(env, args.providers)
+    if disabled_providers:
+        print("Provider allowlist active; disabled:", ", ".join(disabled_providers))
     log_path = ROOT / "app" / "tests" / "fixtures" / "council-real-qa-sidecar.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_file = log_path.open("w", encoding="utf-8")
@@ -408,9 +589,11 @@ def main() -> int:
         if not available:
             raise RuntimeError("No non-mock providers available")
 
-        for index, question in enumerate(QUESTION_BANK[: args.limit], start=1):
+        selected_questions = QUESTION_BANK[args.start - 1 : args.start - 1 + args.limit]
+        for offset, question in enumerate(selected_questions, start=0):
+            index = args.start + offset
             evidence = retrieve_evidence(conn, question, args.evidence_limit)
-            print(f"[{index}/{args.limit}] {question} ({len(evidence)} evidence rows)")
+            print(f"[{index}/{len(QUESTION_BANK)}] {question} ({len(evidence)} evidence rows)")
             try:
                 results.append(run_question(proc, question, evidence, args.model, index))
                 write_run_outputs(
@@ -440,7 +623,7 @@ def main() -> int:
         conn.close()
         if proc.stdin:
             proc.stdin.close()
-        proc.terminate()
+        terminate_process_tree(proc)
         log_file.close()
 
     write_run_outputs(

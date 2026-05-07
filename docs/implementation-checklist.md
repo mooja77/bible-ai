@@ -236,7 +236,9 @@ Use this checklist to drive the feature roadmap without losing track of backend,
 - [x] Add provider test actions in Settings.
 - [x] Show Council voices before submit.
 - [x] Support user-owned Anthropic, OpenAI, and Gemini provider credentials.
+- [x] Add first-class Managed Gateway provider mode for team/public deployments.
 - [x] Store user-owned provider credentials in the OS credential vault instead of local SQLite settings.
+- [x] Store managed gateway tokens in the OS credential vault and keep gateway URLs in normal settings.
 - [x] Migrate legacy SQLite provider key rows into the OS credential vault on settings load.
 - [x] Redact provider API keys from JSON backup exports.
 - [x] Add Data Sources screen in Settings.
@@ -259,6 +261,178 @@ Use this checklist to drive the feature roadmap without losing track of backend,
 - [x] Attempt multi-provider Council QA with Claude Code and Gemini detected.
 - [x] Add Gemini retry handling for quota/rate/temporary provider failures.
 - [x] Preserve partial real-QA output after each question.
-- [ ] Run multi-provider Council QA with at least two non-mock providers.
+- [x] Add machine-checkable real Council QA release gate script.
+- [x] Add machine-checkable manual clean-profile/credential-vault release gate evidence script.
+- [x] Add sanitized Windows collector for manual release gate evidence.
+- [x] Add portable manual QA package for clean Windows profile/VM handoff.
+- [x] Add combined public-release gate script and documentation.
+- [x] Run multi-provider Council QA with at least two non-mock providers.
 - [ ] Run manual clean-profile installer QA on a separate Windows profile or VM.
 - [ ] Manually verify OS credential vault storage on clean and upgraded Windows profiles.
+
+## Phase 14: Human Judgment Layer
+
+- [x] Add `council_judgments` table.
+- [x] Add `council_position_judgments` table.
+- [x] Increment `USER_SCHEMA_VERSION` and mirror schema in `data/schema.sql`.
+- [x] Add Rust user DB functions and Tauri commands for Council judgments.
+- [x] Add TypeScript types and command wrappers.
+- [x] Add workspace-level Council judgment lookup command.
+- [x] Add optional starting-view field before Council submit.
+- [x] Add `My Judgment` panel to Council results.
+- [x] Add position-level user ratings and notes.
+- [x] Add explicit `Mark needs study` quick action in Council judgment panel.
+- [x] Add AI-suggested follow-up questions that can be copied into user open questions.
+- [x] Persist judgments with Council sessions.
+- [x] Restore judgments when opening saved Council sessions.
+- [x] Clean up Council judgments and argument annotations when deleting a Council session.
+- [x] Include judgments in workspace Markdown/HTML/PDF exports.
+- [x] Refresh workspace Council items with latest persisted judgments before preview/export.
+- [x] Redact secret-looking values and local paths from workspace Markdown/HTML/PDF export content.
+- [x] Redact secret-looking values and local paths from Theology markdown export content.
+- [x] Include judgments in backup/restore.
+- [x] Add E2E coverage for judgment create/edit/restore/export.
+- [x] Run full verification.
+
+## Phase 15: Research Trail And Reasoning Audit
+
+- [x] Extend Council response types with research-trail events.
+- [x] Update mock Council response with research trail fixtures.
+- [x] Update sidecar prompts for visible research trail, weakest link, and "what would change this".
+- [x] Add fallback research trail for legacy Council sessions.
+- [x] Build Research Trail timeline UI.
+- [x] Build Evidence Decision List UI.
+- [x] Add weakest-link and change-condition rendering per position.
+- [x] Add workspace/export rendering for research trail.
+- [x] Add E2E coverage for timeline and legacy fallback.
+- [x] Run full verification.
+
+## Phase 16: Argument Maps
+
+- [x] Add argument map TypeScript types.
+- [x] Update mock Council response with argument-map fixtures.
+- [x] Update provider/synthesis prompts for concise visible argument maps.
+- [x] Add deterministic fallback maps from existing Council fields.
+- [x] Build Argument Map UI.
+- [x] Add `argument_annotations` table.
+- [x] Add annotation commands and frontend wrappers.
+- [x] Add user annotation UI for argument nodes.
+- [x] Save argument maps and annotations to workspaces.
+- [x] Export argument maps.
+- [x] Export saved argument annotations.
+- [x] Add E2E coverage.
+- [x] Run full verification.
+
+## Phase 17: Dynamic Systematic Theology
+
+- [x] Add `theology_topics` table.
+- [x] Add `theology_positions` table.
+- [x] Add `theology_conclusions` table.
+- [x] Add `theology_links` table.
+- [x] Seed initial doctrine topic outline.
+- [x] Add Theology mode to `App.tsx`.
+- [x] Build Theology topic list.
+- [x] Add Theology topic status cards and progress panel.
+- [x] Build Theology topic detail view.
+- [x] Add generated key study questions with one-click add to open questions.
+- [x] Add custom Theology topic creation and editing.
+- [x] Add parent/subtopic management for doctrine dependencies.
+- [x] Add explicit doctrine relation/tension notes between topics.
+- [x] Add doctrine map visualization for current topic relations and subtopics.
+- [x] Add topic positions and major-view summaries.
+- [x] Add user conclusion and confidence editor.
+- [x] Add link picker for passages, resources, workspaces, and argument maps.
+- [x] Group Theology linked evidence into passages, resources, Council sessions, workspace evidence, and notes/maps.
+- [x] Add direct Reader verse-to-Theology linking.
+- [x] Add direct Reader verse-range-to-Theology linking.
+- [x] Add direct Search result-to-Theology linking.
+- [x] Add direct Workspace item-to-Theology linking.
+- [x] Add Council-session link action from Council to Theology.
+- [x] Add "Ask Council about this topic" action.
+- [x] Add Theology Markdown export.
+- [x] Add Theology PDF export.
+- [x] Add full "My Theology" Markdown and PDF export actions.
+- [x] Add topic-plus-subtopics Markdown/PDF export actions.
+- [x] Include topic status, timestamps, evidence counts, open-question counts, change history, and guided-study timing in Theology exports.
+- [x] Include generated key study questions in Theology Markdown/PDF exports.
+- [x] Preserve grouped Theology evidence sections and payload previews in Markdown/PDF exports.
+- [x] Include doctrine map relation summaries in Theology Markdown/PDF exports.
+- [x] Include Theology data in backup/restore.
+- [x] Add Theology empty-state actions for opening the guide and importing resources.
+- [x] Add E2E coverage for create/link/conclude/export.
+- [x] Run full verification.
+
+## Phase 18: Open Resource Library
+
+- [x] Add resource source review template.
+- [x] Add `resource_sources` table.
+- [x] Add `resource_collections` table.
+- [x] Add `resource_entries` table.
+- [x] Add `resource_entries_fts` virtual table.
+- [x] Add machine-readable resource source assessment gate.
+- [x] Add source assessment rejection test script.
+- [x] Add poor-OCR source assessment rejection fixture.
+- [x] Add resource manifest validator.
+- [x] Add public-domain text normalizer for heading, paragraph, and single-entry imports.
+- [x] Add Sefaria-style local dump normalizer with explicit text-level license-review gate.
+- [x] Add generic JSONL resource importer.
+- [x] Normalize resource cross-reference and source-specific attribution metadata into import payloads.
+- [x] Rebuild resource FTS after JSON import and search resources through the index.
+- [x] Add attribution verification script.
+- [x] Add Settings Data Sources integration for resources.
+- [x] Show bundled, user-imported, and deferred source status badges in Settings Data Sources.
+- [x] Show resource review, redistribution, and share-alike metadata in Settings Data Sources.
+- [x] Build Resource Browser/Search UI.
+- [x] Add resource filters for source, collection kind, and license.
+- [x] Add resource filtering by linked Theology topic.
+- [x] Add Resources empty-state actions for clearing filters, opening Data Sources, and finding import docs.
+- [x] Build Resource Entry detail UI.
+- [x] Show resource citation metadata and related Scripture references when available.
+- [x] Add workspace link actions from resources.
+- [x] Add theology link actions from resources.
+- [x] Add Council question handoff from resource entries.
+- [x] Add export attribution appendix.
+- [x] Include share-alike requirements in Theology resource attribution exports.
+- [x] Include share-alike requirements in Workspace resource Markdown/HTML/PDF exports.
+- [x] Add source fixture import and E2E coverage.
+- [x] Add generated fixture search and attribution verification.
+- [x] Require source assessment before fixture resource import.
+- [x] Omit imported resource entry bodies from normal JSON backups.
+- [x] Add Rust coverage for omitting imported resource entry bodies while preserving source metadata.
+- [x] Run full verification.
+
+## Phase 19: Guided Learning Workflows
+
+- [x] Add Theology step to the automated app tour.
+- [x] Add guided study template data model.
+- [x] Build guided study runner.
+- [x] Add multiple guided study templates for passage study, position comparison, doctrine building, and theology review.
+- [x] Add before-AI reflection prompts.
+- [x] Add after-AI judgment prompts.
+- [x] Add "I disagree with AI" critique workflow.
+- [x] Add review cards for user-authored conclusions and key passages.
+- [x] Add review cards for linked passages and major positions/terms.
+- [x] Add guided review drill with hidden answers and study-aid labeling.
+- [x] Add editable guided-study focus question and key-question handoff.
+- [x] Add Council handoff from guided-study focus questions.
+- [x] Add topic-level guided study history for saved templates and review-card counts.
+- [x] Include guided study review cards in Theology Markdown/PDF exports.
+- [x] Include guided study focus questions in Workspace Markdown exports.
+- [x] Link completed guided studies to Theology topics.
+- [x] Link completed guided studies to workspaces.
+- [x] Add backup/restore E2E coverage for guided study focus questions and review cards.
+- [x] Add Rust backup/export coverage for guided study focus questions, review cards, and duplicate restore remapping.
+- [x] Add E2E coverage.
+- [x] Run full verification.
+
+## Phase 20: macOS Distribution
+
+- [x] Document macOS distribution plan.
+- [x] Add macOS sidecar preparation script.
+- [x] Add macOS build environment verification script.
+- [x] Add macOS `.app`/`.dmg` release verification script.
+- [x] Add macOS release manifest and summary scripts.
+- [x] Add macOS release package and package verification scripts.
+- [ ] Run macOS release build on an Apple computer or macOS CI runner.
+- [ ] Run clean macOS profile QA.
+- [ ] Add signing and notarization evidence for public macOS distribution.

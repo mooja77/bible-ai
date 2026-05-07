@@ -16,12 +16,19 @@ pub fn read_provider_keys(settings: &mut crate::user_db::AppSettings) {
     if let Some(key) = read_key("anthropic_api_key") {
         settings.anthropic_api_key = Some(key);
     }
+    if let Some(key) = read_key("managed_gateway_token") {
+        settings.managed_gateway_token = Some(key);
+    }
 }
 
 pub fn save_provider_keys(settings: &crate::user_db::AppSettings) -> Result<(), String> {
     save_key("google_api_key", settings.google_api_key.as_deref())?;
     save_key("openai_api_key", settings.openai_api_key.as_deref())?;
     save_key("anthropic_api_key", settings.anthropic_api_key.as_deref())?;
+    save_key(
+        "managed_gateway_token",
+        settings.managed_gateway_token.as_deref(),
+    )?;
     Ok(())
 }
 

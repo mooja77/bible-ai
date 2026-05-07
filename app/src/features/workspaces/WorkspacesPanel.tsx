@@ -3,22 +3,27 @@ import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import {
   addStudyItem,
+  createTheologyLink,
   createStudyWorkspace,
   deleteStudyItem,
   deleteStudyWorkspace,
   explainPassage,
   getStudyWorkspace,
+  listJudgmentsForWorkspace,
   listStudyWorkspaces,
+  listTheologyTopics,
   reorderStudyItems,
   updateStudyItem,
   updateStudyWorkspace,
   writeWorkspaceHtml,
   writeWorkspaceMarkdown,
   writeWorkspacePdf,
+  type CouncilJudgment,
   type CouncilResponse,
   type StudyItem,
   type StudyWorkspace,
   type StudyWorkspaceSummary,
+  type TheologyTopic,
 } from "../../lib/bible";
 import { renderWorkspaceHtml } from "./workspaceHtml";
 import { renderWorkspaceMarkdown } from "./workspaceMarkdown";
@@ -69,6 +74,7 @@ export function WorkspacesPanel({
   const [noteSaved, setNoteSaved] = useState(false);
   const [workspaceQuery, setWorkspaceQuery] = useState("");
   const [itemQuery, setItemQuery] = useState("");
+  const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
 
   const refreshList = useCallback(async () => {
     const rows = await listStudyWorkspaces();
@@ -76,9 +82,23 @@ export function WorkspacesPanel({
     setSelectedId((current) => current ?? rows[0]?.id ?? null);
   }, []);
 
+  const loadWorkspace = useCallback(async (workspaceId: number) => {
+    const [nextWorkspace, judgments] = await Promise.all([
+      getStudyWorkspace(workspaceId),
+      listJudgmentsForWorkspace(workspaceId),
+    ]);
+    return mergeWorkspaceJudgments(nextWorkspace, judgments);
+  }, []);
+
   useEffect(() => {
     refreshList().catch((e) => setError(String(e)));
   }, [refreshList]);
+
+  useEffect(() => {
+    listTheologyTopics()
+      .then(setTheologyTopics)
+      .catch(() => setTheologyTopics([]));
+  }, []);
 
   useEffect(() => {
     if (selectedWorkspaceId) setSelectedId(selectedWorkspaceId);
@@ -89,10 +109,10 @@ export function WorkspacesPanel({
       setWorkspace(null);
       return;
     }
-    getStudyWorkspace(selectedId)
+    loadWorkspace(selectedId)
       .then(setWorkspace)
       .catch((e) => setError(String(e)));
-  }, [selectedId]);
+  }, [loadWorkspace, selectedId]);
 
   useEffect(() => {
     setDetailTitle(workspace?.title ?? "");
@@ -189,7 +209,7 @@ export function WorkspacesPanel({
   };
 
   const refreshWorkspace = async (workspaceId: number) => {
-    const next = await getStudyWorkspace(workspaceId);
+    const next = await loadWorkspace(workspaceId);
     setWorkspace(next);
     await refreshList();
     onChanged?.();
@@ -257,7 +277,7 @@ export function WorkspacesPanel({
 
   return (
     <div className="h-full flex">
-      <aside className="w-80 border-r border-neutral-800 p-4 overflow-y-auto">
+      <aside className="app-sidebar w-80 border-r border-neutral-800 p-4 overflow-y-auto">
         <header className="mb-4">
           <h1 className="text-2xl font-semibold text-neutral-100">Workspaces</h1>
           <p className="text-sm text-neutral-500 mt-1">Saved passages, searches, and Council work.</p>
@@ -276,7 +296,7 @@ export function WorkspacesPanel({
           <button
             type="button"
             onClick={create}
-            className="px-3 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-200"
+            className="btn-secondary px-3 text-sm"
           >
             New
           </button>
@@ -323,7 +343,14 @@ export function WorkspacesPanel({
 
       <main className="flex-1 overflow-y-auto px-6 py-8">
         {!workspace ? (
-          <p className="text-neutral-500">Create or select a workspace.</p>
+          <div className="h-full grid place-items-center">
+            <div className="soft-card max-w-sm px-5 py-4 text-center">
+              <p className="text-sm font-semibold text-neutral-100">No workspace selected</p>
+              <p className="text-sm text-neutral-500 mt-1">
+                Create a workspace or select one from the list to review saved study material.
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="max-w-4xl mx-auto space-y-6">
             <header className="border-b border-neutral-800 pb-4 flex items-start justify-between gap-4">
@@ -354,7 +381,7 @@ export function WorkspacesPanel({
                     <button
                       type="button"
                       onClick={saveWorkspaceDetails}
-                      className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-200"
+                      className="btn-secondary px-3 py-1.5 text-sm"
                     >
                       Save Details
                     </button>
@@ -368,42 +395,42 @@ export function WorkspacesPanel({
                 <button
                   type="button"
                   onClick={copyMarkdown}
-                  className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-200"
+                  className="btn-secondary px-3 py-1.5 text-sm"
                 >
                   {copied ? "Copied" : "Copy Markdown"}
                 </button>
                 <button
                   type="button"
                   onClick={saveMarkdown}
-                  className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-200"
+                  className="btn-secondary px-3 py-1.5 text-sm"
                 >
                   Save Markdown
                 </button>
                 <button
                   type="button"
                   onClick={saveMarkdownAs}
-                  className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-200"
+                  className="btn-secondary px-3 py-1.5 text-sm"
                 >
                   Save As...
                 </button>
                 <button
                   type="button"
                   onClick={saveHtml}
-                  className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-200"
+                  className="btn-secondary px-3 py-1.5 text-sm"
                 >
                   Save HTML
                 </button>
                 <button
                   type="button"
                   onClick={savePdf}
-                  className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-200"
+                  className="btn-secondary px-3 py-1.5 text-sm"
                 >
                   Save PDF
                 </button>
                 <button
                   type="button"
                   onClick={() => setPreviewOpen((x) => !x)}
-                  className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-200"
+                  className="btn-secondary px-3 py-1.5 text-sm"
                 >
                   {previewOpen ? "Hide Preview" : "Preview Markdown"}
                 </button>
@@ -416,14 +443,14 @@ export function WorkspacesPanel({
                     await refreshList();
                     onChanged?.();
                   }}
-                  className="px-3 py-1.5 rounded border border-red-900/60 hover:border-red-700 text-sm text-red-300"
+                  className="btn-danger px-3 py-1.5 text-sm"
                 >
                   Delete
                 </button>
                 <button
                   type="button"
                   onClick={archiveWorkspace}
-                  className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 text-sm text-neutral-300"
+                  className="btn-secondary px-3 py-1.5 text-sm"
                 >
                   Archive
                 </button>
@@ -435,7 +462,7 @@ export function WorkspacesPanel({
               </p>
             )}
 
-            <section className="border border-neutral-800 rounded p-4 bg-neutral-950/60">
+            <section className="soft-card p-4">
               <h3 className="text-sm uppercase tracking-wider text-neutral-400 mb-3">
                 Workspace Note
               </h3>
@@ -460,7 +487,7 @@ export function WorkspacesPanel({
                     type="button"
                     onClick={addWorkspaceNote}
                     disabled={!noteBody.trim()}
-                    className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+                    className="btn-secondary px-3 py-1.5 text-sm"
                   >
                     Add Note
                   </button>
@@ -487,7 +514,7 @@ export function WorkspacesPanel({
                   </span>
                 </div>
                 {previewOpen && (
-                  <section className="border border-neutral-800 rounded p-4 bg-neutral-950">
+                  <section className="surface-panel rounded-lg p-4">
                     <h3 className="text-sm uppercase tracking-wider text-neutral-400 mb-3">
                       Markdown Preview
                     </h3>
@@ -500,7 +527,7 @@ export function WorkspacesPanel({
                   </section>
                 )}
                 {visibleItems.length === 0 ? (
-                  <p className="text-neutral-500">No workspace items match that filter.</p>
+                  <p className="soft-card px-4 py-3 text-sm text-neutral-500">No workspace items match that filter.</p>
                 ) : (
                   <ul className="space-y-3">
                     {visibleItems.map((item) => {
@@ -553,6 +580,9 @@ export function WorkspacesPanel({
                           }}
                           onRunSearch={onRunSearch}
                           onOpenCouncilResult={onOpenCouncilResult}
+                          theologyTopics={theologyTopics}
+                          workspaceId={workspace.id}
+                          workspaceTitle={workspace.title}
                         />
                       );
                     })}
@@ -581,6 +611,9 @@ function WorkspaceItem({
   onExplainItem,
   onRunSearch,
   onOpenCouncilResult,
+  theologyTopics,
+  workspaceId,
+  workspaceTitle,
 }: {
   item: StudyItem;
   onJumpToVerse: (verseId: number, translationCode: string) => void;
@@ -595,6 +628,9 @@ function WorkspaceItem({
   onExplainItem?: () => Promise<void>;
   onRunSearch?: (query: string) => void;
   onOpenCouncilResult?: (question: string, response: CouncilResponse) => void;
+  theologyTopics: TheologyTopic[];
+  workspaceId: number;
+  workspaceTitle: string;
 }) {
   const payload = item.payload;
   const citation = String(payload.citation ?? item.title ?? item.kind);
@@ -607,6 +643,10 @@ function WorkspaceItem({
   const [explainingItem, setExplainingItem] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
+  const [theologyTopicId, setTheologyTopicId] = useState<number | null>(
+    theologyTopics[0]?.id ?? null,
+  );
+  const [theologyLinkStatus, setTheologyLinkStatus] = useState("");
 
   useEffect(() => {
     setDraftTitle(displayTitle);
@@ -617,6 +657,10 @@ function WorkspaceItem({
     setNoteDraft(String(payload.body ?? payload.text ?? ""));
     setNoteSaved(false);
   }, [payload.body, payload.text]);
+
+  useEffect(() => {
+    setTheologyTopicId((current) => current ?? theologyTopics[0]?.id ?? null);
+  }, [theologyTopics]);
 
   const saveTitle = async () => {
     const trimmed = draftTitle.trim();
@@ -634,8 +678,35 @@ function WorkspaceItem({
     window.setTimeout(() => setNoteSaved(false), 1500);
   };
 
+  const linkWorkspaceItemToTheology = async () => {
+    if (!theologyTopicId) return;
+    setTheologyLinkStatus("Linking...");
+    try {
+      await createTheologyLink({
+        topic_id: theologyTopicId,
+        link_kind: "workspace_item",
+        target_id: item.id,
+        title: displayTitle,
+        payload_json: JSON.stringify({
+          source: "workspace",
+          workspace_id: workspaceId,
+          workspace_title: workspaceTitle,
+          item_id: item.id,
+          item_kind: item.kind,
+          title: displayTitle,
+          citation,
+          payload,
+        }),
+      });
+      const topic = theologyTopics.find((topic) => topic.id === theologyTopicId);
+      setTheologyLinkStatus(`Linked to ${topic?.title ?? "Theology"}.`);
+    } catch (e) {
+      setTheologyLinkStatus(String(e));
+    }
+  };
+
   return (
-    <li className="border border-neutral-800 rounded p-4" data-testid="workspace-item">
+    <li className="soft-card soft-card-hover p-4" data-testid="workspace-item">
       <header className="flex items-start justify-between gap-4 mb-2">
         <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-wider text-neutral-500">{item.kind}</p>
@@ -659,7 +730,7 @@ function WorkspaceItem({
               type="button"
               onClick={saveTitle}
               disabled={!draftTitle.trim() || draftTitle.trim() === displayTitle}
-              className="px-2 py-1 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-xs text-neutral-300"
+              className="btn-secondary px-2 py-1 text-xs"
             >
               Save title
             </button>
@@ -977,6 +1048,40 @@ function WorkspaceItem({
           </div>
         </div>
       )}
+
+      {theologyTopics.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-900 pt-3">
+          <select
+            value={theologyTopicId ?? ""}
+            onChange={(e) => {
+              setTheologyTopicId(Number(e.target.value) || null);
+              setTheologyLinkStatus("");
+            }}
+            className="settings-input text-xs w-40"
+            aria-label={`Workspace item theology topic: ${displayTitle}`}
+          >
+            {theologyTopics.map((topic) => (
+              <option key={topic.id} value={topic.id}>
+                {topic.title}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={linkWorkspaceItemToTheology}
+            disabled={!theologyTopicId}
+            className="btn-secondary px-2 py-1 text-xs"
+            data-testid="link-workspace-item-to-theology"
+          >
+            Link to Theology
+          </button>
+          {theologyLinkStatus && (
+            <span className="text-xs text-neutral-400" data-testid="workspace-theology-status">
+              {theologyLinkStatus}
+            </span>
+          )}
+        </div>
+      )}
     </li>
   );
 }
@@ -1007,6 +1112,42 @@ function payloadSearchText(payload: Record<string, unknown>) {
   return values
     .filter((value): value is string => typeof value === "string")
     .join(" ");
+}
+
+function mergeWorkspaceJudgments(
+  workspace: StudyWorkspace | null,
+  judgments: CouncilJudgment[],
+): StudyWorkspace | null {
+  if (!workspace || judgments.length === 0) return workspace;
+  const bySessionId = new Map(judgments.map((judgment) => [judgment.council_session_id, judgment]));
+  return {
+    ...workspace,
+    items: workspace.items.map((item) => {
+      if (item.kind !== "council_result" && item.kind !== "council_session") return item;
+      const sessionId = workspaceCouncilSessionId(item.payload);
+      const judgment = sessionId ? bySessionId.get(sessionId) : null;
+      if (!judgment) return item;
+      return {
+        ...item,
+        payload: {
+          ...item.payload,
+          judgment,
+        },
+      };
+    }),
+  };
+}
+
+function workspaceCouncilSessionId(payload: Record<string, unknown>) {
+  const direct = numericPayloadValue(payload.session_id ?? payload.council_session_id);
+  if (direct) return direct;
+  const response = payload.response;
+  if (!response || typeof response !== "object" || Array.isArray(response)) return null;
+  return numericPayloadValue((response as Record<string, unknown>).session_id);
+}
+
+function numericPayloadValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function isCouncilResponse(value: unknown): value is CouncilResponse {

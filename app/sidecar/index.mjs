@@ -16,6 +16,7 @@
 import { createInterface } from "node:readline";
 import { runCouncil } from "./council.mjs";
 import { providerManifest } from "./providers/index.mjs";
+import { gatewayHealthEndpoint } from "./providers/gateway.mjs";
 
 const log = (...args) => console.error("[sidecar]", ...args);
 
@@ -29,6 +30,10 @@ function envWithSettings(settings = {}) {
   if (settings.google_api_key) env.GOOGLE_API_KEY = settings.google_api_key;
   if (settings.openai_api_key) env.OPENAI_API_KEY = settings.openai_api_key;
   if (settings.anthropic_api_key) env.ANTHROPIC_API_KEY = settings.anthropic_api_key;
+  if (settings.managed_gateway_url) env.MANAGED_GATEWAY_URL = settings.managed_gateway_url;
+  if (settings.managed_gateway_token) {
+    env.MANAGED_GATEWAY_TOKEN = settings.managed_gateway_token;
+  }
   if (settings.openai_model) env.OPENAI_MODEL = settings.openai_model;
   if (settings.gemini_model) env.GEMINI_MODEL = settings.gemini_model;
   if (settings.anthropic_model) env.ANTHROPIC_MODEL = settings.anthropic_model;
@@ -62,6 +67,27 @@ async function checkJsonEndpoint({ name, url, headers }) {
   }
 }
 
+async function checkGateway(env) {
+  if (!env.MANAGED_GATEWAY_URL) {
+    return { configured: false, ok: false, error: "No managed gateway URL configured" };
+  }
+  try {
+    return await checkJsonEndpoint({
+      name: "Managed Gateway",
+      url: gatewayHealthEndpoint(env.MANAGED_GATEWAY_URL),
+      headers: env.MANAGED_GATEWAY_TOKEN
+        ? { Authorization: `Bearer ${env.MANAGED_GATEWAY_TOKEN}` }
+        : undefined,
+    });
+  } catch (err) {
+    return {
+      configured: true,
+      ok: false,
+      error: err?.message ?? String(err),
+    };
+  }
+}
+
 async function runDiagnostics({ settings = {}, model = "sonnet" }) {
   const env = envWithSettings(settings);
   const checks = {
@@ -88,6 +114,7 @@ async function runDiagnostics({ settings = {}, model = "sonnet" }) {
           },
         })
       : { configured: false, ok: false, error: "No Anthropic API key configured" },
+    gateway: await checkGateway(env),
     ollama: await checkJsonEndpoint({
       name: "Ollama",
       url: `${env.OLLAMA_HOST || "http://localhost:11434"}/api/tags`,

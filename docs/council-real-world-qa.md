@@ -1,10 +1,26 @@
 # Council Real-World QA
 
-Status: partially complete as of 2026-05-05.
+Status: multi-provider release gate complete as of 2026-05-07.
 
 The app has synthetic fixture coverage for heavy provider disagreement, provider failure, and sparse evidence in `app/tests/fixtures/council-quality.json`; those fixtures are exercised by `app/tests/e2e/release-readiness.spec.ts`.
 
-The first non-mock QA pass was run against Claude Code with mock mode disabled. A later multi-provider attempt detected Claude Code and Gemini, but Gemini quota/rate limits prevented a release-satisfying two-provider run. OpenAI and Anthropic API keys were not configured on this machine.
+The first non-mock QA pass was run against Claude Code with mock mode disabled. A later multi-provider attempt detected Claude Code and Gemini, but Gemini quota/rate limits prevented a release-satisfying two-provider run. On 2026-05-07, user-owned OpenAI, Gemini, and Anthropic credentials were stored in Windows Credential Manager. The release-satisfying fixture now uses Gemini and OpenAI as the two successful non-mock voices.
+
+## 2026-05-07 Multi-Provider Release-Gate Run
+
+- Command: `python scripts/run_real_council_qa.py --limit 20 --evidence-limit 24 --providers gemini,openai --continue-on-error`
+- Providers: Gemini and OpenAI.
+- Results: 20 questions completed, 0 sidecar request errors.
+- Provider coverage: Gemini succeeded on 20/20 questions; OpenAI succeeded on 20/20 questions.
+- Full fixture: `app/tests/fixtures/council-real-results.json`
+- Output-weak fixture: `app/tests/fixtures/council-real-weak-results.json`
+- Verification: `npm run qa:real-council:verify -- --fixture tests/fixtures/council-real-results.json` passed.
+
+Findings:
+
+- Anthropic API authentication was configured, but the account returned a low-credit error during the 20-question run. Anthropic is not used for the passing release-gate fixture.
+- The Trinity question needed topical seed references because keyword-only retrieval matched "basis" language in unrelated Pilate texts. The QA runner now adds Trinity reference seeds before FTS retrieval.
+- Synthesis now repairs omitted evidence objects from visible supporting/challenging verse IDs, so a position with a verse-id trail does not render as an empty evidence panel.
 
 ## 2026-05-05 Multi-Provider Attempt
 
@@ -26,6 +42,8 @@ Follow-up gate:
 
 - Re-run the same script after Gemini quota resets or with a valid OpenAI/Anthropic API key configured.
 - Treat the gate as passed only if at least two non-mock providers contribute successful answers across the QA set.
+- Verify the saved fixture with `npm run qa:real-council:verify -- --fixture tests/fixtures/council-real-results.json`.
+  This gate requires a completed non-mock run, at least 20 results, no sidecar request errors, and at least two successful non-mock providers per question.
 
 ## 2026-05-02 Non-Mock Run
 
@@ -55,17 +73,21 @@ Run this with mock mode disabled and at least two providers configured.
 1. Set provider credentials in Settings.
 2. Use Settings > Provider Status > Test all providers.
 3. Run `python scripts/run_real_council_qa.py --limit 20 --continue-on-error`.
-4. Review `app/tests/fixtures/council-real-weak-results.json`.
-5. Ask additional manual questions through the Council for cases the script does not cover.
-6. Save weak or surprising outputs as workspace Council results.
-7. Export the workspace JSON.
-8. Convert each weak result into a fixture entry with:
+   On Windows, this runner loads provider credentials saved by Settings from Windows Credential Manager for the child sidecar process. It does not print or write the secret values. Use `--no-credential-vault` if you want to rely only on shell environment variables.
+   To avoid a known quota-limited provider from turning every result into a provider-failure fixture, use `--providers claude,openai` or another two-provider allowlist for the release-gate run.
+   If the Anthropic API key is present but the configured Anthropic model is unavailable, add `--claude-code` so the Claude voice uses the local Claude Code login instead.
+4. Run `npm run qa:real-council:verify -- --fixture tests/fixtures/council-real-results.json` from `app/`.
+5. Review `app/tests/fixtures/council-real-weak-results.json`.
+6. Ask additional manual questions through the Council for cases the script does not cover.
+7. Save weak or surprising outputs as workspace Council results.
+8. Export the workspace JSON.
+9. Convert each weak result into a fixture entry with:
    - `question`
    - `weakness`
    - full `response`
    - provider status and error data
    - retrieved evidence
-7. Tune prompts only where the failure is repeatable: vague rationale, overconfidence, missing citations, or hidden disagreement.
+10. Tune prompts only where the failure is repeatable: vague rationale, overconfidence, missing citations, or hidden disagreement.
 
 ## Question Bank
 

@@ -1,0 +1,21 @@
+{
+  "slug": "fixture-public-domain-creeds",
+  "title": "Fixture Public Domain Creeds",
+  "source_url": "Built-in fixture",
+  "maintainer": "Bible AI test fixture",
+  "license": "Public Domain",
+  "attribution": "Traditional public-domain creed text used for offline workflow testing.",
+  "version": "fixture-1",
+  "source_status": "bundled",
+  "redistribution_permission": true,
+  "modification_rules": "No restrictions for this fixture text.",
+  "share_alike_requirements": "None.",
+  "trademark_restrictions": "None.",
+  "collections": [
+    {
+      "slug": "creeds",
+      "title": "Creeds",
+      "kind": "creed"
+    }
+  ]
+}

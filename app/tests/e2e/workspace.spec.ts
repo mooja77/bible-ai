@@ -1,11 +1,21 @@
 import { browser, $, $$, expect } from "@wdio/globals";
 
+async function openWorkspaces() {
+  const existingHeading = await $("h1=Workspaces");
+  if (await existingHeading.isDisplayed().catch(() => false)) {
+    return $("button=Work");
+  }
+  const work = await $("button=Work");
+  await work.waitForExist({ timeout: 10_000 });
+  await browser.execute((button) => (button as HTMLButtonElement).click(), work);
+  await $("h1=Workspaces").waitForDisplayed({ timeout: 10_000 });
+  return work;
+}
+
 describe("Workspaces", () => {
   it("creates and deletes a workspace", async () => {
     const title = `E2E workspace ${Date.now()}`;
-    const work = await $("button=Work");
-    await work.waitForClickable({ timeout: 10_000 });
-    await work.click();
+    const work = await openWorkspaces();
 
     const heading = await $("h1=Workspaces");
     await heading.waitForDisplayed({ timeout: 10_000 });
@@ -36,9 +46,7 @@ describe("Workspaces", () => {
   it("updates and archives a workspace", async () => {
     const title = `E2E editable workspace ${Date.now()}`;
     const renamed = `${title} renamed`;
-    const work = await $("button=Work");
-    await work.waitForClickable({ timeout: 10_000 });
-    await work.click();
+    await openWorkspaces();
 
     const input = await $('input[placeholder="New workspace"]');
     await input.waitForDisplayed({ timeout: 10_000 });
@@ -68,10 +76,9 @@ describe("Workspaces", () => {
   it("creates, edits, and exports a workspace note", async () => {
     const title = `E2E note workspace ${Date.now()}`;
     const noteTitle = `Workspace note ${Date.now()}`;
-    const editedBody = "Edited workspace note body for Markdown export.";
-    const work = await $("button=Work");
-    await work.waitForClickable({ timeout: 10_000 });
-    await work.click();
+    const editedBody =
+      "Edited workspace note body for Markdown export.\nOPENAI_API_KEY=TEST_WORKSPACE_LEAK_VALUE\nLocal path C:\\Users\\Example\\secret.txt";
+    await openWorkspaces();
 
     const input = await $('input[placeholder="New workspace"]');
     await input.waitForDisplayed({ timeout: 10_000 });
@@ -108,9 +115,207 @@ describe("Workspaces", () => {
     await browser.waitUntil(
       async () => {
         const text = await preview.getText();
-        return text.includes(noteTitle) && text.includes(editedBody);
+        return (
+          text.includes(noteTitle) &&
+          text.includes("Edited workspace note body for Markdown export.") &&
+          text.includes("[redacted secret]") &&
+          text.includes("[redacted local path]") &&
+          !text.includes("TEST_WORKSPACE_LEAK_VALUE") &&
+          !text.includes("C:\\Users\\Example\\secret.txt")
+        );
       },
-      { timeout: 5_000, timeoutMsg: "markdown preview did not include workspace note" },
+      { timeout: 5_000, timeoutMsg: "markdown preview did not sanitize workspace note export" },
+    );
+
+    await $("button=Delete").click();
+    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+  });
+
+  it("includes resource share-alike requirements in workspace Markdown export", async () => {
+    const title = `E2E resource attribution workspace ${Date.now()}`;
+    const workspaceId = Date.now();
+    const shareAlike = "Redistributed excerpts must preserve CC BY-SA 4.0 terms.";
+    const settings = await $("button=Settings");
+    await settings.waitForClickable({ timeout: 10_000 });
+    await settings.click();
+
+    const backup = {
+      app: "Bible AI",
+      export_version: 1,
+      user_schema_version: 12,
+      exported_at: "2026-05-07T00:00:00Z",
+      tables: {
+        study_workspaces: [
+          {
+            id: workspaceId,
+            title,
+            description: null,
+            created_at: "2026-05-07T00:00:00Z",
+            updated_at: "2026-05-07T00:00:00Z",
+            archived_at: null,
+          },
+        ],
+        study_items: [
+          {
+            id: workspaceId + 1,
+            workspace_id: workspaceId,
+            kind: "freeform",
+            title: "Resource: Share alike fixture",
+            payload_json: JSON.stringify({
+              type: "resource_entry",
+              title: "Share alike fixture",
+              body: "A resource excerpt that carries redistribution obligations.",
+              source_title: "Open Resource Fixture",
+              collection_title: "Doctrine Sources",
+              collection_kind: "commentary",
+              license: "CC BY-SA 4.0",
+              attribution: "E2E attribution fixture.",
+              share_alike_requirements: shareAlike,
+            }),
+            sort_order: 0,
+            created_at: "2026-05-07T00:00:00Z",
+            updated_at: "2026-05-07T00:00:00Z",
+          },
+        ],
+      },
+    };
+
+    const textarea = await $('textarea[aria-label="Backup JSON"]');
+    await textarea.waitForDisplayed({ timeout: 10_000 });
+    await textarea.setValue(JSON.stringify(backup));
+    const importButton = await $("button=Import pasted JSON");
+    await importButton.waitForClickable({ timeout: 10_000 });
+    await importButton.click();
+    await browser.waitUntil(
+      async () => {
+        const body = await $("body");
+        return (await body.getText()).includes("Imported 2");
+      },
+      { timeout: 10_000, timeoutMsg: "resource attribution workspace fixture import did not complete" },
+    );
+
+    await openWorkspaces();
+    const workspaceRow = await $(`button*=${title}`);
+    await workspaceRow.waitForClickable({ timeout: 10_000 });
+    await workspaceRow.click();
+    const created = await $(`h2=${title}`);
+    await created.waitForDisplayed({ timeout: 10_000 });
+    const previewButton = await $("button=Preview Markdown");
+    await previewButton.waitForClickable({ timeout: 10_000 });
+    await previewButton.click();
+    const preview = await $('[data-testid="markdown-preview"]');
+    await preview.waitForDisplayed({ timeout: 5_000 });
+    await browser.waitUntil(
+      async () => {
+        const text = await preview.getText();
+        return (
+          text.includes("**Share-alike requirements:**") &&
+          text.includes(shareAlike) &&
+          text.includes("E2E attribution fixture.")
+        );
+      },
+      { timeout: 5_000, timeoutMsg: "markdown preview did not include resource share-alike requirements" },
+    );
+
+    await $("button=Delete").click();
+    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+  });
+
+  it("includes guided study focus questions in workspace Markdown export", async () => {
+    const title = `E2E guided study workspace ${Date.now()}`;
+    const workspaceId = Date.now();
+    const focusQuestion = "Which passages should govern this guided doctrine study?";
+    const settings = await $("button=Settings");
+    await settings.waitForClickable({ timeout: 10_000 });
+    await settings.click();
+
+    const backup = {
+      app: "Bible AI",
+      export_version: 1,
+      user_schema_version: 13,
+      exported_at: "2026-05-07T00:00:00Z",
+      tables: {
+        study_workspaces: [
+          {
+            id: workspaceId,
+            title,
+            description: null,
+            created_at: "2026-05-07T00:00:00Z",
+            updated_at: "2026-05-07T00:00:00Z",
+            archived_at: null,
+          },
+        ],
+        study_items: [
+          {
+            id: workspaceId + 1,
+            workspace_id: workspaceId,
+            kind: "freeform",
+            title: "Guided study: Scripture",
+            payload_json: JSON.stringify({
+              type: "guided_study",
+              template_title: "Compare theological positions",
+              topic_title: "Scripture",
+              focus_question: focusQuestion,
+              body: [
+                "Compare theological positions: Scripture",
+                "",
+                "Question",
+                focusQuestion,
+                "",
+                "Before AI",
+                "I think the canonical argument is strongest.",
+              ].join("\n"),
+              review_cards: [
+                {
+                  kind: "question",
+                  prompt: "State the study question",
+                  answer: focusQuestion,
+                },
+              ],
+            }),
+            sort_order: 0,
+            created_at: "2026-05-07T00:00:00Z",
+            updated_at: "2026-05-07T00:00:00Z",
+          },
+        ],
+      },
+    };
+
+    const textarea = await $('textarea[aria-label="Backup JSON"]');
+    await textarea.waitForDisplayed({ timeout: 10_000 });
+    await textarea.setValue(JSON.stringify(backup));
+    const importButton = await $("button=Import pasted JSON");
+    await importButton.waitForClickable({ timeout: 10_000 });
+    await importButton.click();
+    await browser.waitUntil(
+      async () => {
+        const body = await $("body");
+        return (await body.getText()).includes("Imported 2");
+      },
+      { timeout: 10_000, timeoutMsg: "guided study workspace fixture import did not complete" },
+    );
+
+    await openWorkspaces();
+    const workspaceRow = await $(`button*=${title}`);
+    await workspaceRow.waitForClickable({ timeout: 10_000 });
+    await workspaceRow.click();
+    const created = await $(`h2=${title}`);
+    await created.waitForDisplayed({ timeout: 10_000 });
+    const previewButton = await $("button=Preview Markdown");
+    await previewButton.waitForClickable({ timeout: 10_000 });
+    await previewButton.click();
+    const preview = await $('[data-testid="markdown-preview"]');
+    await preview.waitForDisplayed({ timeout: 5_000 });
+    await browser.waitUntil(
+      async () => {
+        const text = await preview.getText();
+        return (
+          text.includes("**Guided study question:**") &&
+          text.includes(focusQuestion) &&
+          text.includes("**Review cards:**")
+        );
+      },
+      { timeout: 5_000, timeoutMsg: "markdown preview did not include guided study focus question" },
     );
 
     await $("button=Delete").click();
@@ -188,6 +393,24 @@ describe("Workspaces", () => {
       },
       { timeout: 10_000, timeoutMsg: "workspace item title did not update" },
     );
+
+    const linkWorkspaceItem = await $('[data-testid="link-workspace-item-to-theology"]');
+    await linkWorkspaceItem.waitForClickable({ timeout: 10_000 });
+    await linkWorkspaceItem.click();
+    const theologyStatus = await $('[data-testid="workspace-theology-status"]');
+    await theologyStatus.waitForDisplayed({ timeout: 10_000 });
+    await expect(theologyStatus).toHaveText(expect.stringContaining("Linked to"));
+
+    const theology = await $("button=Theology");
+    await theology.waitForClickable({ timeout: 10_000 });
+    await theology.click();
+    await expect(await $("body")).toHaveText(expect.stringContaining(itemTitle));
+    await work.waitForClickable({ timeout: 10_000 });
+    await work.click();
+    const linkedWorkspaceRow = await $(`button*=${title}`);
+    await linkedWorkspaceRow.waitForClickable({ timeout: 10_000 });
+    await linkedWorkspaceRow.click();
+    await $(`h2=${title}`).waitForDisplayed({ timeout: 10_000 });
 
     const previewButton = await $("button=Preview Markdown");
     await previewButton.click();

@@ -187,3 +187,17 @@ Deferred until licensing and UX are explicit:
 - Douay-Rheims full import until alternate versification is implemented.
 - LXX and apocrypha/deuterocanonical corpora.
 - Server-hosted paid data feeds.
+
+## Open Resource Library Extension
+
+The source admission and import plan for commentaries, historical theology, open translations, and other study resources is in [`open-resource-ingestion-plan.md`](open-resource-ingestion-plan.md).
+
+Every new resource import must include:
+
+- Source URL.
+- License.
+- Attribution text.
+- Version/date.
+- Redistribution assessment.
+- Export attribution rules.
+- Fixture search coverage.

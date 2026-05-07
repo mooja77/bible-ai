@@ -233,3 +233,16 @@ Keep existing Settings diagnostics and expand as features land:
 - Add JSON import textarea with conflict strategy selector.
 - Add SQLite backup and path-based restore controls.
 - Add last successful export/import/restore status.
+
+## Learning And Theology Extension
+
+Detailed UX for phases 14-19 is in [`learning-ui-workflows.md`](learning-ui-workflows.md).
+
+The extension adds:
+
+- Council "My Judgment" workflow.
+- Research Trail timeline.
+- Argument Map tabs and annotations.
+- Theology top-level mode.
+- Resource browser and resource detail screens.
+- Guided learning templates that ask for user reflection before AI output.

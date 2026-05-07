@@ -258,3 +258,78 @@ Supporting docs:
 - [`phase-13-corpus-roadmap.md`](phase-13-corpus-roadmap.md)
 - [`release-notes.md`](release-notes.md)
 - [`privacy-and-distribution.md`](privacy-and-distribution.md)
+
+## Phase 14: Human Judgment Layer
+
+Purpose: make the user's own judgment first-class beside Council output.
+
+User outcomes:
+
+- Record a starting view before AI analysis.
+- Rate each position independently from AI weights.
+- Save a personal conclusion, confidence, changed-mind note, and open questions.
+- Export user judgment alongside Council evidence and synthesis.
+
+Detailed plan: [`learning-and-systematic-theology-plan.md`](learning-and-systematic-theology-plan.md).
+
+## Phase 15: Research Trail And Reasoning Audit
+
+Purpose: expose how research, retrieval, classification, voice analysis, synthesis, and user judgment connect.
+
+User outcomes:
+
+- See a research timeline for each Council result.
+- Inspect used, ignored, conflicting, and missing evidence.
+- Identify the weakest link in an argument.
+- See what evidence would most change a conclusion.
+
+Technical plan: [`learning-technical-implementation.md`](learning-technical-implementation.md).
+
+## Phase 16: Argument Maps
+
+Purpose: turn positions into inspectable claim/evidence/assumption/weakness maps.
+
+User outcomes:
+
+- Compare interpretive moves across positions.
+- Annotate argument-map nodes.
+- Save argument maps into workspaces and theology topics.
+
+UI plan: [`learning-ui-workflows.md`](learning-ui-workflows.md).
+
+## Phase 17: Dynamic Systematic Theology
+
+Purpose: create a living systematic theology workspace built from Scripture, resources, Council sessions, user notes, and user conclusions.
+
+User outcomes:
+
+- Browse doctrine topics.
+- Link passages, resources, Council sessions, notes, and argument maps.
+- Track major positions and unresolved tensions.
+- Export topic studies or a full "My Theology" document.
+
+Data model: [`learning-data-model.md`](learning-data-model.md).
+
+## Phase 18: Open Resource Library
+
+Purpose: import more public-domain and open-license resources with visible attribution and license controls.
+
+User outcomes:
+
+- Search open resources beside Scripture.
+- Link resource excerpts to workspaces and theology topics.
+- Export studies with source attribution.
+
+Resource plan: [`open-resource-ingestion-plan.md`](open-resource-ingestion-plan.md).
+
+## Phase 19: Guided Learning Workflows
+
+Purpose: provide repeatable study paths that ask the user to think before and after AI assistance.
+
+User outcomes:
+
+- Follow guided studies for passages, doctrine topics, and theological comparisons.
+- Capture disagreement with AI.
+- Review user-authored conclusions and linked passages over time.
+
+Testing plan: [`learning-testing-and-release-plan.md`](learning-testing-and-release-plan.md).

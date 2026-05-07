@@ -1,0 +1,42 @@
+{
+  "app": "Bible AI",
+  "export_version": 1,
+  "user_schema_version": 12,
+  "exported_at": "2026-05-06T21:11:23.197Z",
+  "tables": {
+    "resource_sources": [
+      {
+        "id": 1,
+        "slug": "fixture-public-domain-creeds",
+        "title": "Fixture Public Domain Creeds",
+        "source_url": "Built-in fixture",
+        "license": "Public Domain",
+        "attribution": "Traditional public-domain creed text used for offline workflow testing.",
+        "version": "fixture-1",
+        "imported_at": "2026-05-06T21:11:23.198Z",
+        "metadata_json": "{\"source_status\":\"bundled\",\"maintainer\":\"Bible AI test fixture\",\"redistribution_permission\":true,\"modification_rules\":\"No restrictions for this fixture text.\",\"share_alike_requirements\":\"None.\",\"trademark_restrictions\":\"None.\",\"source_review\":null,\"metadata\":{}}"
+      }
+    ],
+    "resource_collections": [
+      {
+        "id": 1,
+        "source_id": 1,
+        "slug": "creeds",
+        "title": "Creeds",
+        "kind": "creed",
+        "metadata_json": "{}"
+      }
+    ],
+    "resource_entries": [
+      {
+        "id": 1,
+        "collection_id": 1,
+        "ref": "Apostles' Creed",
+        "title": "Apostles' Creed",
+        "body": "I believe in God the Father Almighty, Maker of heaven and earth; and in Jesus Christ his only Son our Lord.",
+        "search_text": "Apostles' Creed Apostles' Creed I believe in God the Father Almighty, Maker of heaven and earth; and in Jesus Christ his only Son our Lord.",
+        "payload_json": "{\"source_format\":\"public_domain_text\",\"import_index\":1,\"related_scripture_refs\":[\"Genesis 1:1\",\"John 1:1\"],\"citation_note\":\"Traditional creed excerpt used as a resource workflow fixture.\"}"
+      }
+    ]
+  }
+}

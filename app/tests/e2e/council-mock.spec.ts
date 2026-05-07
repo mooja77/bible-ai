@@ -114,6 +114,53 @@ describe("Council mock workflow", () => {
     await confidence.waitForDisplayed({ timeout: 10_000 });
     await expect(confidence).toHaveText(expect.stringContaining("Confidence is high"));
 
+    const researchTrail = await $('[data-testid="council-research-trail"]');
+    await researchTrail.waitForDisplayed({ timeout: 10_000 });
+    await expect(researchTrail).toHaveText(expect.stringContaining("Research Trail"));
+    await expect(researchTrail).toHaveText(expect.stringContaining("Positions weighted"));
+
+    const argumentMaps = await $('[data-testid="council-argument-maps"]');
+    await argumentMaps.waitForDisplayed({ timeout: 10_000 });
+    await expect(argumentMaps).toHaveText(expect.stringContaining("Argument Maps"));
+    await expect(argumentMaps).toHaveText(expect.stringContaining("Weakest link"));
+    const annotation = await argumentMaps.$('textarea[aria-label="Annotation for Consensus claim"]');
+    await annotation.setValue("This node is persuasive but depends on the first retrieved passage.");
+    const saveAnnotationButtons = await argumentMaps.$$("button=Save annotation");
+    await saveAnnotationButtons[0].click();
+
+    const addToTheology = await $("button=Add to Theology");
+    await addToTheology.click();
+    const attachSession = await $("button=Attach session");
+    await attachSession.waitForClickable({ timeout: 10_000 });
+    await attachSession.click();
+    await $("button=Added").waitForDisplayed({ timeout: 10_000 });
+
+    const judgment = await $('[data-testid="council-judgment-panel"]');
+    await judgment.waitForDisplayed({ timeout: 10_000 });
+    await expect(judgment).toHaveText(expect.stringContaining("My Judgment"));
+    const markNeedsStudy = await judgment.$("button=Mark needs study");
+    await markNeedsStudy.click();
+    const followUps = await $('[data-testid="council-follow-up-questions"]');
+    await expect(followUps).toHaveText(expect.stringContaining("AI-suggested follow-up questions"));
+    await followUps.$("button=Add question").click();
+    const judgmentTextareas = await judgment.$$("textarea");
+    await judgmentTextareas[0].setValue("I initially expected a single clear answer.");
+    await judgmentTextareas[1].setValue("The evidence made the minority view worth tracking.");
+    await judgmentTextareas[2].setValue("Mock consensus is strongest, but I want to review the exceptions.");
+    await expect(judgmentTextareas[4]).toHaveValue(
+      expect.stringContaining("Needs further study"),
+    );
+    await expect(judgmentTextareas[4]).toHaveValue(
+      expect.stringContaining("How should I resolve this tension"),
+    );
+    const consensusRating = await judgment.$('select[aria-label="User rating for Mock consensus"]');
+    await consensusRating.selectByAttribute("value", "persuasive");
+    const minorityRating = await judgment.$('select[aria-label="User rating for Mock minority"]');
+    await expect(minorityRating).toHaveValue("needs_study");
+    const saveJudgment = await $("button=Save judgment");
+    await saveJudgment.click();
+    await $("button=Saved").waitForDisplayed({ timeout: 10_000 });
+
     const sourceButton = await $("button=View source data");
     await sourceButton.waitForClickable({ timeout: 10_000 });
     await sourceButton.click();
@@ -142,10 +189,40 @@ describe("Council mock workflow", () => {
     const session = await $(`button*=${question}`);
     await session.click();
     await synthesis.waitForDisplayed({ timeout: 10_000 });
+    const restoredJudgment = await $('[data-testid="council-judgment-panel"]');
+    await restoredJudgment.waitForDisplayed({ timeout: 10_000 });
+    await expect(restoredJudgment).toHaveText(
+      expect.stringContaining("Mock consensus is strongest, but I want to review the exceptions."),
+    );
+    const restoredArgumentMaps = await $('[data-testid="council-argument-maps"]');
+    await restoredArgumentMaps.waitForDisplayed({ timeout: 10_000 });
+    const restoredAnnotation = await restoredArgumentMaps.$(
+      'textarea[aria-label="Annotation for Consensus claim"]',
+    );
+    await expect(restoredAnnotation).toHaveValue(
+      expect.stringContaining("This node is persuasive but depends on the first retrieved passage."),
+    );
+
+    const theology = await $("button=Theology");
+    await theology.click();
+    const theologyHeader = await $("h1=Theology");
+    await theologyHeader.waitForDisplayed({ timeout: 10_000 });
+    const body = await $("body");
+    await expect(body).toHaveText(expect.stringContaining(`Council: ${question.slice(0, 60)}`));
+    const copyMarkdown = await $("button=Copy Markdown");
+    await copyMarkdown.click();
+    await $("button=Copied").waitForDisplayed({ timeout: 10_000 });
+
+    const councilAgain = await $("button=Council");
+    await councilAgain.click();
+    const restoredSessionRow = await $(`button*=${question}`);
+    await restoredSessionRow.waitForClickable({ timeout: 10_000 });
+    await restoredSessionRow.click();
 
     const deleteButton = await $(
       `//button[@title="${question}"]/following-sibling::button[@aria-label="Delete session"]`,
     );
+    await deleteButton.scrollIntoView();
     await deleteButton.waitForClickable({ timeout: 10_000 });
     await deleteButton.click();
 

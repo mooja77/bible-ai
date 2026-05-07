@@ -131,7 +131,7 @@ A protocol, not a single prompt. Runs when the user asks a disputed-point questi
 ## Repo layout
 
 ```
-C:\JM Programs\Bible\
+BibleAI/
   docs/
     architecture.md           # this file
     council-protocol.md       # detailed Council prompts, flow, JSON schemas, and audit contract

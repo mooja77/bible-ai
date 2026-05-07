@@ -112,6 +112,42 @@ export interface CouncilEvidenceClassification {
   reasoning: string;
 }
 
+export interface ResearchTrailEvent {
+  id: string;
+  label: string;
+  detail: string;
+  event_type:
+    | "question"
+    | "retrieval"
+    | "evidence"
+    | "voice"
+    | "synthesis"
+    | "judgment"
+    | "limitation";
+  status?: "complete" | "warning" | "error";
+  related_position?: string | null;
+  related_verse_ids?: number[];
+}
+
+export interface ArgumentMapNode {
+  id: string;
+  kind: "claim" | "support" | "challenge" | "assumption" | "weakness" | "question";
+  label: string;
+  detail: string;
+  verse_ids?: number[];
+}
+
+export interface ArgumentMapEdge {
+  from: string;
+  to: string;
+  label?: string;
+}
+
+export interface ArgumentMap {
+  nodes: ArgumentMapNode[];
+  edges: ArgumentMapEdge[];
+}
+
 export interface CouncilPosition {
   label: string;
   weight: number;
@@ -124,6 +160,10 @@ export interface CouncilPosition {
   confidence_rationale?: string;
   cluster_id?: string;
   source_position_labels?: string[];
+  weakest_link?: string;
+  what_would_change_this?: string;
+  interpretive_moves?: string[];
+  argument_map?: ArgumentMap;
 }
 
 export interface CouncilResult {
@@ -134,6 +174,7 @@ export interface CouncilResult {
   confidence: "low" | "medium" | "high";
   confidence_rationale?: string;
   evidence_classification?: CouncilEvidenceClassification[];
+  research_trail?: ResearchTrailEvent[];
 }
 
 export interface CouncilVoice {
@@ -152,6 +193,7 @@ export interface CouncilProviderInfo {
 }
 
 export interface CouncilResponse {
+  session_id?: number;
   synthesis: CouncilResult;
   voices: CouncilVoice[];
   manifest: CouncilProviderInfo[];
@@ -238,6 +280,8 @@ export interface AppSettings {
   google_api_key?: string | null;
   openai_api_key?: string | null;
   anthropic_api_key?: string | null;
+  managed_gateway_url?: string | null;
+  managed_gateway_token?: string | null;
   claude_model?: string | null;
   openai_model?: string | null;
   gemini_model?: string | null;
@@ -275,6 +319,7 @@ export interface SetupDiagnostics {
     google: SetupCheck;
     openai: SetupCheck;
     anthropic: SetupCheck;
+    gateway: SetupCheck;
     ollama: SetupCheck;
   };
 }
@@ -499,6 +544,264 @@ export const getCouncilSession = (id: number) =>
 
 export const deleteCouncilSession = (id: number) =>
   invoke<number>("delete_council_session", { id });
+
+export type PositionUserRating =
+  | "persuasive"
+  | "weak"
+  | "unclear"
+  | "needs_study"
+  | "disagree";
+
+export interface PositionJudgment {
+  position_label: string;
+  user_rating: PositionUserRating;
+  user_weight?: number | null;
+  persuasive_evidence?: string | null;
+  weak_points?: string | null;
+  notes?: string | null;
+}
+
+export interface CouncilJudgment {
+  id?: number | null;
+  council_session_id: number;
+  before_judgment?: string | null;
+  after_judgment?: string | null;
+  personal_conclusion?: string | null;
+  confidence?: number | null;
+  changed_mind_note?: string | null;
+  open_questions?: string | null;
+  position_judgments: PositionJudgment[];
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export const getCouncilJudgment = (councilSessionId: number) =>
+  invoke<CouncilJudgment | null>("get_council_judgment", {
+    councilSessionId,
+  });
+
+export const upsertCouncilJudgment = (judgment: CouncilJudgment) =>
+  invoke<number>("upsert_council_judgment", { judgment });
+
+export const deleteCouncilJudgment = (councilSessionId: number) =>
+  invoke<number>("delete_council_judgment", { councilSessionId });
+
+export const listJudgmentsForWorkspace = (workspaceId: number) =>
+  invoke<CouncilJudgment[]>("list_judgments_for_workspace", { workspaceId });
+
+export interface ArgumentAnnotation {
+  id?: number | null;
+  council_session_id: number;
+  node_id: string;
+  annotation: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export const listArgumentAnnotations = (councilSessionId: number) =>
+  invoke<ArgumentAnnotation[]>("list_argument_annotations", { councilSessionId });
+
+export const upsertArgumentAnnotation = (annotation: ArgumentAnnotation) =>
+  invoke<number>("upsert_argument_annotation", { annotation });
+
+export const deleteArgumentAnnotation = (id: number) =>
+  invoke<number>("delete_argument_annotation", { id });
+
+export interface TheologyTopic {
+  id: number;
+  slug: string;
+  title: string;
+  parent_id?: number | null;
+  summary?: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TheologyConclusion {
+  id?: number | null;
+  topic_id: number;
+  conclusion?: string | null;
+  confidence?: number | null;
+  unresolved_questions?: string | null;
+  changed_over_time?: string | null;
+  updated_at?: string | null;
+}
+
+export interface TheologyPosition {
+  id?: number | null;
+  topic_id: number;
+  label: string;
+  tradition_family?: string | null;
+  summary?: string | null;
+  strengths?: string | null;
+  weaknesses?: string | null;
+  sort_order?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface TheologyLink {
+  id?: number | null;
+  topic_id: number;
+  link_kind:
+    | "verse"
+    | "verse_range"
+    | "workspace_item"
+    | "council_session"
+    | "resource_entry"
+    | "note"
+    | "argument_map";
+  target_id?: number | null;
+  title?: string | null;
+  payload_json?: string | null;
+  created_at?: string | null;
+}
+
+export const listTheologyTopics = () =>
+  invoke<TheologyTopic[]>("list_theology_topics");
+
+export const getTheologyTopic = (id: number) =>
+  invoke<TheologyTopic | null>("get_theology_topic", { id });
+
+export const createTheologyTopic = (
+  title: string,
+  summary?: string | null,
+  parentId?: number | null,
+) =>
+  invoke<number>("create_theology_topic", {
+    title,
+    summary: summary ?? null,
+    parentId: parentId ?? null,
+  });
+
+export const updateTheologyTopic = (topic: TheologyTopic) =>
+  invoke<number>("update_theology_topic", { topic });
+
+export const getTheologyConclusion = (topicId: number) =>
+  invoke<TheologyConclusion | null>("get_theology_conclusion", { topicId });
+
+export const upsertTheologyConclusion = (conclusion: TheologyConclusion) =>
+  invoke<number>("upsert_theology_conclusion", { conclusion });
+
+export const listTheologyPositions = (topicId: number) =>
+  invoke<TheologyPosition[]>("list_theology_positions", { topicId });
+
+export const upsertTheologyPosition = (position: TheologyPosition) =>
+  invoke<number>("upsert_theology_position", { position });
+
+export const listTheologyLinks = (topicId: number) =>
+  invoke<TheologyLink[]>("list_theology_links", { topicId });
+
+export const createTheologyLink = (link: TheologyLink) =>
+  invoke<number>("create_theology_link", { link });
+
+export const deleteTheologyLink = (id: number) =>
+  invoke<number>("delete_theology_link", { id });
+
+export const exportTheologyMarkdown = (
+  topicId?: number | null,
+  includeSubtopics = false,
+) =>
+  invoke<string>("export_theology_markdown", {
+    topicId: topicId ?? null,
+    includeSubtopics,
+  });
+
+export const writeTheologyPdf = (title: string, markdown: string) =>
+  invoke<string>("write_theology_pdf", { title, markdown });
+
+export interface ResourceSource {
+  id?: number | null;
+  slug: string;
+  title: string;
+  source_url?: string | null;
+  license: string;
+  attribution: string;
+  version?: string | null;
+  imported_at?: string | null;
+  metadata_json?: string | null;
+}
+
+export interface ResourceCollection {
+  id?: number | null;
+  source_id: number;
+  slug: string;
+  title: string;
+  kind: string;
+  metadata_json?: string | null;
+}
+
+export interface ResourceEntry {
+  id?: number | null;
+  collection_id: number;
+  source_id?: number | null;
+  source_title?: string | null;
+  collection_title?: string | null;
+  collection_kind?: string | null;
+  ref_value?: string | null;
+  title?: string | null;
+  body: string;
+  search_text?: string | null;
+  payload_json?: string | null;
+  license?: string | null;
+  attribution?: string | null;
+  share_alike_requirements?: string | null;
+}
+
+export const listResourceSources = () =>
+  invoke<ResourceSource[]>("list_resource_sources");
+
+export const listResourceCollections = (sourceId?: number | null) =>
+  invoke<ResourceCollection[]>("list_resource_collections", {
+    sourceId: sourceId ?? null,
+  });
+
+export const searchResources = (
+  query: string,
+  sourceId?: number | null,
+  collectionKind?: string | null,
+  license?: string | null,
+  topicId?: number | null,
+  limit = 30,
+) =>
+  invoke<ResourceEntry[]>("search_resources", {
+    query,
+    sourceId: sourceId ?? null,
+    collectionKind: collectionKind ?? null,
+    license: license ?? null,
+    topicId: topicId ?? null,
+    limit,
+  });
+
+export const getResourceEntry = (id: number) =>
+  invoke<ResourceEntry | null>("get_resource_entry", { id });
+
+export interface GuidedStudySession {
+  id?: number | null;
+  topic_id: number;
+  template_slug: string;
+  focus_question?: string | null;
+  before_response?: string | null;
+  after_response?: string | null;
+  critique?: string | null;
+  review_cards_json?: string | null;
+  completed_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export const getGuidedStudySession = (topicId: number, templateSlug: string) =>
+  invoke<GuidedStudySession | null>("get_guided_study_session", {
+    topicId,
+    templateSlug,
+  });
+
+export const listGuidedStudySessionsForTopic = (topicId: number) =>
+  invoke<GuidedStudySession[]>("list_guided_study_sessions_for_topic", { topicId });
+
+export const upsertGuidedStudySession = (session: GuidedStudySession) =>
+  invoke<number>("upsert_guided_study_session", { session });
 
 // ---------- Highlights ----------
 

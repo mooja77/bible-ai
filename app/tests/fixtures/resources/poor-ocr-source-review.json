@@ -1,0 +1,21 @@
+{
+  "source_title": "Poor OCR Fixture",
+  "source_url": "local OCR fixture",
+  "maintainer": "Bible AI test fixture",
+  "license": "Public Domain",
+  "license_clarity": "clear",
+  "attribution": "Public-domain scanned text fixture used only for OCR rejection tests.",
+  "version": "fixture-ocr-1",
+  "redistribution_permission": true,
+  "modification_rules": "No restrictions for this fixture text.",
+  "share_alike_requirements": "None.",
+  "trademark_restrictions": "None.",
+  "import_format": "OCR text",
+  "reference_compatibility": "References are unstable because OCR has not been corrected.",
+  "known_data_quality_risks": "OCR contains unresolved recognition errors and has not been proofread.",
+  "source_quality": "usable",
+  "ocr_quality": "poor",
+  "decision": "accept",
+  "reviewed_by": "Bible AI fixture",
+  "reviewed_at": "2026-05-06"
+}

@@ -31,7 +31,7 @@ function Section({
 }) {
   return (
     <div>
-      <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">{title}</h3>
+      <h3 className="nav-section-title mb-2">{title}</h3>
       <ul className="space-y-0.5">
         {books.map((book) => (
           <li key={book.id}>
@@ -39,10 +39,10 @@ function Section({
               type="button"
               onClick={() => onSelect(book)}
               className={
-                "w-full text-left px-2 py-1 rounded transition-colors " +
+                "w-full text-left px-2.5 py-1.5 rounded-md transition-colors " +
                 (book.id === selectedBookId
-                  ? "bg-amber-500/20 text-amber-200"
-                  : "hover:bg-neutral-800 text-neutral-200")
+                  ? "bg-amber-500/15 text-amber-100"
+                  : "hover:bg-neutral-800/80 text-neutral-300")
               }
             >
               {book.name}

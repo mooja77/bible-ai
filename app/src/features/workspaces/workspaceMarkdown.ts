@@ -1,4 +1,4 @@
-import type { CouncilResponse, StudyWorkspace } from "../../lib/bible";
+import type { CouncilJudgment, CouncilResponse, StudyWorkspace } from "../../lib/bible";
 import { formatCouncilTransparencyMarkdown } from "../council/councilTransparency";
 
 export function renderWorkspaceMarkdown(workspace: StudyWorkspace): string {
@@ -46,7 +46,37 @@ export function renderWorkspaceMarkdown(workspace: StudyWorkspace): string {
         break;
       case "note":
       case "freeform":
-        lines.push(String(payload.body ?? payload.text ?? "").trim(), "");
+        if (payload.type === "resource_entry") {
+          lines.push(`**Source:** ${payload.source_title ?? "Resource"}`, "");
+          if (payload.collection_title) lines.push(`**Collection:** ${payload.collection_title}`, "");
+          if (payload.license) lines.push(`**License:** ${payload.license}`, "");
+          lines.push(String(payload.body ?? payload.text ?? "").trim(), "");
+          if (payload.attribution) {
+            lines.push("**Attribution:**", "", String(payload.attribution), "");
+          }
+          const shareAlike = resourceShareAlikeRequirements(payload);
+          if (shareAlike) {
+            lines.push("**Share-alike requirements:**", "", shareAlike, "");
+          }
+        } else if (payload.type === "guided_study") {
+          const focusQuestion = String(payload.focus_question ?? "").trim();
+          if (focusQuestion) {
+            lines.push("**Guided study question:**", "", focusQuestion, "");
+          }
+          lines.push(String(payload.body ?? "").trim(), "");
+          const cards = Array.isArray(payload.review_cards) ? payload.review_cards : [];
+          if (cards.length > 0) {
+            lines.push("**Review cards:**", "");
+            for (const card of cards) {
+              const c = asRecord(card);
+              if (!c) continue;
+              lines.push(`- **${String(c.prompt ?? "Review")}:** ${String(c.answer ?? "")}`);
+            }
+            lines.push("");
+          }
+        } else {
+          lines.push(String(payload.body ?? payload.text ?? "").trim(), "");
+        }
         break;
       case "council_result":
       case "council_session":
@@ -76,12 +106,12 @@ export function renderWorkspaceMarkdown(workspace: StudyWorkspace): string {
         lines.push(String(payload.body ?? "").trim(), "");
         break;
       default:
-        lines.push("```json", JSON.stringify(payload, null, 2), "```", "");
+        lines.push("```json", JSON.stringify(sanitizeExportValue(payload), null, 2), "```", "");
         break;
     }
   }
 
-  return lines.join("\n");
+  return sanitizeExportText(lines.join("\n"));
 }
 
 function stripHtml(value: string): string {
@@ -106,6 +136,16 @@ function searchResultsFromPayload(payload: Record<string, unknown>) {
       snippet: typeof item.snippet === "string" ? item.snippet : undefined,
       text: typeof item.text === "string" ? item.text : undefined,
     }));
+}
+
+function resourceShareAlikeRequirements(payload: Record<string, unknown>) {
+  const value =
+    payload.share_alike_requirements ??
+    payload.shareAlikeRequirements ??
+    asRecord(payload.metadata)?.share_alike_requirements;
+  return typeof value === "string" && value.trim() && value.trim() !== "None."
+    ? value.trim()
+    : null;
 }
 
 function appendCouncilSources(lines: string[], payload: Record<string, unknown>) {
@@ -166,6 +206,8 @@ function appendCouncilSources(lines: string[], payload: Record<string, unknown>)
   }
 
   if (response) {
+    appendCouncilJudgment(lines, payload.judgment as CouncilJudgment | undefined);
+    appendArgumentAnnotations(lines, payload.argument_annotations);
     lines.push(
       formatCouncilTransparencyMarkdown(
         response as unknown as CouncilResponse,
@@ -173,6 +215,47 @@ function appendCouncilSources(lines: string[], payload: Record<string, unknown>)
       ),
     );
   }
+}
+
+function appendArgumentAnnotations(lines: string[], value: unknown) {
+  if (!Array.isArray(value) || value.length === 0) return;
+  lines.push("**Argument annotations:**", "");
+  for (const item of value) {
+    const annotation = asRecord(item);
+    if (!annotation) continue;
+    const note = String(annotation.annotation ?? "").trim();
+    if (!note) continue;
+    lines.push(`- **${String(annotation.node_id ?? "node")}:** ${note}`);
+  }
+  lines.push("");
+}
+
+function appendCouncilJudgment(lines: string[], judgment?: CouncilJudgment | null) {
+  if (!judgment) return;
+  lines.push("**My judgment:**", "");
+  if (judgment.before_judgment) {
+    lines.push(`- Before: ${judgment.before_judgment}`);
+  }
+  if (judgment.after_judgment) {
+    lines.push(`- After: ${judgment.after_judgment}`);
+  }
+  if (judgment.personal_conclusion) {
+    lines.push(`- Conclusion: ${judgment.personal_conclusion}`);
+  }
+  if (typeof judgment.confidence === "number") {
+    lines.push(`- Personal confidence: ${judgment.confidence}%`);
+  }
+  if (judgment.changed_mind_note) {
+    lines.push(`- What changed: ${judgment.changed_mind_note}`);
+  }
+  if (judgment.open_questions) {
+    lines.push(`- Open questions: ${judgment.open_questions}`);
+  }
+  for (const position of judgment.position_judgments ?? []) {
+    lines.push(`- ${position.position_label}: ${position.user_rating}`);
+    if (position.notes) lines.push(`  - Notes: ${position.notes}`);
+  }
+  lines.push("");
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -219,4 +302,46 @@ function uniqueRetrievedEvidence(value: unknown) {
     rows.push({ citation, translation_code });
   }
   return rows;
+}
+
+function sanitizeExportValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeExportValue);
+  if (!value || typeof value !== "object") {
+    return typeof value === "string" ? sanitizeExportText(value) : value;
+  }
+  const output: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (isSecretExportKey(key)) {
+      output[key] = "[redacted]";
+    } else {
+      output[key] = sanitizeExportValue(item);
+    }
+  }
+  return output;
+}
+
+function sanitizeExportText(value: string): string {
+  return value
+    .replace(
+      /\b[A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*\s*[:=]\s*[^\s`'"]+/gi,
+      "[redacted secret]",
+    )
+    .replace(
+      /\b(?:google_api_key|openai_api_key|anthropic_api_key|managed_gateway_token)\b/gi,
+      "[redacted setting]",
+    )
+    .replace(/\b[A-Za-z]:\\[^\r\n`*?"<>|]+/g, "[redacted local path]")
+    .replace(/\b\/(?:Users|home|tmp|var|etc)\/[^\s`]+/g, "[redacted local path]");
+}
+
+function isSecretExportKey(key: string) {
+  const lower = key.toLowerCase();
+  return (
+    lower.includes("api_key") ||
+    lower.includes("token") ||
+    lower.includes("secret") ||
+    lower.includes("password") ||
+    lower === "env" ||
+    lower === "environment"
+  );
 }

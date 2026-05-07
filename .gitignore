@@ -6,6 +6,7 @@ app/sidecar/node/
 app/dist/
 app/src-tauri/target/
 app/src-tauri/gen/
+app/release/
 
 # Python
 __pycache__/
@@ -33,6 +34,7 @@ Thumbs.db
 *.m4a
 *.mp3
 *.wav
+Voice *.txt
 
 # E2E debug artifacts
 app/tests/e2e/_debug.*

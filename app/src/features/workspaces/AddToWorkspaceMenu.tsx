@@ -71,14 +71,14 @@ export function AddToWorkspaceMenu({
         type="button"
         onClick={() => setOpen((x) => !x)}
         data-testid={triggerTestId}
-        className="px-2 py-1 text-xs rounded border border-neutral-800 hover:border-neutral-700 text-neutral-300 hover:text-neutral-100"
+        className="btn-secondary px-2 py-1 text-xs"
       >
         {buttonLabel}
       </button>
       {open && (
         <div
           className={
-            "absolute z-30 right-0 w-72 rounded border border-neutral-800 bg-neutral-950 p-3 shadow-xl space-y-3 " +
+            "surface-panel absolute z-30 right-0 w-72 rounded-lg p-3 space-y-3 " +
             (menuPlacement === "top" ? "bottom-full mb-2" : "mt-2")
           }
         >

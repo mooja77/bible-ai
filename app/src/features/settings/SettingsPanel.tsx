@@ -11,12 +11,14 @@ import {
   listModuleEntriesForTopic,
   listModules,
   listModuleTopics,
+  listResourceSources,
   restoreUserSqlite,
   writeUserDataBackup,
   type AppSettings,
   type ModuleEntry,
   type ModuleSummary,
   type ModuleTopic,
+  type ResourceSource,
   type SetupDiagnostics,
   type Translation,
   type UserDataImportStrategy,
@@ -111,6 +113,7 @@ export function SettingsPanel({
   const [moduleTopics, setModuleTopics] = useState<ModuleTopic[]>([]);
   const [topicQuery, setTopicQuery] = useState("");
   const [topicEntries, setTopicEntries] = useState<ModuleEntry[]>([]);
+  const [resourceSources, setResourceSources] = useState<ResourceSource[]>([]);
   const [topicBusy, setTopicBusy] = useState(false);
   const [topicStatus, setTopicStatus] = useState<string | null>(null);
 
@@ -119,9 +122,14 @@ export function SettingsPanel({
   }, [settings]);
 
   const refreshModules = async () => {
-    const [modules, topics] = await Promise.all([listModules(), listModuleTopics()]);
+    const [modules, topics, sources] = await Promise.all([
+      listModules(),
+      listModuleTopics(),
+      listResourceSources(),
+    ]);
     setInstalledModules(modules);
     setModuleTopics(topics);
+    setResourceSources(sources);
     setTopicQuery((current) => current.trim() || topics[0]?.key_value || "");
   };
 
@@ -369,12 +377,26 @@ export function SettingsPanel({
       <header>
         <h1 className="text-2xl font-semibold text-neutral-100">Settings</h1>
         <p className="text-sm text-neutral-500 mt-1">
-          Connect the user's own AI subscriptions, OS-stored provider keys, and reader defaults for this machine.
+          Connect local AI, user-owned subscriptions, managed gateway access, and reader defaults for this machine.
         </p>
       </header>
 
-      <section className="border border-neutral-800 rounded p-4 space-y-4">
+      <section className="surface-panel rounded-lg p-4 space-y-4">
         <h2 className="text-sm uppercase tracking-wider text-neutral-400">Council</h2>
+        <div className="grid md:grid-cols-3 gap-3">
+          <InfoBlock
+            label="No key"
+            value="Use Claude Code login for Claude and synthesis, plus Ollama for local retrieval embeddings."
+          />
+          <InfoBlock
+            label="Personal keys"
+            value="Add Anthropic, OpenAI, or Gemini API keys from the user's own provider accounts."
+          />
+          <InfoBlock
+            label="Managed gateway"
+            value="Point the app at a team/public gateway that owns provider routing and billing."
+          />
+        </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <Field label="Google API key">
             <input
@@ -406,6 +428,26 @@ export function SettingsPanel({
               autoComplete="off"
             />
           </Field>
+          <Field label="Managed gateway URL">
+            <input
+              aria-label="Managed gateway URL"
+              value={draft.managed_gateway_url ?? ""}
+              onChange={(e) => update("managed_gateway_url", e.target.value)}
+              placeholder="https://gateway.example.com"
+              className="settings-input"
+              autoComplete="off"
+            />
+          </Field>
+          <Field label="Managed gateway token">
+            <input
+              aria-label="Managed gateway token"
+              type="password"
+              value={draft.managed_gateway_token ?? ""}
+              onChange={(e) => update("managed_gateway_token", e.target.value)}
+              className="settings-input"
+              autoComplete="off"
+            />
+          </Field>
           <Field label="Claude model">
             <select
               value={draft.claude_model ?? "sonnet"}
@@ -424,7 +466,7 @@ export function SettingsPanel({
               aria-label="Anthropic API model"
               value={draft.anthropic_model ?? ""}
               onChange={(e) => update("anthropic_model", e.target.value)}
-              placeholder="claude-sonnet-4-5"
+              placeholder="claude-sonnet-4-6"
               className="settings-input"
             />
           </Field>
@@ -470,7 +512,7 @@ export function SettingsPanel({
         </div>
       </section>
 
-      <section className="border border-neutral-800 rounded p-4 space-y-4">
+      <section className="surface-panel rounded-lg p-4 space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-sm uppercase tracking-wider text-neutral-400">
@@ -536,6 +578,18 @@ export function SettingsPanel({
             }
           />
           <ProviderStatusCard
+            label="Managed Gateway"
+            configured={hasSettingValue(draft.managed_gateway_url)}
+            status={diagnostics?.checks.gateway.ok}
+            detail={
+              diagnostics
+                ? diagnostics.checks.gateway.error ?? "Gateway health check accepted."
+                : hasSettingValue(draft.managed_gateway_url)
+                  ? "Gateway URL is set; token is stored in the OS credential vault when provided."
+                  : "Optional: use an app-specific gateway instead of direct provider keys."
+            }
+          />
+          <ProviderStatusCard
             label="Ollama"
             configured={hasSettingValue(draft.ollama_host)}
             status={diagnostics?.checks.ollama.ok}
@@ -555,7 +609,7 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("all providers")}
             disabled={checking}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test all providers
           </button>
@@ -563,7 +617,7 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("Anthropic")}
             disabled={checking || !hasSettingValue(draft.anthropic_api_key)}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test Anthropic
           </button>
@@ -571,7 +625,7 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("Google")}
             disabled={checking || !hasSettingValue(draft.google_api_key)}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test Google
           </button>
@@ -579,29 +633,41 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("OpenAI")}
             disabled={checking || !hasSettingValue(draft.openai_api_key)}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test OpenAI
           </button>
           <button
             type="button"
+            onClick={() => void runChecks("Gateway")}
+            disabled={checking || !hasSettingValue(draft.managed_gateway_url)}
+            className="btn-secondary px-3 py-1.5 text-sm"
+          >
+            Test Gateway
+          </button>
+          <button
+            type="button"
             onClick={() => void runChecks("Ollama")}
             disabled={checking}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             Test Ollama
           </button>
         </div>
       </section>
 
-      <section className="border border-neutral-800 rounded p-4 space-y-4">
+      <section className="surface-panel rounded-lg p-4 space-y-4">
         <h2 className="text-sm uppercase tracking-wider text-neutral-400">User Data</h2>
+        <p className="text-xs text-neutral-500">
+          JSON backups include user-authored data and resource source metadata. Provider secrets and
+          imported resource entry bodies are excluded.
+        </p>
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={saveBackup}
             disabled={backupBusy}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             {backupBusy ? "Working..." : "Save backup file"}
           </button>
@@ -609,7 +675,7 @@ export function SettingsPanel({
             type="button"
             onClick={copyBackup}
             disabled={backupBusy}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             Copy backup JSON
           </button>
@@ -631,7 +697,7 @@ export function SettingsPanel({
               type="button"
               onClick={importBackupJson}
               disabled={backupBusy || importText.trim().length === 0}
-              className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+              className="btn-secondary px-3 py-1.5 text-sm"
             >
               Import pasted JSON
             </button>
@@ -651,7 +717,7 @@ export function SettingsPanel({
               type="button"
               onClick={saveSqliteBackup}
               disabled={backupBusy}
-              className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+              className="btn-secondary px-3 py-1.5 text-sm"
             >
               Backup SQLite
             </button>
@@ -677,7 +743,7 @@ export function SettingsPanel({
             type="button"
             onClick={installSampleModule}
             disabled={moduleBusy}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             {moduleBusy ? "Installing..." : "Install sample module"}
           </button>
@@ -685,7 +751,7 @@ export function SettingsPanel({
             type="button"
             onClick={installJsonlModule}
             disabled={moduleBusy}
-            className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+            className="btn-secondary px-3 py-1.5 text-sm"
           >
             Import JSONL sample
           </button>
@@ -759,7 +825,7 @@ export function SettingsPanel({
               type="button"
               onClick={browseTopic}
               disabled={topicBusy || topicQuery.trim().length === 0}
-              className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+              className="btn-secondary px-3 py-1.5 text-sm"
             >
               {topicBusy ? "Opening..." : "Open topic"}
             </button>
@@ -799,7 +865,7 @@ export function SettingsPanel({
       </section>
 
       <section
-        className="border border-neutral-800 rounded p-4 space-y-4"
+        className="surface-panel rounded-lg p-4 space-y-4"
         data-testid="data-sources-screen"
       >
         <div>
@@ -817,7 +883,10 @@ export function SettingsPanel({
                 <p className="text-sm text-neutral-200">
                   {translation.code} · {translation.name}
                 </p>
-                <span className="text-xs text-neutral-500">{translation.kind}</span>
+                <div className="flex items-center gap-2">
+                  <SourceStatusBadge status="bundled" />
+                  <span className="text-xs text-neutral-500">{translation.kind}</span>
+                </div>
               </div>
               <p className="text-xs text-neutral-500 mt-0.5">
                 {translation.language}
@@ -827,6 +896,49 @@ export function SettingsPanel({
             </li>
           ))}
         </ul>
+        {resourceSources.length > 0 && (
+          <div className="border-t border-neutral-800 pt-3">
+            <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+              Open Resource Library
+            </h3>
+            <ul className="grid gap-2">
+              {resourceSources.map((source) => {
+                const metadata = resourceSourceMetadata(source);
+                return (
+                  <li key={source.id ?? source.slug} className="border border-neutral-900 rounded px-3 py-2">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="text-sm text-neutral-200">{source.title}</p>
+                      <div className="flex items-center gap-2">
+                        <SourceStatusBadge status={resourceSourceStatus(source)} />
+                        <span className="text-xs text-neutral-500">{source.license}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-neutral-600 mt-0.5">
+                      {source.version ? `Version ${source.version}` : "No version recorded"}
+                      {source.source_url ? ` · ${source.source_url}` : ""}
+                    </p>
+                    <p className="text-xs text-neutral-500 mt-1">{source.attribution}</p>
+                    {metadata.review && (
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Review: {metadata.review}
+                      </p>
+                    )}
+                    {metadata.redistribution && (
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Redistribution: {metadata.redistribution}
+                      </p>
+                    )}
+                    {metadata.shareAlike && (
+                      <p className="text-xs text-amber-200 mt-1">
+                        Share-alike: {metadata.shareAlike}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
         <div className="border-t border-neutral-800 pt-3">
           <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
             Candidate Sources
@@ -836,7 +948,10 @@ export function SettingsPanel({
               <li key={source.name} className="border border-neutral-900 rounded px-3 py-2">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="text-sm text-neutral-200">{source.name}</p>
-                  <span className="text-xs text-amber-300">{source.status}</span>
+                  <div className="flex items-center gap-2">
+                    <SourceStatusBadge status="deferred" />
+                    <span className="text-xs text-amber-300">{source.status}</span>
+                  </div>
                 </div>
                 <p className="text-xs text-neutral-500 mt-1">{source.detail}</p>
               </li>
@@ -846,7 +961,7 @@ export function SettingsPanel({
       </section>
 
       <section
-        className="border border-neutral-800 rounded p-4 space-y-4"
+        className="surface-panel rounded-lg p-4 space-y-4"
         data-testid="license-attribution-screen"
       >
         <div>
@@ -890,7 +1005,7 @@ export function SettingsPanel({
       </section>
 
       <section
-        className="border border-neutral-800 rounded p-4 space-y-4"
+        className="surface-panel rounded-lg p-4 space-y-4"
         data-testid="about-distribution-screen"
       >
         <div>
@@ -924,7 +1039,7 @@ export function SettingsPanel({
           type="button"
           onClick={submit}
           disabled={saving}
-          className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 disabled:bg-neutral-800 disabled:text-neutral-600 border border-amber-500/40 disabled:border-neutral-800 rounded text-sm text-amber-100 transition-colors"
+          className="btn-primary px-3 py-1.5 text-sm"
         >
           {saving ? "Saving..." : "Save settings"}
         </button>
@@ -932,7 +1047,7 @@ export function SettingsPanel({
           type="button"
           onClick={() => void runChecks("setup")}
           disabled={checking}
-          className="px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-700 disabled:text-neutral-600 text-sm text-neutral-200"
+          className="btn-secondary px-3 py-1.5 text-sm"
         >
           {checking ? "Checking..." : "Test setup"}
         </button>
@@ -940,7 +1055,7 @@ export function SettingsPanel({
       </div>
 
       {(diagnostics || diagnosticError) && (
-        <section className="border border-neutral-800 rounded p-4 space-y-3">
+        <section className="surface-panel rounded-lg p-4 space-y-3">
           <h2 className="text-sm uppercase tracking-wider text-neutral-400">Diagnostics</h2>
           {diagnosticError ? (
             <p className="text-sm text-red-300">{diagnosticError}</p>
@@ -965,6 +1080,11 @@ export function SettingsPanel({
                 label="Anthropic"
                 ok={diagnostics.checks.anthropic.ok}
                 detail={diagnostics.checks.anthropic.error ?? "API key accepted"}
+              />
+              <DiagnosticRow
+                label="Managed Gateway"
+                ok={diagnostics.checks.gateway.ok}
+                detail={diagnostics.checks.gateway.error ?? "Gateway health check accepted"}
               />
               <DiagnosticRow
                 label="Ollama"
@@ -1025,8 +1145,75 @@ function readString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readJsonRecord(value: string | null | undefined) {
+  if (!value?.trim()) return {};
+  try {
+    return readRecord(JSON.parse(value));
+  } catch {
+    return {};
+  }
+}
+
+type DataSourceStatus = "bundled" | "user-imported" | "deferred";
+
+function resourceSourceStatus(source: ResourceSource): DataSourceStatus {
+  const metadata = readJsonRecord(source.metadata_json);
+  const nested = readRecord(metadata.metadata);
+  const raw =
+    readString(metadata.source_status) ??
+    readString(nested.source_status) ??
+    readString(metadata.source_type) ??
+    readString(nested.source_type);
+  const normalized = raw?.toLowerCase().replace(/_/g, "-");
+  if (normalized === "bundled" || normalized === "built-in") return "bundled";
+  if (normalized === "deferred") return "deferred";
+  if (source.source_url?.toLowerCase().includes("built-in")) return "bundled";
+  return "user-imported";
+}
+
+function resourceSourceMetadata(source: ResourceSource) {
+  const metadata = readJsonRecord(source.metadata_json);
+  const nested = readRecord(metadata.metadata);
+  const shareAlike =
+    readString(metadata.share_alike_requirements) ??
+    readString(metadata.shareAlikeRequirements) ??
+    readString(nested.share_alike_requirements) ??
+    readString(nested.shareAlikeRequirements);
+  return {
+    review:
+      readString(metadata.source_review) ??
+      readString(metadata.review) ??
+      readString(nested.source_review) ??
+      readString(nested.review),
+    redistribution:
+      readString(metadata.redistribution) ??
+      readString(metadata.redistribution_permission) ??
+      readString(nested.redistribution) ??
+      readString(nested.redistribution_permission),
+    shareAlike: shareAlike && shareAlike !== "None." ? shareAlike : null,
+  };
+}
+
 function hasSettingValue(value: string | null | undefined) {
   return Boolean(value?.trim());
+}
+
+function SourceStatusBadge({ status }: { status: DataSourceStatus }) {
+  const label =
+    status === "bundled" ? "Bundled" : status === "deferred" ? "Deferred" : "User-imported";
+  const tone =
+    status === "bundled"
+      ? "bg-emerald-500/15 text-emerald-300"
+      : status === "deferred"
+        ? "bg-amber-500/15 text-amber-300"
+        : "bg-sky-500/15 text-sky-300";
+  return <span className={`text-[11px] px-2 py-0.5 rounded ${tone}`}>{label}</span>;
 }
 
 function ProviderStatusCard({
@@ -1043,7 +1230,7 @@ function ProviderStatusCard({
   const state =
     status === undefined ? (configured ? "configured" : "missing") : status ? "ok" : "check";
   return (
-    <div className="border border-neutral-900 rounded px-3 py-2">
+    <div className="soft-card px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-neutral-200">{label}</p>
         <span
@@ -1068,7 +1255,7 @@ function ProviderStatusCard({
 
 function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-neutral-900 rounded px-3 py-2">
+    <div className="soft-card px-3 py-2">
       <p className="text-xs uppercase tracking-wider text-neutral-500">{label}</p>
       <p className="text-sm text-neutral-300 mt-1">{value}</p>
     </div>

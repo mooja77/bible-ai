@@ -12,6 +12,19 @@ This document maps the roadmap into concrete application work for the current Ta
 - Frontend command wrappers live in `app/src/lib/bible.ts`.
 - The Node sidecar in `app/sidecar` handles Council/provider workflows.
 - The packaged app bundles `app/sidecar`, including `sidecar/node/node.exe`.
+- macOS packaging uses the same sidecar directory, but the bundled runtime must live at `sidecar/node/bin/node`; see [`macos-distribution-plan.md`](macos-distribution-plan.md).
+
+## Learning And Theology Extension
+
+The implementation plan for the next product arc lives in [`learning-technical-implementation.md`](learning-technical-implementation.md).
+
+That plan extends this architecture with:
+
+- Council human judgment commands and UI.
+- Research trail and argument map payloads from the sidecar.
+- Theology topic/link/conclusion commands.
+- Open resource search and source attribution commands.
+- Export integration for user-authored conclusions and source attribution.
 
 ## Cross-Cutting Rules
 

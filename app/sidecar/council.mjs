@@ -64,11 +64,75 @@ async function synthesise({ question, successfulVoices, model, env }) {
   return parseResponse(rawText, "Synthesis");
 }
 
+function citationFromEvidenceRow(row, reason) {
+  return {
+    verse_id: row.verse_id,
+    citation: `${row.book_name} ${row.chapter}:${row.verse}`,
+    translation_code: row.translation_code,
+    quote: row.text,
+    reasoning: reason,
+  };
+}
+
+function collectArgumentMapVerseIds(position) {
+  const nodes = Array.isArray(position?.argument_map?.nodes)
+    ? position.argument_map.nodes
+    : [];
+  return nodes.flatMap((node) =>
+    Array.isArray(node?.verse_ids) ? node.verse_ids : [],
+  );
+}
+
+function ensurePositionEvidence(synthesis, evidence) {
+  if (!synthesis || !Array.isArray(synthesis.positions)) return synthesis;
+  const evidenceById = new Map(
+    evidence
+      .filter((row) => Number.isSafeInteger(Number(row?.verse_id)))
+      .map((row) => [Number(row.verse_id), row]),
+  );
+  for (const position of synthesis.positions) {
+    if (Array.isArray(position.evidence) && position.evidence.length > 0) continue;
+    const candidateIds = [
+      ...(Array.isArray(position.supporting_evidence_ids)
+        ? position.supporting_evidence_ids
+        : []),
+      ...(Array.isArray(position.challenging_evidence_ids)
+        ? position.challenging_evidence_ids
+        : []),
+      ...collectArgumentMapVerseIds(position),
+    ];
+    const seen = new Set();
+    const recovered = [];
+    for (const rawId of candidateIds) {
+      const id = Number(rawId);
+      if (!Number.isSafeInteger(id) || seen.has(id)) continue;
+      seen.add(id);
+      const row = evidenceById.get(id);
+      if (!row) continue;
+      recovered.push(
+        citationFromEvidenceRow(
+          row,
+          "Recovered from the synthesis verse-id trail so this position remains visibly auditable.",
+        ),
+      );
+      if (recovered.length >= 3) break;
+    }
+    if (recovered.length > 0) {
+      position.evidence = recovered;
+    }
+  }
+  return synthesis;
+}
+
 function envWithSettings(settings = {}) {
   const env = { ...process.env };
   if (settings.google_api_key) env.GOOGLE_API_KEY = settings.google_api_key;
   if (settings.openai_api_key) env.OPENAI_API_KEY = settings.openai_api_key;
   if (settings.anthropic_api_key) env.ANTHROPIC_API_KEY = settings.anthropic_api_key;
+  if (settings.managed_gateway_url) env.MANAGED_GATEWAY_URL = settings.managed_gateway_url;
+  if (settings.managed_gateway_token) {
+    env.MANAGED_GATEWAY_TOKEN = settings.managed_gateway_token;
+  }
   if (settings.openai_model) env.OPENAI_MODEL = settings.openai_model;
   if (settings.gemini_model) env.GEMINI_MODEL = settings.gemini_model;
   if (settings.anthropic_model) env.ANTHROPIC_MODEL = settings.anthropic_model;
@@ -102,6 +166,43 @@ function mockCouncilResult({ question, evidence, model }) {
       "Mock mode caps this position below total certainty because a visible minority reading is preserved for comparison.",
     confidence_rationale:
       "Mock mode is deterministic and the cited evidence is intentionally simple, so confidence is high for test coverage rather than theological certainty.",
+    weakest_link:
+      "The mock consensus depends on one leading retrieved verse, so the argument is intentionally narrow.",
+    what_would_change_this:
+      "A larger set of directly conflicting passages would reduce the consensus weight in the mock result.",
+    interpretive_moves: [
+      "Treats the first retrieved passage as the clearest direct evidence.",
+      "Keeps a minority position visible rather than collapsing the disagreement.",
+    ],
+    argument_map: {
+      nodes: [
+        {
+          id: "mock-consensus-claim",
+          kind: "claim",
+          label: "Consensus claim",
+          detail: "The leading mock position follows the clearest retrieved citation.",
+          verse_ids: [first.verse_id ?? 1001001],
+        },
+        {
+          id: "mock-consensus-support",
+          kind: "support",
+          label: "Primary support",
+          detail: "The first retrieved verse is cited directly and receives the strongest visible support.",
+          verse_ids: [first.verse_id ?? 1001001],
+        },
+        {
+          id: "mock-consensus-weakness",
+          kind: "weakness",
+          label: "Visible weakness",
+          detail: "The argument is capped because the mock minority still has inspectable evidence.",
+          verse_ids: [second.verse_id ?? first.verse_id ?? 1001001],
+        },
+      ],
+      edges: [
+        { from: "mock-consensus-support", to: "mock-consensus-claim", label: "supports" },
+        { from: "mock-consensus-weakness", to: "mock-consensus-claim", label: "limits" },
+      ],
+    },
     cluster_id: "mock-consensus",
     source_position_labels: ["Mock consensus"],
     evidence: [
@@ -124,6 +225,43 @@ function mockCouncilResult({ question, evidence, model }) {
       "The minority view receives less weight because mock mode gives it fewer direct citations and less voice support.",
     confidence_rationale:
       "The minority view is retained for auditability but has limited support in the deterministic mock response.",
+    weakest_link:
+      "The minority view has fewer direct citations and receives lower support in the mock voice matrix.",
+    what_would_change_this:
+      "More direct support from retrieved evidence or another voice would increase the minority weight.",
+    interpretive_moves: [
+      "Uses a complicating verse to keep disagreement visible.",
+      "Treats lower evidence density as a reason for reduced weight.",
+    ],
+    argument_map: {
+      nodes: [
+        {
+          id: "mock-minority-claim",
+          kind: "claim",
+          label: "Minority claim",
+          detail: "A lower-weighted position remains visible for comparison.",
+          verse_ids: [second.verse_id ?? first.verse_id ?? 1001001],
+        },
+        {
+          id: "mock-minority-support",
+          kind: "support",
+          label: "Minority support",
+          detail: "The second retrieved passage is retained as minority support.",
+          verse_ids: [second.verse_id ?? first.verse_id ?? 1001001],
+        },
+        {
+          id: "mock-minority-challenge",
+          kind: "challenge",
+          label: "Challenge",
+          detail: "The leading citation is stronger in the deterministic mock result.",
+          verse_ids: [first.verse_id ?? 1001001],
+        },
+      ],
+      edges: [
+        { from: "mock-minority-support", to: "mock-minority-claim", label: "supports" },
+        { from: "mock-minority-challenge", to: "mock-minority-claim", label: "challenges" },
+      ],
+    },
     cluster_id: "mock-minority",
     source_position_labels: ["Mock minority"],
     evidence: [
@@ -148,6 +286,53 @@ function mockCouncilResult({ question, evidence, model }) {
     confidence_rationale:
       "Mock mode has high operational confidence because all values are deterministic and designed to exercise the visible audit workflow.",
     evidence_classification: evidenceClassification,
+    research_trail: [
+      {
+        id: "mock-question",
+        label: "Question framed",
+        detail: `The Council received the question: ${question}`,
+        event_type: "question",
+        status: "complete",
+        related_position: null,
+        related_verse_ids: [],
+      },
+      {
+        id: "mock-retrieval",
+        label: "Evidence retrieved",
+        detail: `${evidence.length} candidate evidence rows were passed to the mock Council.`,
+        event_type: "retrieval",
+        status: "complete",
+        related_position: null,
+        related_verse_ids: evidence.map((item) => item.verse_id).filter(Boolean),
+      },
+      {
+        id: "mock-evidence-classification",
+        label: "Evidence classified",
+        detail: "Mock mode classified used, conflicting, and ignored evidence so the audit views can be tested.",
+        event_type: "evidence",
+        status: "complete",
+        related_position: null,
+        related_verse_ids: evidenceClassification.map((item) => item.verse_id),
+      },
+      {
+        id: "mock-synthesis",
+        label: "Positions weighted",
+        detail: "The synthesis preserved a 75/25 split and exposed why the leading argument ranked higher.",
+        event_type: "synthesis",
+        status: "complete",
+        related_position: "Mock consensus",
+        related_verse_ids: [first.verse_id ?? 1001001],
+      },
+      {
+        id: "mock-limitation",
+        label: "Limitation retained",
+        detail: "The result is deterministic test output, not a real theological conclusion.",
+        event_type: "limitation",
+        status: "warning",
+        related_position: null,
+        related_verse_ids: [],
+      },
+    ],
   };
   return {
     synthesis: result,
@@ -218,6 +403,7 @@ export async function runCouncil({ question, evidence, model, settings }) {
       synthesis = ok[0].result;
     }
   }
+  synthesis = ensurePositionEvidence(synthesis, evidence);
 
   return {
     synthesis,

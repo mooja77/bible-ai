@@ -199,6 +199,32 @@ Before a release:
 - Confirm user settings persist after app restart.
 - Confirm uninstall/reinstall does not unexpectedly delete user data unless requested.
 
+## Public Release Gate
+
+Public release requires both automated build verification and machine-readable evidence for the externally manual gates:
+
+- `app/tests/fixtures/council-real-results.json` must contain a non-mock Council QA run with at least 20 completed questions and at least two successful non-mock providers per question.
+- `app/release/manual-release-gates.json` must be completed from a separate clean Windows profile or VM and must verify first launch, provider setup, Council, export, backup/restore, and credential-vault behavior.
+- `npm run qa:public-release:verify` must pass from `app/`.
+
+Use these commands while preparing the release:
+
+```powershell
+npm run qa:real-council:verify
+npm run qa:manual-gates:template
+npm run qa:manual-gates:collect
+npm run qa:manual-gates:package
+npm run qa:manual-gates:package:verify
+npm run qa:manual-gates:verify
+npm run qa:public-release:verify
+```
+
+For cleaner handoff to another Windows profile or VM, run `npm run qa:manual-gates:package` and copy `app/src-tauri/target/release/manual-qa-package`. The package contains the NSIS/MSI artifacts, release hashes, the sanitized collector, and `RUN-MANUAL-QA.ps1`.
+
+The collector must be run from the clean Windows profile or VM after the manual checklist passes. It writes sanitized evidence, checks credential target presence without reading credential values, and scans the profile SQLite file for sensitive provider-secret signals.
+
+The combined gate is expected to fail until the real-provider fixture and clean-profile evidence file are both present and valid. Do not mark the public release gate complete from source edits alone.
+
 ## Installer Resource Checks
 
 After `npm run release:build`, confirm release output contains:
@@ -243,6 +269,26 @@ Clean-profile install smoke:
 
 For a faster pre-install startup check, run `npm run release:smoke`. It launches the release `app.exe` from `target/release` with temporary `APPDATA` and `LOCALAPPDATA`, waits 8 seconds, then terminates it.
 
+## macOS Distribution Gate
+
+macOS distribution is tracked separately from the Windows NSIS/MSI gate. The full plan is in [`macos-distribution-plan.md`](macos-distribution-plan.md).
+
+On a macOS build host, run:
+
+```bash
+cd app
+npm run macos:release:build
+```
+
+The macOS gate requires:
+
+- Darwin sidecar runtime at `app/sidecar/node/bin/node`.
+- macOS-native sidecar dependencies installed by `npm run macos:sidecar:prepare`.
+- Tauri `.app` and `.dmg` artifacts.
+- `npm run macos:release:check` passing.
+- Clean macOS profile QA for first launch, Keychain credential storage, Council, export, backup, and restore.
+- Signing and notarization before public distribution.
+
 ## Risks to Watch
 
 - WebDriver stale element warnings after navigation. Prefer robust wait conditions.
@@ -267,3 +313,15 @@ The release-readiness E2E spec restores the fixture workspace and opens the prov
 ## Real-Provider QA Gate
 
 Before public release, run the question bank in `docs/council-real-world-qa.md` with mock mode disabled and non-mock providers configured. Save weak outputs as additional fixtures before prompt tuning so regressions remain reproducible.
+
+## Learning And Theology Extension
+
+Detailed verification gates for phases 14-19 are in [`learning-testing-and-release-plan.md`](learning-testing-and-release-plan.md).
+
+Release readiness for the learning/theology arc requires:
+
+- Human judgment create/edit/restore/export coverage.
+- Research Trail and argument map fallback coverage.
+- Theology topic/link/conclusion/export coverage.
+- Resource import, source attribution, and export attribution coverage.
+- Manual review that AI output and user-authored conclusions are visually distinct.

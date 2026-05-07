@@ -5,13 +5,16 @@ import {
   getCrossRefs,
   getNote,
   addBookmark,
+  createTheologyLink,
   explainPassage,
   listModuleEntriesForVerse,
+  listTheologyTopics,
   upsertHighlight,
   upsertNote,
   type ModuleEntry,
   type PassageExplanation,
   type CrossRef,
+  type TheologyTopic,
 } from "../../lib/bible";
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
 
@@ -61,6 +64,9 @@ export function VersePanel({
   const [explanation, setExplanation] = useState<PassageExplanation | null>(null);
   const [explaining, setExplaining] = useState(false);
   const [moduleEntries, setModuleEntries] = useState<ModuleEntry[]>([]);
+  const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
+  const [theologyTopicId, setTheologyTopicId] = useState<number | null>(null);
+  const [theologyLinkStatus, setTheologyLinkStatus] = useState("");
   const citation = `${bookName} ${chapter}:${verse}`;
 
   useEffect(() => {
@@ -69,8 +75,40 @@ export function VersePanel({
       .catch(() => setModuleEntries([]));
   }, [verseId]);
 
+  useEffect(() => {
+    listTheologyTopics()
+      .then((topics) => {
+        setTheologyTopics(topics);
+        setTheologyTopicId((current) => current ?? topics[0]?.id ?? null);
+      })
+      .catch(() => setTheologyTopics([]));
+  }, []);
+
+  const addVerseToTheology = async () => {
+    if (!theologyTopicId) return;
+    setTheologyLinkStatus("Saving...");
+    try {
+      await createTheologyLink({
+        topic_id: theologyTopicId,
+        link_kind: "verse",
+        target_id: verseId,
+        title: citation,
+        payload_json: JSON.stringify({
+          verse_id: verseId,
+          citation,
+          translation_code: translationCode,
+          text: verseText,
+        }),
+      });
+      const topic = theologyTopics.find((item) => item.id === theologyTopicId);
+      setTheologyLinkStatus(`Linked to ${topic?.title ?? "Theology"}`);
+    } catch (e) {
+      setTheologyLinkStatus(String(e));
+    }
+  };
+
   return (
-    <aside className="border-t border-neutral-800 bg-neutral-950/40 px-6 py-4 mt-6">
+    <aside className="soft-card px-6 py-4 mt-6">
       <header className="flex items-baseline justify-between mb-3">
         <h3 className="text-sm uppercase tracking-wider text-neutral-400">
           Verse <span className="text-amber-300">{citation}</span>
@@ -142,7 +180,34 @@ export function VersePanel({
             text: verseText,
           }}
         />
+        {theologyTopics.length > 0 && (
+          <>
+            <select
+              value={theologyTopicId ?? ""}
+              onChange={(e) => setTheologyTopicId(Number(e.target.value))}
+              aria-label="Theology topic for selected verse"
+              className="settings-input h-7 max-w-44 text-xs"
+            >
+              {theologyTopics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.title}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addVerseToTheology}
+              disabled={!theologyTopicId}
+              className="px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-900 rounded"
+            >
+              Add to Theology
+            </button>
+          </>
+        )}
       </div>
+      {theologyLinkStatus && (
+        <p className="mb-3 text-xs text-neutral-500">{theologyLinkStatus}</p>
+      )}
 
       {tab === "refs" && <CrossRefsTab verseId={verseId} onJumpToVerse={onJumpToVerse} />}
       {tab === "highlight" && (

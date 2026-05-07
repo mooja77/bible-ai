@@ -279,7 +279,51 @@ export function formatCouncilTransparencyMarkdown(
   }
   lines.push("");
 
+  appendResearchTrailMarkdown(lines, response);
+  appendArgumentMapsMarkdown(lines, response);
+
   return lines.join("\n");
+}
+
+function appendResearchTrailMarkdown(lines: string[], response: CouncilResponse) {
+  const trail = response.synthesis.research_trail ?? [];
+  if (trail.length === 0) return;
+  lines.push("## Research Trail", "");
+  for (const event of trail) {
+    const status = event.status ? ` (${event.status})` : "";
+    lines.push(`- **${event.label}**${status}: ${event.detail}`);
+  }
+  lines.push("");
+}
+
+function appendArgumentMapsMarkdown(lines: string[], response: CouncilResponse) {
+  const positions = response.synthesis.positions.filter(
+    (position) =>
+      position.argument_map?.nodes?.length ||
+      position.weakest_link ||
+      position.what_would_change_this ||
+      position.interpretive_moves?.length,
+  );
+  if (positions.length === 0) return;
+  lines.push("## Argument Maps", "");
+  for (const position of positions) {
+    lines.push(`### ${position.label}`, "");
+    if (position.weakest_link) {
+      lines.push(`**Weakest link:** ${position.weakest_link}`, "");
+    }
+    if (position.what_would_change_this) {
+      lines.push(`**What would change this:** ${position.what_would_change_this}`, "");
+    }
+    if (position.interpretive_moves?.length) {
+      lines.push("**Interpretive moves:**");
+      for (const move of position.interpretive_moves) lines.push(`- ${move}`);
+      lines.push("");
+    }
+    for (const node of position.argument_map?.nodes ?? []) {
+      lines.push(`- **${node.kind}: ${node.label}** — ${node.detail}`);
+    }
+    lines.push("");
+  }
 }
 
 export function countEvidenceClassifications(

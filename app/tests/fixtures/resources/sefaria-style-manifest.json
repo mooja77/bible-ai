@@ -1,0 +1,20 @@
+{
+  "slug": "sefaria-style-fixture",
+  "title": "Sefaria-Style Public-Domain Fixture",
+  "source_url": "local fixture",
+  "license": "Public Domain",
+  "attribution": "Local test fixture using Sefaria-style dump shape; not a Sefaria text export.",
+  "version": "fixture-1",
+  "redistribution_permission": true,
+  "collections": [
+    {
+      "slug": "rabbinic-fixture",
+      "title": "Rabbinic Fixture",
+      "kind": "historical_theology"
+    }
+  ],
+  "metadata": {
+    "source_status": "user-imported",
+    "sefaria_license_review": true
+  }
+}

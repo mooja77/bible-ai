@@ -330,3 +330,16 @@ Import behavior:
 - JSON payloads should be validated at command boundaries before insert/update.
 - Destructive restore must create a timestamped backup first.
 - Module imports must include license metadata.
+
+## Learning And Theology Extension
+
+Detailed schema for phases 14-19 is in [`learning-data-model.md`](learning-data-model.md).
+
+The extension adds:
+
+- Council judgment tables.
+- Position-level user rating tables.
+- Argument annotation tables.
+- Theology topic, position, conclusion, and link tables.
+- Resource source, collection, entry, and FTS tables.
+- Backup/restore rules for user-authored learning data.

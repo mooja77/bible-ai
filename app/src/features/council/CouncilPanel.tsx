@@ -1,11 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   askCouncil,
+  createTheologyLink,
+  getCouncilJudgment,
   getCouncilSession,
+  listArgumentAnnotations,
   listCouncilSessions,
+  listTheologyTopics,
+  upsertArgumentAnnotation,
+  upsertCouncilJudgment,
+  type ArgumentAnnotation,
+  type ArgumentMap,
+  type ArgumentMapNode,
   type CouncilResult,
   type CouncilPosition,
+  type CouncilJudgment,
+  type PositionJudgment,
+  type PositionUserRating,
   type CouncilResponse,
+  type ResearchTrailEvent,
   type CouncilVoice,
   type CouncilProviderInfo,
   type CouncilSessionSummary,
@@ -14,6 +27,7 @@ import {
   type Translation,
   type Testament,
   type RetrievedEvidence,
+  type TheologyTopic,
 } from "../../lib/bible";
 import { CouncilHistory } from "./CouncilHistory";
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
@@ -43,6 +57,11 @@ interface Props {
   settings?: AppSettings;
 }
 
+interface FollowUpQuestion {
+  question: string;
+  source: string;
+}
+
 export function CouncilPanel({
   onJumpToVerse,
   books,
@@ -54,6 +73,7 @@ export function CouncilPanel({
   settings,
 }: Props) {
   const [question, setQuestion] = useState("");
+  const [startingView, setStartingView] = useState("");
   const [response, setResponse] = useState<CouncilResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +86,9 @@ export function CouncilPanel({
   const [bookId, setBookId] = useState(0);
   const [evidenceLimit, setEvidenceLimit] = useState(60);
   const [selectedPositionLabel, setSelectedPositionLabel] = useState<string | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [judgment, setJudgment] = useState<CouncilJudgment | null>(null);
+  const [argumentAnnotations, setArgumentAnnotations] = useState<ArgumentAnnotation[]>([]);
 
   const refreshSessions = useCallback(() => {
     listCouncilSessions(30)
@@ -90,6 +113,8 @@ export function CouncilPanel({
     if (restoredResult) {
       setQuestion(restoredResult.question);
       setResponse(restoredResult.response);
+      setActiveSessionId(restoredResult.response.session_id ?? null);
+      setJudgment(readPayloadJudgment(restoredResult.response));
       setError(null);
       onRestoredResultConsumed?.();
     }
@@ -109,7 +134,10 @@ export function CouncilPanel({
     const q = question.trim();
     if (!q) return;
     setError(null);
-    setResponse(null);
+      setResponse(null);
+      setActiveSessionId(null);
+      setJudgment(null);
+      setArgumentAnnotations([]);
     setLoading(true);
     try {
       const r = await askCouncil(q, undefined, {
@@ -121,6 +149,15 @@ export function CouncilPanel({
         evidence_limit: evidenceLimit,
       });
       setResponse(r);
+      setActiveSessionId(r.session_id ?? null);
+      if (r.session_id && startingView.trim()) {
+        const initialJudgment = {
+          ...createEmptyJudgment(r.session_id, r),
+          before_judgment: startingView.trim(),
+        };
+        await upsertCouncilJudgment(initialJudgment);
+        setJudgment(initialJudgment);
+      }
       refreshSessions();
     } catch (e) {
       setError(String(e));
@@ -135,6 +172,9 @@ export function CouncilPanel({
       if (stored) {
         setQuestion(stored.question);
         setResponse(stored.response);
+        setActiveSessionId(stored.id);
+        setJudgment(null);
+        setArgumentAnnotations([]);
         setSelectedPositionLabel(null);
         setError(null);
       }
@@ -144,19 +184,20 @@ export function CouncilPanel({
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-      <header>
+    <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <header className="surface-panel rounded-lg px-5 py-4">
         <h1 className="text-2xl font-semibold text-neutral-100">The Council</h1>
         <p className="text-sm text-neutral-500 mt-1">
-          Ask a disputed theological question. Available voices (Claude, Gemini, OpenAI)
+          Ask a disputed theological question. Available voices
           each analyse independently; Claude synthesises. Minority views are preserved.
         </p>
       </header>
 
-      <div className="space-y-2">
+      <div className="surface-panel rounded-lg p-4 space-y-3">
         <textarea
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
+          aria-label="Council question"
           onKeyDown={(e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
               e.preventDefault();
@@ -165,7 +206,7 @@ export function CouncilPanel({
           }}
           placeholder="e.g. Should women hold leadership positions in the church?"
           rows={3}
-          className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/50 resize-y"
+          className="settings-input min-h-28 resize-y"
         />
         <div className="flex items-center justify-between">
           <p className="text-xs text-neutral-500">Ctrl/⌘+Enter to submit</p>
@@ -173,11 +214,23 @@ export function CouncilPanel({
             type="button"
             onClick={onAsk}
             disabled={loading || !question.trim()}
-            className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 disabled:bg-neutral-800 disabled:text-neutral-600 border border-amber-500/40 disabled:border-neutral-800 rounded text-sm text-amber-100 transition-colors"
+            className="btn-primary px-3 py-1.5 text-sm"
           >
             {loading ? `Thinking… ${elapsed}s` : "Ask the Council"}
           </button>
         </div>
+        <label className="block space-y-1">
+          <span className="text-xs uppercase tracking-wider text-neutral-500">
+            My starting view before AI
+          </span>
+          <textarea
+            value={startingView}
+            onChange={(e) => setStartingView(e.target.value)}
+            placeholder="Optional: write what you currently think and why before seeing the Council result."
+            rows={2}
+            className="settings-input resize-y"
+          />
+        </label>
         <CouncilVoicePreview settings={settings} />
         <CouncilRetrievalControls
           books={books}
@@ -260,10 +313,18 @@ export function CouncilPanel({
                   confidence: response.synthesis.confidence,
                   retrieval_mode: response.retrieval_mode,
                   evidence_count: response.evidence_count,
+                  session_id: activeSessionId,
+                  judgment,
+                  argument_annotations: argumentAnnotations,
                   response,
                 }}
               />
-              <CopyAsMarkdownButton response={response} question={question} />
+              <AddToTheologyMenu
+                sessionId={activeSessionId}
+                question={question}
+                response={response}
+              />
+              <CopyAsMarkdownButton response={response} question={question} judgment={judgment} />
             </span>
           </div>
           <CouncilResultView
@@ -283,6 +344,18 @@ export function CouncilPanel({
           />
           <CouncilRetrievalTrace response={response} onJumpToVerse={onJumpToVerse} />
           <CouncilConfidenceRationale response={response} />
+          <CouncilResearchTrail response={response} />
+          <CouncilArgumentMaps
+            sessionId={activeSessionId}
+            response={response}
+            onAnnotationsChange={setArgumentAnnotations}
+          />
+          <CouncilJudgmentPanel
+            sessionId={activeSessionId}
+            response={response}
+            judgment={judgment}
+            onJudgmentChange={setJudgment}
+          />
           <CouncilSourceDrawer response={response} />
           <VoicesAuditTrail
             voices={response.voices}
@@ -304,14 +377,23 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
   const googleReady = hasSettingValue(settings?.google_api_key);
   const openAiReady = hasSettingValue(settings?.openai_api_key);
   const anthropicReady = hasSettingValue(settings?.anthropic_api_key);
+  const gatewayReady = hasSettingValue(settings?.managed_gateway_url);
   const voices = [
     {
       label: "Claude",
       state: anthropicReady ? "will run" : "will try",
       detail: anthropicReady
-        ? `Anthropic API ${settings?.anthropic_model || "claude-sonnet-4-5"} handles Claude voice and synthesis.`
+        ? `Anthropic API ${settings?.anthropic_model || "claude-sonnet-4-6"} handles Claude voice and synthesis.`
         : `Claude Code ${settings?.claude_model ?? "sonnet"} handles synthesis if the local login is available.`,
       active: true,
+    },
+    {
+      label: "Gateway",
+      state: gatewayReady ? "will run" : "optional",
+      detail: gatewayReady
+        ? "Managed gateway will run as a Council voice without direct provider keys on this device."
+        : "Add a managed gateway URL in Settings for team/public deployments.",
+      active: gatewayReady,
     },
     {
       label: "Gemini",
@@ -332,7 +414,7 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
   ];
   return (
     <div
-      className="border border-neutral-800 rounded p-3"
+      className="soft-card p-3"
       data-testid="council-voice-preview"
     >
       <div className="flex items-baseline justify-between gap-3 mb-2">
@@ -343,9 +425,9 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
           {voices.filter((voice) => voice.active).length}/{voices.length} enabled
         </span>
       </div>
-      <div className="grid md:grid-cols-3 gap-2">
+      <div className="grid md:grid-cols-4 gap-2">
         {voices.map((voice) => (
-          <div key={voice.label} className="border border-neutral-900 rounded px-3 py-2">
+          <div key={voice.label} className="soft-card px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-neutral-200">{voice.label}</span>
               <span
@@ -369,6 +451,805 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
 
 function hasSettingValue(value: string | null | undefined) {
   return Boolean(value?.trim());
+}
+
+function readPayloadJudgment(response: CouncilResponse): CouncilJudgment | null {
+  const candidate = (response as unknown as { judgment?: CouncilJudgment }).judgment;
+  return candidate && typeof candidate === "object" ? candidate : null;
+}
+
+function createEmptyJudgment(sessionId: number, response: CouncilResponse): CouncilJudgment {
+  return {
+    council_session_id: sessionId,
+    before_judgment: "",
+    after_judgment: "",
+    personal_conclusion: "",
+    confidence: null,
+    changed_mind_note: "",
+    open_questions: "",
+    position_judgments: response.synthesis.positions.map((position) => ({
+      position_label: position.label,
+      user_rating: "unclear",
+      user_weight: position.weight,
+      persuasive_evidence: "",
+      weak_points: "",
+      notes: "",
+    })),
+  };
+}
+
+function normalizeJudgment(
+  sessionId: number,
+  response: CouncilResponse,
+  loaded: CouncilJudgment | null,
+): CouncilJudgment {
+  const base = loaded ?? createEmptyJudgment(sessionId, response);
+  const byLabel = new Map(
+    (base.position_judgments ?? []).map((position) => [position.position_label, position]),
+  );
+  return {
+    ...base,
+    council_session_id: sessionId,
+    position_judgments: response.synthesis.positions.map((position) => ({
+      position_label: position.label,
+      user_rating: byLabel.get(position.label)?.user_rating ?? "unclear",
+      user_weight: byLabel.get(position.label)?.user_weight ?? position.weight,
+      persuasive_evidence: byLabel.get(position.label)?.persuasive_evidence ?? "",
+      weak_points: byLabel.get(position.label)?.weak_points ?? "",
+      notes: byLabel.get(position.label)?.notes ?? "",
+    })),
+  };
+}
+
+function CouncilJudgmentPanel({
+  sessionId,
+  response,
+  judgment,
+  onJudgmentChange,
+}: {
+  sessionId: number | null;
+  response: CouncilResponse;
+  judgment: CouncilJudgment | null;
+  onJudgmentChange: (judgment: CouncilJudgment | null) => void;
+}) {
+  const [draft, setDraft] = useState<CouncilJudgment | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setDraft(null);
+      return;
+    }
+    let cancelled = false;
+    setSaveState("idle");
+    getCouncilJudgment(sessionId)
+      .then((loaded) => {
+        if (cancelled) return;
+        const next = normalizeJudgment(sessionId, response, loaded ?? judgment);
+        setDraft(next);
+        onJudgmentChange(next);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const next = normalizeJudgment(sessionId, response, judgment);
+        setDraft(next);
+        onJudgmentChange(next);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [onJudgmentChange, response, sessionId]);
+
+  const updateField = (field: keyof CouncilJudgment, value: string | number | null) => {
+    setSaveState("idle");
+    setDraft((current) => {
+      if (!current) return current;
+      const next = { ...current, [field]: value };
+      onJudgmentChange(next);
+      return next;
+    });
+  };
+
+  const updatePosition = (
+    positionLabel: string,
+    field: keyof PositionJudgment,
+    value: string | number | null,
+  ) => {
+    setSaveState("idle");
+    setDraft((current) => {
+      if (!current) return current;
+      const next = {
+        ...current,
+        position_judgments: current.position_judgments.map((position) =>
+          position.position_label === positionLabel ? { ...position, [field]: value } : position,
+        ),
+      };
+      onJudgmentChange(next);
+      return next;
+    });
+  };
+
+  const markNeedsStudy = () => {
+    setSaveState("idle");
+    setDraft((current) => {
+      if (!current) return current;
+      const next: CouncilJudgment = {
+        ...current,
+        confidence:
+          typeof current.confidence === "number" ? Math.min(current.confidence, 40) : 40,
+        open_questions:
+          current.open_questions?.trim() ||
+          "Needs further study before I treat this Council result as settled.",
+        position_judgments: current.position_judgments.map((position) => ({
+          ...position,
+          user_rating: "needs_study",
+          notes:
+            position.notes?.trim() ||
+            "Needs further study before I judge this position.",
+        })),
+      };
+      onJudgmentChange(next);
+      return next;
+    });
+  };
+
+  const addOpenQuestion = (question: string) => {
+    setSaveState("idle");
+    setDraft((current) => {
+      if (!current) return current;
+      const existing = current.open_questions?.trim() ?? "";
+      if (existing.includes(question)) return current;
+      const next = {
+        ...current,
+        open_questions: [existing, question].filter(Boolean).join("\n"),
+      };
+      onJudgmentChange(next);
+      return next;
+    });
+  };
+
+  const followUpQuestions = useMemo(
+    () => buildCouncilFollowUpQuestions(response),
+    [response],
+  );
+
+  const onSave = async () => {
+    if (!draft) return;
+    setSaveState("saving");
+    setSaveError(null);
+    try {
+      const id = await upsertCouncilJudgment(draft);
+      const saved = { ...draft, id };
+      setDraft(saved);
+      onJudgmentChange(saved);
+      setSaveState("saved");
+    } catch (e) {
+      setSaveError(String(e));
+      setSaveState("error");
+    }
+  };
+
+  if (!sessionId || !draft) {
+    return (
+      <section className="surface-panel rounded-lg p-4" data-testid="council-judgment-panel">
+        <h2 className="text-lg font-semibold text-neutral-100">My Judgment</h2>
+        <p className="text-sm text-neutral-500 mt-1">
+          Save or reopen this Council session from history to attach your own evaluation.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="surface-panel rounded-lg p-4 space-y-4" data-testid="council-judgment-panel">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-100">My Judgment</h2>
+          <p className="text-sm text-neutral-500 mt-1">
+            Record what you thought, what changed, and which arguments you find persuasive.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={markNeedsStudy}
+            disabled={saveState === "saving"}
+            className="btn-secondary px-3 py-1.5 text-sm"
+          >
+            Mark needs study
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saveState === "saving"}
+            className="btn-primary px-3 py-1.5 text-sm"
+          >
+            {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : "Save judgment"}
+          </button>
+        </div>
+      </div>
+
+      {saveError && (
+        <div className="border border-red-900/60 bg-red-950/40 rounded p-3 text-sm text-red-300">
+          {saveError}
+        </div>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-3">
+        <LabeledTextarea
+          label="Before reviewing the Council"
+          value={draft.before_judgment ?? ""}
+          onChange={(value) => updateField("before_judgment", value)}
+        />
+        <LabeledTextarea
+          label="After reviewing the Council"
+          value={draft.after_judgment ?? ""}
+          onChange={(value) => updateField("after_judgment", value)}
+        />
+        <LabeledTextarea
+          label="Personal conclusion"
+          value={draft.personal_conclusion ?? ""}
+          onChange={(value) => updateField("personal_conclusion", value)}
+        />
+        <LabeledTextarea
+          label="What changed in my thinking"
+          value={draft.changed_mind_note ?? ""}
+          onChange={(value) => updateField("changed_mind_note", value)}
+        />
+      </div>
+
+      <div className="soft-card p-3 space-y-2">
+        <label className="text-xs uppercase tracking-wider text-neutral-500" htmlFor="judgment-confidence">
+          Personal confidence
+        </label>
+        <div className="flex items-center gap-3">
+          <input
+            id="judgment-confidence"
+            type="range"
+            min={0}
+            max={100}
+            value={draft.confidence ?? 50}
+            onChange={(e) => updateField("confidence", Number(e.target.value))}
+            className="w-full"
+            aria-label="Personal confidence"
+          />
+          <span className="w-14 text-right text-sm text-neutral-300">
+            {draft.confidence ?? 50}%
+          </span>
+        </div>
+      </div>
+
+      <LabeledTextarea
+        label="Open questions for further study"
+        value={draft.open_questions ?? ""}
+        onChange={(value) => updateField("open_questions", value)}
+      />
+
+      {followUpQuestions.length > 0 && (
+        <section className="soft-card p-3 space-y-3" data-testid="council-follow-up-questions">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-200">
+              AI-suggested follow-up questions
+            </h3>
+            <p className="text-xs text-neutral-500 mt-1">
+              These come from visible Council uncertainty. Add only the questions you want to
+              carry into your own open questions.
+            </p>
+          </div>
+          <div className="grid gap-2">
+            {followUpQuestions.map((item) => (
+              <div key={item.question} className="rounded border border-neutral-900 px-3 py-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-neutral-200">{item.question}</p>
+                    <p className="text-xs text-neutral-500 mt-1">{item.source}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addOpenQuestion(item.question)}
+                    className="btn-secondary px-2 py-1 text-xs shrink-0"
+                  >
+                    Add question
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-neutral-200">Evaluate each position</h3>
+        <div className="grid gap-3">
+          {draft.position_judgments.map((position) => (
+            <div key={position.position_label} className="soft-card p-3 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-sm font-semibold text-neutral-100">
+                    {position.position_label}
+                  </h4>
+                  <p className="text-xs text-neutral-500">
+                    Council weight: {formatPercent(position.user_weight ?? 0)}
+                  </p>
+                </div>
+                <select
+                  value={position.user_rating}
+                  onChange={(e) =>
+                    updatePosition(
+                      position.position_label,
+                      "user_rating",
+                      e.target.value as PositionUserRating,
+                    )
+                  }
+                  className="settings-input text-xs max-w-52"
+                  aria-label={`User rating for ${position.position_label}`}
+                >
+                  <option value="persuasive">Persuasive</option>
+                  <option value="weak">Weak</option>
+                  <option value="unclear">Unclear</option>
+                  <option value="needs_study">Needs more study</option>
+                  <option value="disagree">I disagree</option>
+                </select>
+              </div>
+              <div className="grid md:grid-cols-3 gap-2">
+                <LabeledTextarea
+                  label="Persuasive evidence"
+                  value={position.persuasive_evidence ?? ""}
+                  onChange={(value) =>
+                    updatePosition(position.position_label, "persuasive_evidence", value)
+                  }
+                  rows={3}
+                />
+                <LabeledTextarea
+                  label="Weak points"
+                  value={position.weak_points ?? ""}
+                  onChange={(value) => updatePosition(position.position_label, "weak_points", value)}
+                  rows={3}
+                />
+                <LabeledTextarea
+                  label="My notes"
+                  value={position.notes ?? ""}
+                  onChange={(value) => updatePosition(position.position_label, "notes", value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function buildCouncilFollowUpQuestions(response: CouncilResponse): FollowUpQuestion[] {
+  const questions: FollowUpQuestion[] = [];
+  const add = (question: string, source: string) => {
+    if (questions.some((item) => item.question === question)) return;
+    questions.push({ question, source });
+  };
+
+  for (const tension of response.synthesis.unresolved_tensions ?? []) {
+    const trimmed = tension.trim();
+    if (!trimmed) continue;
+    add(
+      `How should I resolve this tension: ${trimmed}`,
+      "Suggested from the Council's unresolved tensions.",
+    );
+  }
+
+  for (const position of response.synthesis.positions) {
+    if (position.what_would_change_this?.trim()) {
+      add(
+        `What evidence would change the ${position.label} position?`,
+        position.what_would_change_this.trim(),
+      );
+    }
+    if (position.weakest_link?.trim()) {
+      add(
+        `Does the weakest link in ${position.label} undermine that position?`,
+        position.weakest_link.trim(),
+      );
+    }
+  }
+
+  if (questions.length === 0 && response.synthesis.dissent_notes?.trim()) {
+    add(
+      "Which dissenting concern needs further study before I settle my judgment?",
+      response.synthesis.dissent_notes.trim(),
+    );
+  }
+
+  return questions.slice(0, 5);
+}
+
+function LabeledTextarea({
+  label,
+  value,
+  onChange,
+  rows = 4,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-xs uppercase tracking-wider text-neutral-500">{label}</span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        className="settings-input resize-y"
+      />
+    </label>
+  );
+}
+
+function formatPositionRating(value: PositionUserRating) {
+  switch (value) {
+    case "persuasive":
+      return "Persuasive";
+    case "weak":
+      return "Weak";
+    case "needs_study":
+      return "Needs more study";
+    case "disagree":
+      return "I disagree";
+    case "unclear":
+    default:
+      return "Unclear";
+  }
+}
+
+function CouncilResearchTrail({ response }: { response: CouncilResponse }) {
+  const trail = buildResearchTrail(response);
+  return (
+    <section className="surface-panel rounded-lg p-4" data-testid="council-research-trail">
+      <div className="flex items-baseline justify-between gap-3 mb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-100">Research Trail</h2>
+          <p className="text-sm text-neutral-500 mt-1">
+            The visible path from question to retrieval, evidence, voices, synthesis, and limits.
+          </p>
+        </div>
+        <span className="text-xs text-neutral-600">{trail.length} events</span>
+      </div>
+      <ol className="space-y-3">
+        {trail.map((event, index) => (
+          <li key={event.id} className="grid grid-cols-[2rem_1fr] gap-3">
+            <div className="flex flex-col items-center">
+              <span
+                className={
+                  "w-7 h-7 rounded-full grid place-items-center text-xs border " +
+                  (event.status === "warning"
+                    ? "border-amber-500/50 text-amber-200 bg-amber-500/10"
+                    : event.status === "error"
+                      ? "border-red-500/50 text-red-200 bg-red-500/10"
+                      : "border-emerald-500/40 text-emerald-200 bg-emerald-500/10")
+                }
+              >
+                {index + 1}
+              </span>
+            </div>
+            <div className="soft-card p-3">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h3 className="text-sm font-semibold text-neutral-100">{event.label}</h3>
+                <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
+                  {event.event_type}
+                </span>
+                {event.related_position && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300">
+                    {event.related_position}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-neutral-400">{event.detail}</p>
+              {event.related_verse_ids?.length ? (
+                <p className="text-[11px] text-neutral-600 mt-1">
+                  Verse IDs: {event.related_verse_ids.slice(0, 8).join(", ")}
+                </p>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function CouncilArgumentMaps({
+  sessionId,
+  response,
+  onAnnotationsChange,
+}: {
+  sessionId: number | null;
+  response: CouncilResponse;
+  onAnnotationsChange?: (annotations: ArgumentAnnotation[]) => void;
+}) {
+  const [annotations, setAnnotations] = useState<Record<string, ArgumentAnnotation>>({});
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [savingNode, setSavingNode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setAnnotations({});
+      setDrafts({});
+      return;
+    }
+    let cancelled = false;
+    listArgumentAnnotations(sessionId)
+      .then((rows) => {
+        if (cancelled) return;
+        const nextAnnotations = Object.fromEntries(rows.map((row) => [row.node_id, row]));
+        setAnnotations(nextAnnotations);
+        setDrafts(Object.fromEntries(rows.map((row) => [row.node_id, row.annotation])));
+        onAnnotationsChange?.(rows);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAnnotations({});
+          setDrafts({});
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [onAnnotationsChange, sessionId]);
+
+  const saveAnnotation = async (nodeId: string) => {
+    if (!sessionId) return;
+    const annotation = (drafts[nodeId] ?? "").trim();
+    setSavingNode(nodeId);
+    try {
+      const id = await upsertArgumentAnnotation({
+        id: annotations[nodeId]?.id ?? null,
+        council_session_id: sessionId,
+        node_id: nodeId,
+        annotation,
+      });
+      setAnnotations((current) => {
+        const next = {
+          ...current,
+          [nodeId]: {
+            id,
+            council_session_id: sessionId,
+            node_id: nodeId,
+            annotation,
+          },
+        };
+        onAnnotationsChange?.(Object.values(next));
+        return next;
+      });
+    } finally {
+      setSavingNode(null);
+    }
+  };
+
+  const maps = response.synthesis.positions.map((position) => ({
+    position,
+    map: position.argument_map ?? buildFallbackArgumentMap(position),
+  }));
+
+  return (
+    <section className="surface-panel rounded-lg p-4 space-y-4" data-testid="council-argument-maps">
+      <div>
+        <h2 className="text-lg font-semibold text-neutral-100">Argument Maps</h2>
+        <p className="text-sm text-neutral-500 mt-1">
+          Claims, supports, assumptions, challenges, weaknesses, and your notes on each node.
+        </p>
+      </div>
+      <div className="grid gap-4">
+        {maps.map(({ position, map }) => (
+          <div key={position.label} className="soft-card p-3 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-100">{position.label}</h3>
+                <p className="text-xs text-neutral-500">
+                  Weight {formatPercent(position.weight)} · {map.nodes.length} nodes
+                </p>
+              </div>
+              <div className="text-xs text-neutral-500 max-w-xl space-y-1">
+                <p>
+                  <span className="text-neutral-400">Weakest link:</span>{" "}
+                  {position.weakest_link || position.why_not_higher || "No explicit weakness provided."}
+                </p>
+                <p>
+                  <span className="text-neutral-400">Would change if:</span>{" "}
+                  {position.what_would_change_this ||
+                    "A stronger contrary evidence pattern or clearer cited support emerged."}
+                </p>
+              </div>
+            </div>
+            {position.interpretive_moves?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {position.interpretive_moves.map((move) => (
+                  <span
+                    key={move}
+                    className="text-[11px] px-2 py-0.5 rounded bg-neutral-900 text-neutral-400"
+                  >
+                    {move}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="grid lg:grid-cols-2 gap-3">
+              {map.nodes.map((node) => (
+                <ArgumentNodeCard
+                  key={node.id}
+                  node={node}
+                  annotation={drafts[node.id] ?? annotations[node.id]?.annotation ?? ""}
+                  disabled={!sessionId}
+                  saving={savingNode === node.id}
+                  onChange={(value) =>
+                    setDrafts((current) => ({ ...current, [node.id]: value }))
+                  }
+                  onSave={() => saveAnnotation(node.id)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ArgumentNodeCard({
+  node,
+  annotation,
+  disabled,
+  saving,
+  onChange,
+  onSave,
+}: {
+  node: ArgumentMapNode;
+  annotation: string;
+  disabled: boolean;
+  saving: boolean;
+  onChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="border border-neutral-900 rounded p-3 bg-neutral-950/40">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
+          {node.kind}
+        </span>
+        <h4 className="text-sm font-semibold text-neutral-100">{node.label}</h4>
+      </div>
+      <p className="text-sm text-neutral-400">{node.detail}</p>
+      {node.verse_ids?.length ? (
+        <p className="text-[11px] text-neutral-600 mt-1">
+          Verse IDs: {node.verse_ids.join(", ")}
+        </p>
+      ) : null}
+      <label className="block mt-3 space-y-1">
+        <span className="text-xs uppercase tracking-wider text-neutral-500">My annotation</span>
+        <textarea
+          value={annotation}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          disabled={disabled}
+          className="settings-input resize-y"
+          aria-label={`Annotation for ${node.label}`}
+        />
+      </label>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={disabled || saving}
+        className="btn-secondary mt-2 px-2 py-1 text-xs"
+      >
+        {saving ? "Saving..." : "Save annotation"}
+      </button>
+    </div>
+  );
+}
+
+function buildResearchTrail(response: CouncilResponse) {
+  const existing = response.synthesis.research_trail;
+  if (existing?.length) return existing;
+  const events: ResearchTrailEvent[] = [
+    {
+      id: "fallback-question",
+      label: "Question submitted",
+      detail: "The user submitted a disputed question to the Council.",
+      event_type: "question" as const,
+      status: "complete" as const,
+      related_position: null,
+      related_verse_ids: [],
+    },
+    {
+      id: "fallback-retrieval",
+      label: "Evidence retrieved",
+      detail: `${response.evidence_count ?? response.retrieved_evidence?.length ?? 0} candidate evidence rows were retrieved by ${response.retrieval_mode ?? "the configured"} retrieval path.`,
+      event_type: "retrieval" as const,
+      status: "complete" as const,
+      related_position: null,
+      related_verse_ids: (response.retrieved_evidence ?? [])
+        .slice(0, 12)
+        .map((evidence) => evidence.verse_id),
+    },
+    {
+      id: "fallback-voices",
+      label: "Voices compared",
+      detail: `${response.voices.filter((voice) => voice.status === "ok").length} voice(s) returned a result; ${response.voices.filter((voice) => voice.status === "error").length} failed.`,
+      event_type: "voice" as const,
+      status: response.voices.some((voice) => voice.status === "error")
+        ? ("warning" as const)
+        : ("complete" as const),
+      related_position: null,
+      related_verse_ids: [],
+    },
+    {
+      id: "fallback-synthesis",
+      label: "Positions weighted",
+      detail: `${response.synthesis.positions.length} position(s) were preserved in the final synthesis.`,
+      event_type: "synthesis" as const,
+      status: "complete" as const,
+      related_position: response.synthesis.positions[0]?.label ?? null,
+      related_verse_ids: response.synthesis.positions[0]?.evidence.map((evidence) => evidence.verse_id) ?? [],
+    },
+  ];
+  if (response.synthesis.unresolved_tensions?.length) {
+    events.push({
+      id: "fallback-limits",
+      label: "Unresolved tensions retained",
+      detail: response.synthesis.unresolved_tensions.join(" "),
+      event_type: "limitation",
+      status: "warning",
+      related_position: null,
+      related_verse_ids: [],
+    });
+  }
+  return events;
+}
+
+function buildFallbackArgumentMap(position: CouncilPosition): ArgumentMap {
+  const claimId = `${slugifyNodeId(position.label)}-claim`;
+  const nodes: ArgumentMapNode[] = [
+    {
+      id: claimId,
+      kind: "claim",
+      label: `${position.label} claim`,
+      detail: position.summary || "This position was preserved by the Council.",
+      verse_ids: position.evidence.map((evidence) => evidence.verse_id),
+    },
+    ...position.evidence.slice(0, 3).map((evidence, index) => ({
+      id: `${slugifyNodeId(position.label)}-support-${index + 1}`,
+      kind: "support" as const,
+      label: evidence.citation,
+      detail: evidence.reasoning || evidence.quote,
+      verse_ids: [evidence.verse_id],
+    })),
+  ];
+  if (position.why_not_higher) {
+    nodes.push({
+      id: `${slugifyNodeId(position.label)}-weakness`,
+      kind: "weakness",
+      label: "Why not higher",
+      detail: position.why_not_higher,
+      verse_ids: position.challenging_evidence_ids ?? [],
+    });
+  }
+  const edges = nodes
+    .filter((node) => node.id !== claimId)
+    .map((node) => ({
+      from: node.id,
+      to: claimId,
+      label: node.kind === "weakness" || node.kind === "challenge" ? "limits" : "supports",
+    }));
+  return { nodes, edges };
+}
+
+function slugifyNodeId(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
 }
 
 function CouncilRetrievalControls({
@@ -403,7 +1284,7 @@ function CouncilRetrievalControls({
   setEvidenceLimit: (value: number) => void;
 }) {
   return (
-    <div className="grid md:grid-cols-3 gap-2 border border-neutral-800 rounded p-3">
+    <div className="soft-card grid md:grid-cols-3 gap-2 p-3">
       <select
         value={strategy}
         onChange={(e) => setStrategy(e.target.value as "keyword" | "semantic" | "hybrid")}
@@ -475,13 +1356,15 @@ function CouncilRetrievalControls({
 function CopyAsMarkdownButton({
   response,
   question,
+  judgment,
 }: {
   response: CouncilResponse;
   question: string;
+  judgment?: CouncilJudgment | null;
 }) {
   const [copied, setCopied] = useState(false);
   const onCopy = async () => {
-    const md = renderResponseAsMarkdown(response, question);
+    const md = renderResponseAsMarkdown(response, question, judgment);
     try {
       await navigator.clipboard.writeText(md);
       setCopied(true);
@@ -494,14 +1377,106 @@ function CopyAsMarkdownButton({
     <button
       type="button"
       onClick={onCopy}
-      className="px-2 py-0.5 rounded border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900 text-neutral-300 text-xs"
+      className="btn-secondary px-2 py-0.5 text-xs"
     >
       {copied ? "Copied ✓" : "Copy as markdown"}
     </button>
   );
 }
 
-function renderResponseAsMarkdown(r: CouncilResponse, question: string): string {
+function AddToTheologyMenu({
+  sessionId,
+  question,
+  response,
+}: {
+  sessionId: number | null;
+  question: string;
+  response: CouncilResponse;
+}) {
+  const [open, setOpen] = useState(false);
+  const [topics, setTopics] = useState<TheologyTopic[]>([]);
+  const [topicId, setTopicId] = useState<number | null>(null);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  const onOpen = async () => {
+    setOpen((current) => !current);
+    if (topics.length === 0) {
+      const rows = await listTheologyTopics();
+      setTopics(rows);
+      setTopicId(rows[0]?.id ?? null);
+    }
+  };
+
+  const onSave = async () => {
+    if (!sessionId || !topicId) return;
+    setStatus("saving");
+    try {
+      await createTheologyLink({
+        topic_id: topicId,
+        link_kind: "council_session",
+        target_id: sessionId,
+        title: `Council: ${question.slice(0, 90)}`,
+        payload_json: JSON.stringify({
+          question,
+          summary: response.synthesis.synthesis,
+          confidence: response.synthesis.confidence,
+          leading_position: response.synthesis.positions[0]?.label ?? null,
+        }),
+      });
+      setStatus("saved");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  return (
+    <span className="relative inline-block ml-2">
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={!sessionId}
+        className="btn-secondary px-2 py-0.5 text-xs"
+      >
+        Add to Theology
+      </button>
+      {open && (
+        <span className="absolute right-0 z-20 mt-2 w-72 surface-panel rounded-lg border border-neutral-800 p-3 shadow-xl">
+          <label className="block space-y-1">
+            <span className="text-xs uppercase tracking-wider text-neutral-500">Topic</span>
+            <select
+              value={topicId ?? ""}
+              onChange={(e) => setTopicId(Number(e.target.value) || null)}
+              className="settings-input text-xs"
+            >
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={!topicId || status === "saving"}
+            className="btn-primary w-full mt-2 px-2 py-1 text-xs"
+          >
+            {status === "saving" ? "Adding..." : status === "saved" ? "Added" : "Attach session"}
+          </button>
+          {status === "error" && (
+            <p className="text-xs text-red-300 mt-2">Could not attach this session.</p>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function renderResponseAsMarkdown(
+  r: CouncilResponse,
+  question: string,
+  judgment?: CouncilJudgment | null,
+): string {
   const lines: string[] = [];
   lines.push(`# Council: ${question}`, "");
   if (r.retrieval_mode) {
@@ -525,6 +1500,7 @@ function renderResponseAsMarkdown(r: CouncilResponse, question: string): string 
     lines.push("");
   }
   if (synth.dissent_notes) lines.push("## Dissent notes", "", synth.dissent_notes, "");
+  appendJudgmentMarkdown(lines, judgment);
   lines.push(formatCouncilTransparencyMarkdown(r, question));
   lines.push("---", `## Voices`, "");
   for (const v of r.voices) {
@@ -533,6 +1509,46 @@ function renderResponseAsMarkdown(r: CouncilResponse, question: string): string 
     );
   }
   return lines.join("\n");
+}
+
+function appendJudgmentMarkdown(lines: string[], judgment?: CouncilJudgment | null) {
+  if (!judgment) return;
+  lines.push("## My judgment", "");
+  if (judgment.before_judgment) {
+    lines.push("### Before reviewing the Council", "", judgment.before_judgment, "");
+  }
+  if (judgment.after_judgment) {
+    lines.push("### After reviewing the Council", "", judgment.after_judgment, "");
+  }
+  if (judgment.personal_conclusion) {
+    lines.push("### Personal conclusion", "", judgment.personal_conclusion, "");
+  }
+  if (typeof judgment.confidence === "number") {
+    lines.push(`**Personal confidence:** ${judgment.confidence}%`, "");
+  }
+  if (judgment.changed_mind_note) {
+    lines.push("### What changed", "", judgment.changed_mind_note, "");
+  }
+  if (judgment.open_questions) {
+    lines.push("### Open questions", "", judgment.open_questions, "");
+  }
+  const positionJudgments = judgment.position_judgments ?? [];
+  if (positionJudgments.length > 0) {
+    lines.push("### Position notes", "");
+    for (const position of positionJudgments) {
+      lines.push(`- **${position.position_label}:** ${formatPositionRating(position.user_rating)}`);
+      if (position.persuasive_evidence) {
+        lines.push(`  - Persuasive evidence: ${position.persuasive_evidence}`);
+      }
+      if (position.weak_points) {
+        lines.push(`  - Weak points: ${position.weak_points}`);
+      }
+      if (position.notes) {
+        lines.push(`  - Notes: ${position.notes}`);
+      }
+    }
+    lines.push("");
+  }
 }
 
 function CouncilResultView({
@@ -690,7 +1706,7 @@ function CouncilProcessView({ response }: { response: CouncilResponse }) {
       </ol>
 
       {leader && (
-        <div className="border border-neutral-800 rounded p-4">
+        <div className="soft-card p-4">
           <h3 className="text-sm font-semibold text-neutral-100 mb-2">
             Why this argument ranked higher
           </h3>
@@ -722,7 +1738,7 @@ function ProcessMetric({
   detail: string;
 }) {
   return (
-    <div className="border border-neutral-800 rounded px-3 py-2">
+    <div className="soft-card px-3 py-2">
       <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
       <div className="text-lg font-semibold text-neutral-100">{value}</div>
       <p className="text-xs text-neutral-500">{detail}</p>
@@ -740,7 +1756,7 @@ function ProcessStep({
   body: string;
 }) {
   return (
-    <li className="border border-neutral-800 rounded px-3 py-2">
+    <li className="soft-card px-3 py-2">
       <div className="flex items-center gap-2 mb-1">
         <span className="grid place-items-center w-5 h-5 rounded-full bg-neutral-800 text-[11px] text-neutral-300">
           {number}

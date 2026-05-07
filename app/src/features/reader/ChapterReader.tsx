@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import {
   addBookmark,
+  createTheologyLink,
   deleteRangeHighlight,
   deleteRangeNote,
   explainPassage,
   getRangeNote,
   listModuleEntriesForRange,
+  listTheologyTopics,
   upsertRangeHighlight,
   upsertRangeNote,
   type Highlight,
@@ -13,6 +15,7 @@ import {
   type PassageExplanation,
   type RangeHighlight,
   type RangeNote,
+  type TheologyTopic,
   type Verse,
   type WordToken,
 } from "../../lib/bible";
@@ -152,13 +155,13 @@ export function ChapterReader({
   return (
     <article
       className={
-        "max-w-3xl mx-auto " +
+        "reader-panel max-w-3xl mx-auto " +
         (density === "compact" ? "px-4 py-5" : "px-6 py-8")
       }
     >
       <header
         className={
-          "border-b border-neutral-800 " +
+          "border-b border-neutral-800/80 " +
           (density === "compact" ? "mb-4 pb-3" : "mb-6 pb-4")
         }
       >
@@ -170,11 +173,18 @@ export function ChapterReader({
         >
           {bookName} {chapter}
         </h1>
-        <p className="text-sm text-neutral-500 mt-1">{translationName}</p>
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <span className="meta-pill">{translationCode}</span>
+          <span className="text-sm text-neutral-500">{translationName}</span>
+        </div>
       </header>
 
       {loading ? (
-        <p className="text-neutral-500 italic">Loading…</p>
+        <div className="space-y-3" aria-label="Loading chapter">
+          <div className="h-4 w-5/6 rounded bg-neutral-800/70 animate-pulse" />
+          <div className="h-4 w-11/12 rounded bg-neutral-800/50 animate-pulse" />
+          <div className="h-4 w-2/3 rounded bg-neutral-800/40 animate-pulse" />
+        </div>
       ) : verses.length === 0 ? (
         <p className="text-neutral-500 italic">No verses for this chapter.</p>
       ) : (
@@ -211,7 +221,10 @@ export function ChapterReader({
               <span
                 key={v.verse_id}
                 id={`v-${v.verse_id}`}
-                className="mx-0.5 rounded px-0.5"
+                className={
+                  "mx-0.5 rounded px-0.5 transition-colors " +
+                  (inRange || isSelected ? "ring-1 ring-amber-400/30" : "")
+                }
                 style={
                   inRange
                     ? { backgroundColor: "rgba(251, 191, 36, 0.18)" }
@@ -331,6 +344,8 @@ export function RangeActionBar({
   const [explaining, setExplaining] = useState(false);
   const [explanation, setExplanation] = useState<PassageExplanation | null>(null);
   const [moduleEntries, setModuleEntries] = useState<ModuleEntry[]>([]);
+  const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
+  const [theologyTopicId, setTheologyTopicId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!noteOpen) return;
@@ -358,6 +373,22 @@ export function RangeActionBar({
       cancelled = true;
     };
   }, [endVerseId, startVerseId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listTheologyTopics()
+      .then((topics) => {
+        if (cancelled) return;
+        setTheologyTopics(topics);
+        setTheologyTopicId((current) => current ?? topics[0]?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setTheologyTopics([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const setRangeColor = async (color: string) => {
     if (busy) return;
@@ -428,10 +459,30 @@ export function RangeActionBar({
     }
   };
 
+  const addRangeToTheology = async () => {
+    if (!theologyTopicId) return;
+    setStatus(null);
+    await createTheologyLink({
+      topic_id: theologyTopicId,
+      link_kind: "verse_range",
+      target_id: startVerseId,
+      title: citation,
+      payload_json: JSON.stringify({
+        start_verse_id: startVerseId,
+        end_verse_id: endVerseId,
+        citation,
+        translation_code: translationCode,
+        text,
+      }),
+    });
+    const topic = theologyTopics.find((item) => item.id === theologyTopicId);
+    setStatus(`Range linked to ${topic?.title ?? "Theology"}`);
+  };
+
   return (
     <div
       data-testid="range-action-bar"
-      className="sticky bottom-4 z-20 mt-6 rounded border border-neutral-700 bg-neutral-950/95 px-4 py-3 shadow-xl space-y-3"
+      className="surface-panel sticky bottom-4 z-20 mt-6 rounded-lg px-4 py-3 space-y-3"
     >
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-48 flex-1 mr-auto">
@@ -443,7 +494,7 @@ export function RangeActionBar({
         <button
           type="button"
           onClick={() => navigator.clipboard.writeText(`${citation} (${translationCode})\n${text}`)}
-          className="px-2 py-1 text-xs rounded border border-neutral-800 hover:border-neutral-700 text-neutral-300"
+            className="btn-secondary px-2 py-1 text-xs"
         >
           Copy
         </button>
@@ -451,7 +502,7 @@ export function RangeActionBar({
           <button
             type="button"
             onClick={() => onAskCouncilAboutVerse(startVerseId, citation)}
-            className="px-2 py-1 text-xs rounded border border-amber-500/40 bg-amber-500/10 text-amber-100"
+            className="btn-primary px-2 py-1 text-xs"
           >
             Council
           </button>
@@ -470,18 +521,42 @@ export function RangeActionBar({
             text,
           }}
         />
+        {theologyTopics.length > 0 && (
+          <>
+            <select
+              value={theologyTopicId ?? ""}
+              onChange={(e) => setTheologyTopicId(Number(e.target.value) || null)}
+              aria-label="Theology topic for selected range"
+              className="settings-input h-7 max-w-44 text-xs"
+            >
+              {theologyTopics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.title}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addRangeToTheology}
+              disabled={!theologyTopicId}
+              className="btn-secondary px-2 py-1 text-xs"
+            >
+              Add range to Theology
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={bookmarkRange}
           disabled={busy}
-          className="px-2 py-1 text-xs rounded border border-neutral-800 hover:border-neutral-700 text-neutral-300 disabled:opacity-50"
+          className="btn-secondary px-2 py-1 text-xs disabled:opacity-50"
         >
           Bookmark
         </button>
         <button
           type="button"
           onClick={() => setNoteOpen((v) => !v)}
-          className="px-2 py-1 text-xs rounded border border-neutral-800 hover:border-neutral-700 text-neutral-300"
+          className="btn-secondary px-2 py-1 text-xs"
         >
           Note
         </button>
@@ -489,14 +564,14 @@ export function RangeActionBar({
           type="button"
           onClick={explainRange}
           disabled={explaining}
-          className="px-2 py-1 text-xs rounded border border-neutral-800 hover:border-neutral-700 text-neutral-300 disabled:opacity-50"
+          className="btn-secondary px-2 py-1 text-xs disabled:opacity-50"
         >
           {explaining ? "Explaining..." : "Explain"}
         </button>
         <button
           type="button"
           onClick={onClear}
-          className="px-2 py-1 text-xs text-neutral-500 hover:text-neutral-200"
+          className="btn-ghost px-2 py-1 text-xs"
         >
           Clear
         </button>

@@ -12,13 +12,25 @@ import { parseResponse, VOICE_SYSTEM_PROMPT, buildVoicePrompt } from "./_shared.
 // ~15–30s, the synthesis step doesn't need Opus-level depth, and the user
 // can still pass model:"opus" explicitly when they want it.
 const CLAUDE_CODE_MODEL = process.env.CLAUDE_MODEL || "sonnet";
-const ANTHROPIC_API_MODEL = "claude-sonnet-4-5";
+const ANTHROPIC_API_MODEL = "claude-sonnet-4-6";
+const ANTHROPIC_API_TIMEOUT_MS = 600_000;
+const ANTHROPIC_API_MODEL_ALIASES = {
+  sonnet: ANTHROPIC_API_MODEL,
+  opus: "claude-opus-4-7",
+  haiku: "claude-haiku-4-5-20251001",
+};
 
 function resolveModel(model, env = process.env) {
   if (env.ANTHROPIC_API_KEY) {
-    return env.ANTHROPIC_MODEL || model || ANTHROPIC_API_MODEL;
+    const candidate = env.ANTHROPIC_MODEL || model || ANTHROPIC_API_MODEL;
+    return ANTHROPIC_API_MODEL_ALIASES[candidate] || candidate;
   }
   return model || env.CLAUDE_MODEL || CLAUDE_CODE_MODEL;
+}
+
+function anthropicTimeoutMs(env = process.env) {
+  const parsed = Number(env.ANTHROPIC_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : ANTHROPIC_API_TIMEOUT_MS;
 }
 
 function resultToText(msg) {
@@ -81,9 +93,19 @@ async function callClaude({ systemPrompt, userPrompt, model = CLAUDE_CODE_MODEL 
   return rawText;
 }
 
-async function callAnthropicApi({ apiKey, systemPrompt, userPrompt, model }) {
+async function callAnthropicApi({
+  apiKey,
+  systemPrompt,
+  userPrompt,
+  model,
+  timeoutMs = ANTHROPIC_API_TIMEOUT_MS,
+}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
+    signal: controller.signal,
     headers: {
       "Content-Type": "application/json",
       "x-api-key": apiKey,
@@ -91,7 +113,7 @@ async function callAnthropicApi({ apiKey, systemPrompt, userPrompt, model }) {
     },
     body: JSON.stringify({
       model,
-      max_tokens: 4096,
+      max_tokens: 16000,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     }),
@@ -108,6 +130,9 @@ async function callAnthropicApi({ apiKey, systemPrompt, userPrompt, model }) {
     throw new Error(`Anthropic: no text content in response (${JSON.stringify(data).slice(0, 300)})`);
   }
   return text;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function callClaudeVoice({ systemPrompt, userPrompt, env = process.env, model }) {
@@ -117,6 +142,7 @@ async function callClaudeVoice({ systemPrompt, userPrompt, env = process.env, mo
       systemPrompt,
       userPrompt,
       model: resolveModel(model, env),
+      timeoutMs: anthropicTimeoutMs(env),
     });
   }
   return callClaude({ systemPrompt, userPrompt, model: resolveModel(model, env) });

@@ -153,8 +153,164 @@ CREATE TABLE IF NOT EXISTS council_sessions (
 CREATE INDEX IF NOT EXISTS idx_council_sessions_created
   ON council_sessions(created_at DESC);
 
+CREATE TABLE IF NOT EXISTS council_judgments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  council_session_id INTEGER NOT NULL UNIQUE REFERENCES council_sessions(id) ON DELETE CASCADE,
+  before_judgment TEXT,
+  after_judgment TEXT,
+  personal_conclusion TEXT,
+  confidence INTEGER CHECK (confidence IS NULL OR (confidence BETWEEN 0 AND 100)),
+  changed_mind_note TEXT,
+  open_questions TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS council_position_judgments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  council_judgment_id INTEGER NOT NULL REFERENCES council_judgments(id) ON DELETE CASCADE,
+  position_label TEXT NOT NULL,
+  user_rating TEXT NOT NULL CHECK (user_rating IN (
+    'persuasive',
+    'weak',
+    'unclear',
+    'needs_study',
+    'disagree'
+  )),
+  user_weight REAL,
+  persuasive_evidence TEXT,
+  weak_points TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(council_judgment_id, position_label)
+);
+
+CREATE INDEX IF NOT EXISTS idx_council_position_judgments_parent
+  ON council_position_judgments(council_judgment_id);
+
+CREATE TABLE IF NOT EXISTS argument_annotations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  council_session_id INTEGER NOT NULL REFERENCES council_sessions(id) ON DELETE CASCADE,
+  node_id TEXT NOT NULL,
+  annotation TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(council_session_id, node_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_argument_annotations_session
+  ON argument_annotations(council_session_id);
+
+CREATE TABLE IF NOT EXISTS theology_topics (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  parent_id INTEGER REFERENCES theology_topics(id) ON DELETE SET NULL,
+  summary TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS theology_positions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL REFERENCES theology_topics(id) ON DELETE CASCADE,
+  label TEXT NOT NULL,
+  tradition_family TEXT,
+  summary TEXT,
+  strengths TEXT,
+  weaknesses TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS theology_conclusions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL REFERENCES theology_topics(id) ON DELETE CASCADE,
+  conclusion TEXT,
+  confidence INTEGER CHECK (confidence IS NULL OR (confidence BETWEEN 0 AND 100)),
+  unresolved_questions TEXT,
+  changed_over_time TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(topic_id)
+);
+
+CREATE TABLE IF NOT EXISTS resource_sources (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  source_url TEXT,
+  license TEXT NOT NULL,
+  attribution TEXT NOT NULL,
+  version TEXT,
+  imported_at TEXT NOT NULL DEFAULT (datetime('now')),
+  metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS resource_collections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_id INTEGER NOT NULL REFERENCES resource_sources(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL,
+  title TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  UNIQUE(source_id, slug)
+);
+
+CREATE TABLE IF NOT EXISTS resource_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  collection_id INTEGER NOT NULL REFERENCES resource_collections(id) ON DELETE CASCADE,
+  ref TEXT,
+  title TEXT,
+  body TEXT NOT NULL,
+  search_text TEXT NOT NULL,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  UNIQUE(collection_id, title)
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS resource_entries_fts
+USING fts5(title, search_text, content='resource_entries', content_rowid='id');
+
+CREATE TABLE IF NOT EXISTS theology_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL REFERENCES theology_topics(id) ON DELETE CASCADE,
+  link_kind TEXT NOT NULL CHECK (link_kind IN (
+    'verse',
+    'verse_range',
+    'workspace_item',
+    'council_session',
+    'resource_entry',
+    'note',
+    'argument_map'
+  )),
+  target_id INTEGER,
+  title TEXT,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_theology_links_topic_kind
+  ON theology_links(topic_id, link_kind);
+
+CREATE TABLE IF NOT EXISTS guided_study_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  topic_id INTEGER NOT NULL REFERENCES theology_topics(id) ON DELETE CASCADE,
+  template_slug TEXT NOT NULL,
+  focus_question TEXT,
+  before_response TEXT,
+  after_response TEXT,
+  critique TEXT,
+  review_cards_json TEXT NOT NULL DEFAULT '[]',
+  completed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(topic_id, template_slug)
+);
+
 -- App preferences and locally stored provider keys. Runtime migrations use
--- PRAGMA user_version in user.sqlite; this schema mirrors the current v7 shape.
+-- PRAGMA user_version in user.sqlite; this schema mirrors the current v12 shape.
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,

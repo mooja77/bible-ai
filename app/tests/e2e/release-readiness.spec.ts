@@ -18,11 +18,14 @@ describe("Release readiness surfaces", () => {
     await expect(await $("button=Test Anthropic")).toBeDisplayed();
     await expect(await $("button=Test Google")).toBeDisplayed();
     await expect(await $("button=Test OpenAI")).toBeDisplayed();
+    await expect(await $("button=Test Gateway")).toBeDisplayed();
 
     const dataSources = await $('[data-testid="data-sources-screen"]');
     await dataSources.waitForDisplayed({ timeout: 10_000 });
     await expect(dataSources).toHaveText(expect.stringContaining("KJV"));
     await expect(dataSources).toHaveText(expect.stringContaining("World English Bible"));
+    await expect(dataSources).toHaveText(expect.stringContaining("Bundled"));
+    await expect(dataSources).toHaveText(expect.stringContaining("Deferred"));
     await expect(dataSources).toHaveText(expect.stringContaining("Phase 13"));
 
     const distribution = await $('[data-testid="about-distribution-screen"]');
@@ -46,9 +49,13 @@ describe("Release readiness surfaces", () => {
     const googleKey = await $('input[aria-label="Google API key"]');
     const openAiKey = await $('input[aria-label="OpenAI API key"]');
     const anthropicKey = await $('input[aria-label="Anthropic API key"]');
+    const gatewayUrl = await $('input[aria-label="Managed gateway URL"]');
+    const gatewayToken = await $('input[aria-label="Managed gateway token"]');
     await googleKey.setValue("test-google-key-not-real");
     await openAiKey.setValue("test-openai-key-not-real");
     await anthropicKey.setValue("test-anthropic-key-not-real");
+    await gatewayUrl.setValue("https://gateway.example.test");
+    await gatewayToken.setValue("test-gateway-token-not-real");
 
     const saveSettings = await $("button=Save settings");
     await saveSettings.waitForClickable({ timeout: 10_000 });
@@ -73,11 +80,16 @@ describe("Release readiness surfaces", () => {
     expect(backupText).not.toContain("test-google-key-not-real");
     expect(backupText).not.toContain("test-openai-key-not-real");
     expect(backupText).not.toContain("test-anthropic-key-not-real");
-    expect(backupText).not.toMatch(/(google_api_key|openai_api_key|anthropic_api_key)/);
+    expect(backupText).not.toContain("test-gateway-token-not-real");
+    expect(backupText).not.toMatch(
+      /(google_api_key|openai_api_key|anthropic_api_key|managed_gateway_token)/,
+    );
 
     await googleKey.setValue("");
     await openAiKey.setValue("");
     await anthropicKey.setValue("");
+    await gatewayUrl.setValue("");
+    await gatewayToken.setValue("");
     await saveSettings.click();
   });
 

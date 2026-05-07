@@ -1,8 +1,9 @@
 import { claude } from "./claude.mjs";
+import { gateway } from "./gateway.mjs";
 import { openai } from "./openai.mjs";
 import { gemini } from "./gemini.mjs";
 
-export const ALL_PROVIDERS = [claude, gemini, openai];
+export const ALL_PROVIDERS = [claude, gateway, gemini, openai];
 
 export { callClaudeSynthesis } from "./claude.mjs";
 

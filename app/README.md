@@ -1,7 +1,9 @@
-# Tauri + React + Typescript
+# Bible AI App
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+This directory contains the Tauri 2 desktop application:
 
-## Recommended IDE Setup
+- React + TypeScript frontend
+- Rust/Tauri shell and SQLite user database
+- Node sidecar for Council/provider orchestration
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+See the repository-level [`../README.md`](../README.md) for setup, release, and licensing notes.

@@ -42,7 +42,7 @@ export function StrongsPopup({ codes, surface, morph, onJumpToVerse, onClose }: 
   }, [codes.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[420px] max-h-[60vh] overflow-y-auto rounded-lg border border-neutral-700 bg-neutral-950/95 shadow-xl backdrop-blur">
+    <div className="surface-panel fixed bottom-4 right-4 z-50 w-[420px] max-h-[60vh] overflow-y-auto rounded-lg backdrop-blur">
       <header className="flex items-baseline justify-between px-4 py-3 border-b border-neutral-800">
         <div>
           <div

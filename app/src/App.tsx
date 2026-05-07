@@ -45,12 +45,14 @@ import { SearchResults } from "./features/search/SearchResults";
 import { CouncilPanel } from "./features/council/CouncilPanel";
 import { StrongsPopup } from "./features/reader/StrongsPopup";
 import { SettingsPanel } from "./features/settings/SettingsPanel";
+import { TheologyPanel } from "./features/theology/TheologyPanel";
+import { ResourcesPanel } from "./features/resources/ResourcesPanel";
 import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
 
-type Mode = "reader" | "council" | "workspaces" | "settings";
+type Mode = "reader" | "council" | "theology" | "resources" | "workspaces" | "settings";
 type SearchTestamentFilter = "all" | "OT" | "NT";
 type ReaderLayout = "columns" | "interleaved";
 type ReaderDensity = "comfortable" | "compact";
@@ -60,6 +62,111 @@ type CommandItem = {
   detail: string;
   run: () => void;
 };
+type TourStep = {
+  id: string;
+  title: string;
+  mode: Mode;
+  eyebrow: string;
+  body: string;
+  tips: string[];
+  actionLabel?: string;
+};
+
+const TOUR_DISMISSED_KEY = "bible-ai-tour-dismissed-v1";
+const TOUR_AUTO_ADVANCE_MS = 6500;
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    id: "reader",
+    title: "Read, compare, and navigate Scripture",
+    mode: "reader",
+    eyebrow: "Reader",
+    body: "The Reader is the home base. Choose books and chapters from the sidebar, toggle translations, adjust text size, and jump directly to references like John 3:16.",
+    tips: [
+      "Click a verse number to open actions for notes, highlights, bookmarks, explanation, and Council questions.",
+      "Use the translation picker to compare English, Hebrew, Greek, and parallel layouts.",
+      "Shift-click verse numbers to select a range for copying, notes, highlights, or workspace capture.",
+    ],
+    actionLabel: "Open Reader",
+  },
+  {
+    id: "search",
+    title: "Search and save what you find",
+    mode: "reader",
+    eyebrow: "Search",
+    body: "The sidebar search works across the active translation, a chosen translation, or the full corpus. Filters help narrow results by testament or book.",
+    tips: [
+      "Press / anywhere outside an input to focus search.",
+      "Use result checkboxes to collect several passages into a workspace at once.",
+      "Save repeated searches so they appear in the sidebar shortcuts.",
+    ],
+  },
+  {
+    id: "council",
+    title: "Ask the Council and inspect the reasoning",
+    mode: "council",
+    eyebrow: "Council",
+    body: "Council is for disputed or interpretive questions. It retrieves evidence, runs the configured voices, and shows why one argument ranked higher than another.",
+    tips: [
+      "Check 'Voices before submit' to see which providers will run.",
+      "Use retrieval controls to constrain evidence by strategy, translation, testament, book, and evidence limit.",
+      "After an answer, review process metrics, position comparison, evidence tabs, confidence rationale, and raw source data.",
+    ],
+    actionLabel: "Open Council",
+  },
+  {
+    id: "workspaces",
+    title: "Build reusable studies in Workspaces",
+    mode: "workspaces",
+    eyebrow: "Workspaces",
+    body: "Workspaces gather passages, search results, notes, explanations, and Council sessions into a study you can edit and export.",
+    tips: [
+      "Use Add buttons throughout the app to save material into a workspace.",
+      "Filter workspace items once a study grows large.",
+      "Export to Markdown, HTML, or PDF when you want to share or archive a study.",
+    ],
+    actionLabel: "Open Workspaces",
+  },
+  {
+    id: "theology",
+    title: "Build a living systematic theology",
+    mode: "theology",
+    eyebrow: "Theology",
+    body: "Theology gathers your conclusions across doctrine topics so Council sessions, passages, resources, and workspaces can become a living study system.",
+    tips: [
+      "Start by choosing a doctrine topic and writing your current conclusion.",
+      "Use confidence and unresolved questions to keep uncertainty visible.",
+      "Later links from Council, Reader, Resources, and Workspaces will attach evidence to these topics.",
+    ],
+    actionLabel: "Open Theology",
+  },
+  {
+    id: "resources",
+    title: "Search attributable open resources",
+    mode: "resources",
+    eyebrow: "Resources",
+    body: "Resources exposes public-domain and open-license study materials with license and attribution visible before you link or export them.",
+    tips: [
+      "Search resource text separately from Scripture so source provenance stays clear.",
+      "Inspect license and attribution in the detail panel before using a source.",
+      "Link resource entries to Theology topics when they support or challenge your conclusions.",
+    ],
+    actionLabel: "Open Resources",
+  },
+  {
+    id: "settings",
+    title: "Connect providers and review sources",
+    mode: "settings",
+    eyebrow: "Settings",
+    body: "Settings covers AI setup, provider tests, data sources, backups, privacy notes, and release/distribution status.",
+    tips: [
+      "No-key mode can use Claude Code login and Ollama.",
+      "Personal API keys are stored in the OS credential vault and excluded from backups.",
+      "Managed Gateway mode supports team/public deployments without exposing provider keys to end users.",
+    ],
+    actionLabel: "Open Settings",
+  },
+];
 
 function App() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -105,6 +212,9 @@ function App() {
   const [workspaceFocusId, setWorkspaceFocusId] = useState<number | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourStepIndex, setTourStepIndex] = useState(0);
+  const [tourDismissed, setTourDismissed] = useState(true);
 
   // Per-chapter user data (highlights + which verses have notes).
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -159,6 +269,11 @@ function App() {
         setError(String(e));
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    const dismissed = window.localStorage.getItem(TOUR_DISMISSED_KEY) === "1";
+    setTourDismissed(dismissed);
   }, []);
 
   const refreshNavigationLists = useCallback(async () => {
@@ -481,6 +596,30 @@ function App() {
     if (nextMode !== "reader") setSearchQuery("");
   };
 
+  const openTour = (stepIndex = 0) => {
+    const step = TOUR_STEPS[stepIndex] ?? TOUR_STEPS[0];
+    setTourStepIndex(stepIndex);
+    setTourOpen(true);
+    selectMode(step.mode);
+  };
+
+  const dismissTourPrompt = () => {
+    window.localStorage.setItem(TOUR_DISMISSED_KEY, "1");
+    setTourDismissed(true);
+  };
+
+  const closeTour = (dismiss = false) => {
+    setTourOpen(false);
+    if (dismiss) dismissTourPrompt();
+  };
+
+  const goToTourStep = (nextIndex: number) => {
+    const clamped = Math.max(0, Math.min(TOUR_STEPS.length - 1, nextIndex));
+    const step = TOUR_STEPS[clamped];
+    setTourStepIndex(clamped);
+    selectMode(step.mode);
+  };
+
   const updateSearchQuery = (nextQuery: string) => {
     setSearchQuery(nextQuery);
     if (nextQuery.trim()) setMode("reader");
@@ -503,6 +642,12 @@ function App() {
   const commandItems = useMemo<CommandItem[]>(() => {
     const items: CommandItem[] = [
       {
+        id: "mode-theology",
+        label: "Open Theology",
+        detail: "Dynamic systematic theology",
+        run: () => selectMode("theology"),
+      },
+      {
         id: "mode-reader",
         label: "Open Reader",
         detail: "View Bible text",
@@ -519,6 +664,12 @@ function App() {
         label: "Open Workspaces",
         detail: "Saved studies and exports",
         run: () => selectMode("workspaces"),
+      },
+      {
+        id: "mode-resources",
+        label: "Open Resources",
+        detail: "Search open study resources",
+        run: () => selectMode("resources"),
       },
       {
         id: "mode-settings",
@@ -609,12 +760,28 @@ function App() {
   }, [commandItems, commandPaletteQuery]);
 
   return (
-    <div className="h-full flex">
-      <aside className="w-72 border-r border-neutral-800 bg-neutral-950 flex flex-col">
+    <div className="app-shell h-full flex">
+      <aside className="app-sidebar w-80 border-r border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-800 space-y-3">
-          <h1 className="text-lg font-semibold text-neutral-100">Bible AI</h1>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-lg font-semibold text-neutral-100">Bible AI</h1>
+              <p className="text-xs text-neutral-500 mt-0.5">Reader, Council, workspace</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCommandPaletteOpen(true);
+                setCommandPaletteQuery("");
+              }}
+              className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
+              aria-label="Open command palette"
+            >
+              Ctrl K
+            </button>
+          </div>
 
-          <div className="flex gap-1 bg-neutral-900 p-0.5 rounded">
+          <div className="flex gap-1 bg-neutral-900/80 p-1 rounded-lg border border-neutral-800">
             <ModeButton
               active={mode === "reader"}
               onClick={() => selectMode("reader")}
@@ -631,10 +798,54 @@ function App() {
               label="Settings"
             />
             <ModeButton
+              active={mode === "theology"}
+              onClick={() => selectMode("theology")}
+              label="Theology"
+            />
+            <ModeButton
+              active={mode === "resources"}
+              onClick={() => selectMode("resources")}
+              label="Res"
+            />
+            <ModeButton
               active={mode === "workspaces"}
               onClick={() => selectMode("workspaces")}
               label="Work"
             />
+          </div>
+
+          <div
+            className={tourDismissed ? "flex items-center justify-between gap-2" : "soft-card p-3 space-y-2"}
+            data-testid="new-user-guide-prompt"
+          >
+            {!tourDismissed && (
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-neutral-100">New here?</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    Take a quick tour of the main workflow.
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openTour(0)}
+                className={tourDismissed ? "meta-pill hover:border-neutral-500 hover:text-neutral-200" : "btn-primary px-2.5 py-1 text-xs"}
+              >
+                {tourDismissed ? "Guide" : "Start guide"}
+              </button>
+              {!tourDismissed && (
+                <button
+                  type="button"
+                  onClick={dismissTourPrompt}
+                  className="btn-ghost px-2.5 py-1 text-xs"
+                >
+                  Hide
+                </button>
+              )}
+            </div>
           </div>
 
           <SearchInput value={searchQuery} onChange={updateSearchQuery} />
@@ -696,7 +907,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => void jumpToReference()}
-                className="px-2 rounded border border-neutral-800 hover:border-neutral-700 text-xs text-neutral-300"
+                className="btn-secondary px-3 text-xs"
               >
                 Go
               </button>
@@ -710,7 +921,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setReaderFontScale(fontScale - 0.1)}
-                className="w-7 h-7 rounded border border-neutral-800 hover:border-neutral-700 text-neutral-300"
+                className="btn-secondary w-7 h-7 text-neutral-300"
                 aria-label="Decrease reader font size"
               >
                 A-
@@ -719,7 +930,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setReaderFontScale(fontScale + 0.1)}
-                className="w-7 h-7 rounded border border-neutral-800 hover:border-neutral-700 text-neutral-300"
+                className="btn-secondary w-7 h-7 text-neutral-300"
                 aria-label="Increase reader font size"
               >
                 A+
@@ -826,7 +1037,7 @@ function App() {
 
         {selectedBook && mode === "reader" && (
           <div className="border-t border-neutral-800 p-4">
-            <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+            <h3 className="nav-section-title mb-2">
               {selectedBook.name} · Chapters
             </h3>
             <ChapterGrid
@@ -838,7 +1049,7 @@ function App() {
         )}
       </aside>
 
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto bg-neutral-950/20">
         {error ? (
           <div className="p-6 text-red-400 text-sm">
             <p className="font-semibold mb-1">Error</p>
@@ -915,6 +1126,31 @@ function App() {
               setMode("council");
             }}
           />
+        ) : mode === "theology" ? (
+          <TheologyPanel
+            onAskCouncil={(nextQuestion) => {
+              setPendingCouncilQuestion(nextQuestion);
+              setSearchQuery("");
+              setMode("council");
+            }}
+            onOpenGuide={() => {
+              const theologyStep = TOUR_STEPS.findIndex((step) => step.id === "theology");
+              openTour(theologyStep >= 0 ? theologyStep : 0);
+            }}
+            onOpenResources={() => {
+              setSearchQuery("");
+              setMode("resources");
+            }}
+          />
+        ) : mode === "resources" ? (
+          <ResourcesPanel
+            onOpenDataSources={() => setMode("settings")}
+            onAskCouncil={(nextQuestion) => {
+              setPendingCouncilQuestion(nextQuestion);
+              setSearchQuery("");
+              setMode("council");
+            }}
+          />
         ) : mode === "council" ? (
           <CouncilPanel
             onJumpToVerse={jumpToVerse}
@@ -927,9 +1163,9 @@ function App() {
             onRestoredResultConsumed={() => setWorkspaceCouncilResult(null)}
           />
         ) : !selectedBook || !selectedChapter ? (
-          <div className="p-6 text-neutral-500">Select a book to begin.</div>
+          <EmptyState title="Select a book" detail="Choose a book and chapter from the sidebar to begin reading." />
         ) : orderedActive.length === 0 ? (
-          <div className="p-6 text-neutral-500">Select at least one translation.</div>
+          <EmptyState title="Select a translation" detail="Enable at least one translation in the sidebar translation list." />
         ) : (
           <>
             {orderedActive.length === 1 ? (
@@ -1035,6 +1271,15 @@ function App() {
           onClose={() => setCommandPaletteOpen(false)}
         />
       )}
+      {tourOpen && (
+        <GuidedTour
+          steps={TOUR_STEPS}
+          currentIndex={tourStepIndex}
+          onStepChange={goToTourStep}
+          onClose={() => closeTour(false)}
+          onFinish={() => closeTour(true)}
+        />
+      )}
     </div>
   );
 }
@@ -1070,7 +1315,7 @@ function InterleavedReader({
     <article
       data-testid="interleaved-reader"
       className={
-        "max-w-5xl mx-auto " +
+        "reader-panel max-w-5xl mx-auto " +
         (density === "compact" ? "px-4 py-5" : "px-6 py-8")
       }
     >
@@ -1094,7 +1339,11 @@ function InterleavedReader({
       </header>
 
       {loading ? (
-        <p className="text-neutral-500 italic">Loading...</p>
+        <div className="space-y-3" aria-label="Loading chapter">
+          <div className="h-4 w-5/6 rounded bg-neutral-800/70 animate-pulse" />
+          <div className="h-4 w-11/12 rounded bg-neutral-800/50 animate-pulse" />
+          <div className="h-4 w-2/3 rounded bg-neutral-800/40 animate-pulse" />
+        </div>
       ) : primaryVerses.length === 0 ? (
         <p className="text-neutral-500 italic">No verses for this chapter.</p>
       ) : (
@@ -1111,7 +1360,7 @@ function InterleavedReader({
                 id={anchor ? `v-${anchor.verse_id}` : undefined}
                 data-testid="interleaved-verse"
                 className={
-                  "grid border border-neutral-800 rounded " +
+                  "soft-card grid " +
                   (density === "compact"
                     ? "grid-cols-[2.75rem_1fr] gap-2 px-3 py-2"
                     : "grid-cols-[3.5rem_1fr] gap-3 px-4 py-3")
@@ -1315,7 +1564,7 @@ function NavigationShortcuts({
                       aria-label={`Saved search title: ${s.title}`}
                       value={editingSavedSearchTitle}
                       onChange={(e) => setEditingSavedSearchTitle(e.target.value)}
-                      className="w-full rounded border border-neutral-800 bg-neutral-950 px-2 py-1 text-xs text-neutral-200"
+                      className="settings-input text-xs"
                     />
                     <div className="flex items-center gap-2">
                       <button
@@ -1426,14 +1675,25 @@ function ModeButton({
       type="button"
       onClick={onClick}
       className={
-        "flex-1 text-sm py-1 rounded transition-colors " +
+        "flex-1 text-xs py-1.5 rounded-md transition-colors " +
         (active
-          ? "bg-neutral-800 text-neutral-100"
-          : "text-neutral-400 hover:text-neutral-200")
+          ? "bg-amber-500/15 text-amber-100 shadow-sm"
+          : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200")
       }
     >
       {label}
     </button>
+  );
+}
+
+function EmptyState({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="h-full grid place-items-center p-6">
+      <div className="soft-card max-w-sm px-5 py-4 text-center">
+        <p className="text-sm font-semibold text-neutral-100">{title}</p>
+        <p className="text-sm text-neutral-500 mt-1">{detail}</p>
+      </div>
+    </div>
   );
 }
 
@@ -1476,7 +1736,7 @@ function CommandPalette({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-xl border border-neutral-800 rounded bg-neutral-950 shadow-2xl overflow-hidden">
+      <div className="surface-panel w-full max-w-xl rounded-lg overflow-hidden">
         <input
           ref={inputRef}
           value={query}
@@ -1497,7 +1757,7 @@ function CommandPalette({
             }
           }}
           placeholder="Search commands, books, workspaces..."
-          className="w-full bg-neutral-950 border-b border-neutral-800 px-4 py-3 text-sm text-neutral-100 placeholder:text-neutral-600 focus:outline-none"
+          className="w-full bg-neutral-950/80 border-b border-neutral-800 px-4 py-3 text-sm text-neutral-100 placeholder:text-neutral-600 focus:outline-none"
         />
         {items.length === 0 ? (
           <p className="px-4 py-6 text-sm text-neutral-500">No matching commands.</p>
@@ -1515,7 +1775,7 @@ function CommandPalette({
                   className={
                     "w-full text-left px-4 py-2 " +
                     (selectedIndex === index
-                      ? "bg-neutral-800 text-neutral-100"
+                      ? "bg-amber-500/15 text-amber-100"
                       : "text-neutral-300 hover:bg-neutral-900")
                   }
                 >
@@ -1527,6 +1787,216 @@ function CommandPalette({
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+function GuidedTour({
+  steps,
+  currentIndex,
+  onStepChange,
+  onClose,
+  onFinish,
+}: {
+  steps: TourStep[];
+  currentIndex: number;
+  onStepChange: (index: number) => void;
+  onClose: () => void;
+  onFinish: () => void;
+}) {
+  const step = steps[currentIndex] ?? steps[0];
+  const isFirst = currentIndex === 0;
+  const isLast = currentIndex === steps.length - 1;
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [progress, setProgress] = useState(0);
+
+  const changeStep = (index: number) => {
+    setProgress(0);
+    onStepChange(index);
+  };
+
+  const rewindTour = () => {
+    setIsPlaying(true);
+    changeStep(0);
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowRight" && !isLast) changeStep(currentIndex + 1);
+      if (event.key === "ArrowLeft" && !isFirst) changeStep(currentIndex - 1);
+      if (event.key === "Home") rewindTour();
+      if (event.key === " " && event.target === document.body) {
+        event.preventDefault();
+        setIsPlaying((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [currentIndex, isFirst, isLast, onClose]);
+
+  useEffect(() => {
+    setProgress(0);
+  }, [currentIndex]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    if (isLast) {
+      setIsPlaying(false);
+      setProgress(100);
+      return;
+    }
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      const elapsed = Date.now() - started;
+      const nextProgress = Math.min(100, (elapsed / TOUR_AUTO_ADVANCE_MS) * 100);
+      setProgress(nextProgress);
+      if (elapsed >= TOUR_AUTO_ADVANCE_MS) {
+        window.clearInterval(timer);
+        changeStep(currentIndex + 1);
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [currentIndex, isLast, isPlaying]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/65 flex items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="New user guide"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      data-testid="guided-tour"
+    >
+      <section className="surface-panel w-full max-w-2xl rounded-lg overflow-hidden">
+        <div className="flex items-start justify-between gap-4 border-b border-neutral-800 px-5 py-4">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-amber-300">{step.eyebrow}</p>
+            <h2 className="text-xl font-semibold text-neutral-100 mt-1">{step.title}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="meta-pill text-[11px]">
+              {isPlaying ? "Auto-playing" : "Paused"}
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-ghost px-2 py-1 text-sm"
+              aria-label="Close guide"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          <p className="text-sm text-neutral-300 leading-relaxed">{step.body}</p>
+          <ul className="grid gap-2">
+            {step.tips.map((tip, index) => (
+              <li key={tip} className="soft-card grid grid-cols-[1.75rem_1fr] gap-2 px-3 py-2">
+                <span className="grid place-items-center w-6 h-6 rounded-full bg-amber-500/15 text-xs text-amber-200">
+                  {index + 1}
+                </span>
+                <span className="text-sm text-neutral-300 leading-relaxed">{tip}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {steps.map((candidate, index) => (
+              <button
+                key={candidate.id}
+                type="button"
+                onClick={() => {
+                  setIsPlaying(false);
+                  changeStep(index);
+                }}
+                className={
+                  "h-2.5 rounded-full transition-all " +
+                  (index === currentIndex
+                    ? "w-8 bg-amber-400"
+                    : "w-2.5 bg-neutral-700 hover:bg-neutral-500")
+                }
+                aria-label={`Go to guide step ${index + 1}: ${candidate.eyebrow}`}
+              />
+            ))}
+            <span className="ml-auto text-xs text-neutral-500">
+              {currentIndex + 1}/{steps.length}
+            </span>
+          </div>
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-neutral-800"
+            aria-label="Tour autoplay progress"
+          >
+            <div
+              className="h-full rounded-full bg-amber-400 transition-[width]"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={rewindTour}
+              disabled={isFirst && progress === 0}
+              className="btn-secondary px-3 py-1.5 text-sm"
+            >
+              Rewind
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsPlaying(false);
+                changeStep(currentIndex - 1);
+              }}
+              disabled={isFirst}
+              className="btn-secondary px-3 py-1.5 text-sm"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPlaying((value) => !value)}
+              className="btn-secondary px-3 py-1.5 text-sm"
+            >
+              {isPlaying ? "Pause" : "Play"}
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onFinish}
+              className="btn-ghost px-3 py-1.5 text-sm"
+            >
+              Do not show prompt
+            </button>
+            {isLast ? (
+              <button
+                type="button"
+                onClick={onFinish}
+                className="btn-primary px-3 py-1.5 text-sm"
+              >
+                Finish
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlaying(false);
+                  changeStep(currentIndex + 1);
+                }}
+                className="btn-primary px-3 py-1.5 text-sm"
+              >
+                Next
+              </button>
+            )}
+          </div>
+        </footer>
+      </section>
     </div>
   );
 }

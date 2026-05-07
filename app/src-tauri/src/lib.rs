@@ -219,7 +219,8 @@ fn get_app_settings(
     })?;
     let had_legacy_provider_keys = settings.google_api_key.is_some()
         || settings.openai_api_key.is_some()
-        || settings.anthropic_api_key.is_some();
+        || settings.anthropic_api_key.is_some()
+        || settings.managed_gateway_token.is_some();
     credentials::read_provider_keys(&mut settings);
     if had_legacy_provider_keys {
         credentials::save_provider_keys(&settings)?;
@@ -870,6 +871,22 @@ fn write_workspace_pdf(app: AppHandle, title: String, markdown: String) -> Resul
 }
 
 #[tauri::command]
+fn write_theology_pdf(app: AppHandle, title: String, markdown: String) -> Result<String, String> {
+    if markdown.trim().is_empty() {
+        return Err("theology PDF source is empty".to_string());
+    }
+    let dir = export_dir(&app)?;
+    let safe_title = sanitize_filename(&title);
+    let path = dir.join(format!(
+        "bible-ai-theology-{safe_title}-{stamp}.pdf",
+        stamp = unix_stamp()
+    ));
+    let pdf = render_text_pdf(&title, &markdown);
+    std::fs::write(&path, pdf).map_err(|e| format!("could not write {}: {e}", path.display()))?;
+    Ok(path.display().to_string())
+}
+
+#[tauri::command]
 fn backup_user_sqlite(
     app: AppHandle,
     state: tauri::State<'_, UserDbState>,
@@ -1205,6 +1222,7 @@ async fn ask_council(
                 &response_json,
             )
             .map(|id| {
+                result["session_id"] = serde_json::Value::Number(id.into());
                 eprintln!("[council] persisted session id={id}");
             })
             .map_err(|e| e.to_string())
@@ -1282,6 +1300,310 @@ fn delete_council_session(
 ) -> Result<usize, String> {
     with_user_db(&app, &state, |conn| {
         user_db::delete_session(conn, id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn get_council_judgment(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    council_session_id: i64,
+) -> Result<Option<user_db::CouncilJudgment>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::get_council_judgment(conn, council_session_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn upsert_council_judgment(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    judgment: user_db::CouncilJudgment,
+) -> Result<i64, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::upsert_council_judgment(conn, &judgment).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn delete_council_judgment(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    council_session_id: i64,
+) -> Result<usize, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::delete_council_judgment(conn, council_session_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_judgments_for_workspace(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    workspace_id: i64,
+) -> Result<Vec<user_db::CouncilJudgment>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_judgments_for_workspace(conn, workspace_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_theology_topics(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+) -> Result<Vec<user_db::TheologyTopic>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_theology_topics(conn).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn get_theology_topic(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    id: i64,
+) -> Result<Option<user_db::TheologyTopic>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::get_theology_topic(conn, id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn create_theology_topic(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    title: String,
+    summary: Option<String>,
+    parent_id: Option<i64>,
+) -> Result<i64, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::create_theology_topic(conn, &title, summary.as_deref(), parent_id)
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn update_theology_topic(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    topic: user_db::TheologyTopic,
+) -> Result<usize, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::update_theology_topic(conn, &topic).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn get_theology_conclusion(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    topic_id: i64,
+) -> Result<Option<user_db::TheologyConclusion>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::get_theology_conclusion(conn, topic_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn upsert_theology_conclusion(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    conclusion: user_db::TheologyConclusion,
+) -> Result<i64, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::upsert_theology_conclusion(conn, &conclusion).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_theology_positions(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    topic_id: i64,
+) -> Result<Vec<user_db::TheologyPosition>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_theology_positions(conn, topic_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn upsert_theology_position(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    position: user_db::TheologyPosition,
+) -> Result<i64, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::upsert_theology_position(conn, &position).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_theology_links(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    topic_id: i64,
+) -> Result<Vec<user_db::TheologyLink>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_theology_links(conn, topic_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn create_theology_link(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    link: user_db::TheologyLink,
+) -> Result<i64, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::create_theology_link(conn, &link).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn delete_theology_link(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    id: i64,
+) -> Result<usize, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::delete_theology_link(conn, id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn export_theology_markdown(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    topic_id: Option<i64>,
+    include_subtopics: Option<bool>,
+) -> Result<String, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::export_theology_markdown(conn, topic_id, include_subtopics.unwrap_or(false))
+            .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_resource_sources(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+) -> Result<Vec<user_db::ResourceSource>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_resource_sources(conn).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_resource_collections(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    source_id: Option<i64>,
+) -> Result<Vec<user_db::ResourceCollection>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_resource_collections(conn, source_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn search_resources(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    query: String,
+    source_id: Option<i64>,
+    collection_kind: Option<String>,
+    license: Option<String>,
+    topic_id: Option<i64>,
+    limit: Option<i64>,
+) -> Result<Vec<user_db::ResourceEntry>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::search_resources(
+            conn,
+            &query,
+            source_id,
+            collection_kind.as_deref(),
+            license.as_deref(),
+            topic_id,
+            limit.unwrap_or(30),
+        )
+        .map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn get_resource_entry(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    id: i64,
+) -> Result<Option<user_db::ResourceEntry>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::get_resource_entry(conn, id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn get_guided_study_session(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    topic_id: i64,
+    template_slug: String,
+) -> Result<Option<user_db::GuidedStudySession>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::get_guided_study_session(conn, topic_id, &template_slug).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_guided_study_sessions_for_topic(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    topic_id: i64,
+) -> Result<Vec<user_db::GuidedStudySession>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_guided_study_sessions_for_topic(conn, topic_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn upsert_guided_study_session(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    session: user_db::GuidedStudySession,
+) -> Result<i64, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::upsert_guided_study_session(conn, &session).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_argument_annotations(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    council_session_id: i64,
+) -> Result<Vec<user_db::ArgumentAnnotation>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_argument_annotations(conn, council_session_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn upsert_argument_annotation(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    annotation: user_db::ArgumentAnnotation,
+) -> Result<i64, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::upsert_argument_annotation(conn, &annotation).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn delete_argument_annotation(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    id: i64,
+) -> Result<usize, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::delete_argument_annotation(conn, id).map_err(|e| e.to_string())
     })
 }
 
@@ -1967,6 +2289,7 @@ pub fn run() {
             write_workspace_markdown,
             write_workspace_html,
             write_workspace_pdf,
+            write_theology_pdf,
             backup_user_sqlite,
             restore_user_sqlite,
             ask_council,
@@ -1974,6 +2297,32 @@ pub fn run() {
             list_council_sessions,
             get_council_session,
             delete_council_session,
+            get_council_judgment,
+            upsert_council_judgment,
+            delete_council_judgment,
+            list_judgments_for_workspace,
+            list_theology_topics,
+            get_theology_topic,
+            create_theology_topic,
+            update_theology_topic,
+            get_theology_conclusion,
+            upsert_theology_conclusion,
+            list_theology_positions,
+            upsert_theology_position,
+            list_theology_links,
+            create_theology_link,
+            delete_theology_link,
+            export_theology_markdown,
+            list_resource_sources,
+            list_resource_collections,
+            search_resources,
+            get_resource_entry,
+            get_guided_study_session,
+            list_guided_study_sessions_for_topic,
+            upsert_guided_study_session,
+            list_argument_annotations,
+            upsert_argument_annotation,
+            delete_argument_annotation,
             list_highlights_for_chapter,
             upsert_highlight,
             delete_highlight,
