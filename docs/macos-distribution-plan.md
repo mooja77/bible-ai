@@ -2,6 +2,8 @@
 
 Bible AI is currently release-packaged for Windows. macOS distribution is supported as a separate release lane because the app must be built on macOS and must bundle a Darwin-compatible Node sidecar runtime.
 
+Public note: macOS release scripts and plans are present, but a public `.dmg` must be built and verified on an Apple computer or macOS CI runner. A Windows machine cannot produce the final verified macOS public release.
+
 ## Goals
 
 - Produce installable macOS `.app` and `.dmg` artifacts.

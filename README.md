@@ -129,11 +129,16 @@ See [Data Sources](docs/data-sources.md) and [Notice](NOTICE.md).
 
 This project is currently open-source and Windows-first.
 
-Windows packaging exists, but the public release gate still requires clean-profile installer QA and credential-vault verification before publishing a general-use installer.
+Windows packaging exists, but the public installer is not verified unless clean-profile installer QA and credential-vault verification have been completed. If that gate cannot be completed, generated Windows installers should be treated as private/test builds only.
 
 When public releases are available, they should be distributed through the GitHub Releases page. Until then, run the app from source.
 
-macOS distribution is planned and scripted, but macOS builds must be produced and verified on a Mac. See [macOS Distribution Plan](docs/macos-distribution-plan.md).
+macOS distribution is planned and scripted, but a public `.dmg` must be built and verified on an Apple computer or macOS CI runner. A Windows build cannot produce the verified macOS public release. See [macOS Install Guide](docs/install-macos.md) and [macOS Distribution Plan](docs/macos-distribution-plan.md).
+
+Install guides:
+
+- [Windows Install Guide](docs/install-windows.md)
+- [macOS Install Guide](docs/install-macos.md)
 
 ## Run From Source
 
@@ -200,6 +205,8 @@ prompts/             Prompt and planning artifacts
 - [Learning And Systematic Theology Plan](docs/learning-and-systematic-theology-plan.md)
 - [Open Resource Ingestion Plan](docs/open-resource-ingestion-plan.md)
 - [Data Sources](docs/data-sources.md)
+- [Windows Install Guide](docs/install-windows.md)
+- [macOS Install Guide](docs/install-macos.md)
 - [User-Owned AI Provider Setup](docs/user-owned-ai-setup.md)
 - [Privacy And Distribution](docs/privacy-and-distribution.md)
 - [Release Notes](docs/release-notes.md)

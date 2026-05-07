@@ -39,7 +39,7 @@ Release-readiness additions since that run:
 - Provider keys are now stored in the OS credential vault; legacy SQLite secret rows are removed with SQLite secure delete and vacuum cleanup.
 - The 2026-05-07 multi-provider QA run passed with Gemini and OpenAI contributing successful answers for all 20 questions.
 
-Manual clean-profile Windows testing still requires a separate Windows user profile or clean VM. That cannot be proven by source edits alone.
+Manual clean-profile Windows testing still requires a separate Windows user profile or clean VM. That cannot be proven by source edits alone. If this gate cannot be completed, generated Windows installers should be treated as private/test builds and should not be described as verified public installers.
 
 The manual release gate now has machine-readable evidence and a sanitized collector:
 
