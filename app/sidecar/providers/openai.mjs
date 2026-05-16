@@ -44,12 +44,18 @@ async function callOpenAI({ apiKey, systemPrompt, userPrompt, model, timeoutMs =
 
       if (!resp.ok) {
         const errText = await resp.text().catch(() => "");
-        lastError = new Error(`OpenAI ${resp.status} ${resp.statusText}: ${errText.slice(0, 300)}`);
-        if (RETRYABLE_STATUS.has(resp.status) && attempt < 2) {
+        const httpError = new Error(
+          `OpenAI ${resp.status} ${resp.statusText}: ${errText.slice(0, 300)}`,
+        );
+        // Tag so the catch below does not blindly retry a non-retryable
+        // status (e.g. 401 invalid key burning three attempts).
+        httpError.retryable = RETRYABLE_STATUS.has(resp.status);
+        lastError = httpError;
+        if (httpError.retryable && attempt < 2) {
           await sleep(1500 * (attempt + 1));
           continue;
         }
-        throw lastError;
+        throw httpError;
       }
 
       const data = await resp.json();
@@ -60,6 +66,11 @@ async function callOpenAI({ apiKey, systemPrompt, userPrompt, model, timeoutMs =
       return text;
     } catch (err) {
       lastError = err;
+      // A classified non-retryable HTTP error: fail fast, don't retry.
+      // Network/abort errors carry no `retryable` flag and stay retryable.
+      if (err?.retryable === false) {
+        throw err;
+      }
       if (attempt < 2) {
         await sleep(1500 * (attempt + 1));
         continue;

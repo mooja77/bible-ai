@@ -13,6 +13,31 @@ use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout, Command};
 
+/// Upper bound on how long a single sidecar request may take before we assume
+/// the Node process is wedged. A full Council run (parallel voices + a
+/// synthesis call, each with their own ~600s provider timeouts) can legitimately
+/// run for many minutes, so this is a deadlock guard, not a UX latency budget.
+const SIDECAR_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1800);
+
+/// Why a sidecar request failed. The distinction decides whether the
+/// long-running process is still trustworthy.
+pub enum SidecarError {
+    /// The Node handler returned a clean `{type:"error"}` response — the
+    /// request failed, but the process itself is healthy and reusable.
+    App(String),
+    /// A transport or protocol failure (write/read/parse/timeout). The
+    /// process may be in an unknown state and should be discarded.
+    Transport(String),
+}
+
+impl SidecarError {
+    fn into_message(self) -> String {
+        match self {
+            SidecarError::App(msg) | SidecarError::Transport(msg) => msg,
+        }
+    }
+}
+
 pub struct Sidecar {
     // Keep the Child alive so dropping Sidecar kills the process.
     _child: tokio::process::Child,
@@ -117,52 +142,61 @@ impl Sidecar {
         })
     }
 
-    pub async fn request(&mut self, kind: &str, mut body: Value) -> Result<Value, String> {
+    pub async fn request(&mut self, kind: &str, mut body: Value) -> Result<Value, SidecarError> {
         self.next_id += 1;
         let id = format!("r{}", self.next_id);
         body["id"] = Value::String(id.clone());
         body["type"] = Value::String(kind.to_string());
 
-        let line = serde_json::to_string(&body).map_err(|e| e.to_string())?;
+        let line = serde_json::to_string(&body)
+            .map_err(|e| SidecarError::Transport(format!("sidecar request encode: {e}")))?;
         self.stdin
             .write_all(line.as_bytes())
             .await
-            .map_err(|e| format!("sidecar stdin write: {e}"))?;
+            .map_err(|e| SidecarError::Transport(format!("sidecar stdin write: {e}")))?;
         self.stdin
             .write_all(b"\n")
             .await
-            .map_err(|e| format!("sidecar stdin newline: {e}"))?;
+            .map_err(|e| SidecarError::Transport(format!("sidecar stdin newline: {e}")))?;
         self.stdin
             .flush()
             .await
-            .map_err(|e| format!("sidecar stdin flush: {e}"))?;
+            .map_err(|e| SidecarError::Transport(format!("sidecar stdin flush: {e}")))?;
 
         let mut buf = String::new();
         let n = self
             .reader
             .read_line(&mut buf)
             .await
-            .map_err(|e| format!("sidecar stdout read: {e}"))?;
+            .map_err(|e| SidecarError::Transport(format!("sidecar stdout read: {e}")))?;
         if n == 0 {
-            return Err("sidecar closed stdout before responding".to_string());
+            return Err(SidecarError::Transport(
+                "sidecar closed stdout before responding".to_string(),
+            ));
         }
 
-        let resp: Value = serde_json::from_str(buf.trim())
-            .map_err(|e| format!("sidecar: malformed response `{}`: {e}", buf.trim()))?;
+        let resp: Value = serde_json::from_str(buf.trim()).map_err(|e| {
+            SidecarError::Transport(format!("sidecar: malformed response `{}`: {e}", buf.trim()))
+        })?;
 
         if resp.get("id").and_then(Value::as_str) != Some(&id) {
-            return Err(format!("sidecar response id mismatch: {buf}"));
+            return Err(SidecarError::Transport(format!(
+                "sidecar response id mismatch: {buf}"
+            )));
         }
+        // A `{type:"error"}` reply is the handler reporting a failed request
+        // (bad input, no providers, all voices failed). The process is fine.
         if resp.get("type").and_then(Value::as_str) == Some("error") {
-            return Err(resp
-                .get("error")
-                .and_then(Value::as_str)
-                .unwrap_or("unknown sidecar error")
-                .to_string());
+            return Err(SidecarError::App(
+                resp.get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown sidecar error")
+                    .to_string(),
+            ));
         }
         resp.get("result")
             .cloned()
-            .ok_or_else(|| "sidecar response missing `result`".to_string())
+            .ok_or_else(|| SidecarError::Transport("sidecar response missing `result`".to_string()))
     }
 }
 
@@ -186,11 +220,25 @@ impl SidecarState {
         let Some(sidecar) = guard.as_mut() else {
             return Err("sidecar was not initialized".to_string());
         };
-        let result = sidecar.request(kind, body).await;
-        if result.is_err() {
-            *guard = None;
+        match tokio::time::timeout(SIDECAR_REQUEST_TIMEOUT, sidecar.request(kind, body)).await {
+            Ok(Ok(value)) => Ok(value),
+            // Clean handler error — keep the long-running process warm.
+            Ok(Err(err @ SidecarError::App(_))) => Err(err.into_message()),
+            // Transport failure — the process may be unusable; discard it so
+            // the next request spawns a fresh one.
+            Ok(Err(err @ SidecarError::Transport(_))) => {
+                *guard = None;
+                Err(err.into_message())
+            }
+            // No response within the deadline — assume the process is wedged.
+            Err(_) => {
+                *guard = None;
+                Err(format!(
+                    "sidecar request `{kind}` timed out after {}s",
+                    SIDECAR_REQUEST_TIMEOUT.as_secs()
+                ))
+            }
         }
-        result
     }
 }
 
