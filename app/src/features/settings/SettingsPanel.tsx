@@ -665,12 +665,14 @@ export function SettingsPanel({
           <ProviderStatusCard
             label="Claude"
             configured
-            status={diagnostics?.providers.find((p) => p.name === "claude")?.available}
+            status={diagnostics?.checks.claude.ok}
             detail={
               diagnostics
-                ? diagnostics.providers.find((p) => p.name === "claude")?.available
-                  ? "Claude voice will be attempted."
-                  : "Claude voice disabled by environment."
+                ? diagnostics.checks.claude.ok
+                  ? diagnostics.checks.claude.mode === "api"
+                    ? "Claude voice verified via the Anthropic API key."
+                    : "Claude voice verified via the Claude Code login."
+                  : diagnostics.checks.claude.error ?? "Claude voice is not reachable."
                 : hasSettingValue(draft.anthropic_api_key)
                   ? "Uses the user's Anthropic API subscription."
                   : "Uses the local Claude Code login if available."
@@ -1200,6 +1202,16 @@ export function SettingsPanel({
                 label="Sidecar"
                 ok={diagnostics.sidecar.ok}
                 detail={`Node ${diagnostics.sidecar.node} · ${diagnostics.sidecar.platform}/${diagnostics.sidecar.arch}`}
+              />
+              <DiagnosticRow
+                label="Claude"
+                ok={diagnostics.checks.claude.ok}
+                detail={
+                  diagnostics.checks.claude.error ??
+                  (diagnostics.checks.claude.mode === "api"
+                    ? "Reachable via the Anthropic API key"
+                    : "Reachable via the Claude Code login")
+                }
               />
               <DiagnosticRow
                 label="Google"

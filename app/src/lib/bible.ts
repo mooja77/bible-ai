@@ -305,6 +305,8 @@ export interface SetupCheck {
   ok: boolean;
   error: string | null;
   host?: string;
+  /** For the Claude check: "api", "subscription", or "disabled". */
+  mode?: string;
 }
 
 export interface SetupDiagnostics {
@@ -316,6 +318,7 @@ export interface SetupDiagnostics {
   };
   providers: CouncilProviderInfo[];
   checks: {
+    claude: SetupCheck;
     google: SetupCheck;
     openai: SetupCheck;
     anthropic: SetupCheck;

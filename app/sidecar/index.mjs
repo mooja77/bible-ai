@@ -17,6 +17,7 @@ import { createInterface } from "node:readline";
 import { runCouncil } from "./council.mjs";
 import { providerManifest } from "./providers/index.mjs";
 import { gatewayHealthEndpoint } from "./providers/gateway.mjs";
+import { probeClaudeVoice } from "./providers/claude.mjs";
 
 const log = (...args) => console.error("[sidecar]", ...args);
 
@@ -91,6 +92,9 @@ async function checkGateway(env) {
 async function runDiagnostics({ settings = {}, model = "sonnet" }) {
   const env = envWithSettings(settings);
   const checks = {
+    // A real call, not an assumption: the Claude voice has no cheap key
+    // check, so the provider test probes it directly.
+    claude: await probeClaudeVoice({ env }),
     google: env.GOOGLE_API_KEY
       ? await checkJsonEndpoint({
           name: "Google",

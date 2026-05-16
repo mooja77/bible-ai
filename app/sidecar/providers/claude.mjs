@@ -176,3 +176,54 @@ export const claude = {
 export async function callClaudeSynthesis({ systemPrompt, userPrompt, model, env = process.env }) {
   return callClaudeVoice({ systemPrompt, userPrompt, model, env });
 }
+
+/**
+ * Liveness probe for the Claude voice, used by the diagnostics endpoint.
+ *
+ * `isAvailable` is deliberately optimistic — it cannot cheaply tell whether
+ * the Claude Code subscription is logged in, so it assumes yes. This probe
+ * does the real check: a trivial one-turn call. It lets the Settings provider
+ * test report the truth instead of the assumption.
+ */
+export async function probeClaudeVoice({ env = process.env, timeoutMs = 60_000 } = {}) {
+  if (env.DISABLE_CLAUDE_VOICE === "1" && !env.ANTHROPIC_API_KEY) {
+    return {
+      configured: false,
+      ok: false,
+      mode: "disabled",
+      error: "Claude voice disabled (DISABLE_CLAUDE_VOICE=1)",
+    };
+  }
+  const mode = env.ANTHROPIC_API_KEY ? "api" : "subscription";
+  try {
+    const text = await Promise.race([
+      callClaudeVoice({
+        systemPrompt: "You are a connectivity probe. Reply with exactly: ok",
+        userPrompt: "ok",
+        env,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Claude probe timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        ),
+      ),
+    ]);
+    return {
+      configured: true,
+      ok: typeof text === "string" && text.trim().length > 0,
+      mode,
+      error:
+        typeof text === "string" && text.trim().length > 0
+          ? null
+          : "Claude returned an empty response",
+    };
+  } catch (err) {
+    return {
+      configured: true,
+      ok: false,
+      mode,
+      error: err?.message ?? String(err),
+    };
+  }
+}
