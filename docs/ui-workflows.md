@@ -90,10 +90,11 @@ Preview requirements:
 - Include source references for Council results and module entries.
 - Council result exports include cited evidence, dissent notes, and unresolved tensions when the saved result contains full response details.
 
-Export format note: Markdown and HTML exports preserve full Unicode. The PDF
-export uses a built-in ASCII-only font — accented Latin text, Greek, and Hebrew
-do not render in PDF. Prefer Markdown or HTML when original-language terms
-matter.
+Export format note: Markdown, HTML, and PDF exports all preserve Unicode — PDF
+embeds the DejaVu Sans font, which covers accented Latin, Greek, and Hebrew.
+PDF lays text out left-to-right with no bidirectional reordering, so Hebrew
+appears in logical (not visual) order; prefer Markdown or HTML when Hebrew word
+order matters.
 
 ## Reader Navigation
 

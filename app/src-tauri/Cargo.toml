@@ -28,3 +28,4 @@ reqwest = { version = "0.12", default-features = false, features = ["json"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 keyring = { version = "3", features = ["windows-native"] }
+printpdf = { version = "0.7", default-features = false }

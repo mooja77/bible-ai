@@ -873,7 +873,7 @@ fn write_workspace_pdf(app: AppHandle, title: String, markdown: String) -> Resul
         "bible-ai-workspace-{safe_title}-{stamp}.pdf",
         stamp = unix_stamp()
     ));
-    let pdf = render_text_pdf(&title, &markdown);
+    let pdf = render_text_pdf(&title, &markdown)?;
     std::fs::write(&path, pdf).map_err(|e| format!("could not write {}: {e}", path.display()))?;
     Ok(path.display().to_string())
 }
@@ -889,7 +889,7 @@ fn write_theology_pdf(app: AppHandle, title: String, markdown: String) -> Result
         "bible-ai-theology-{safe_title}-{stamp}.pdf",
         stamp = unix_stamp()
     ));
-    let pdf = render_text_pdf(&title, &markdown);
+    let pdf = render_text_pdf(&title, &markdown)?;
     std::fs::write(&path, pdf).map_err(|e| format!("could not write {}: {e}", path.display()))?;
     Ok(path.display().to_string())
 }
@@ -1030,19 +1030,30 @@ fn unix_stamp() -> u64 {
         .unwrap_or(0)
 }
 
-/// Render plain text into a minimal, dependency-free PDF.
-///
-/// LIMITATION: the output uses the PDF standard-14 Helvetica font and only
-/// emits ASCII glyphs — `pdf_escape_text` replaces every non-ASCII character
-/// with a space. Accented Latin text, Greek, and Hebrew will therefore not
-/// appear in PDF exports. Markdown and HTML exports preserve full Unicode and
-/// should be preferred when original-language terms matter. Lifting this
-/// limitation requires embedding a Unicode font (a deliberate dependency /
-/// bundle-size decision that has not been made).
-fn render_text_pdf(title: &str, text: &str) -> Vec<u8> {
-    const LINES_PER_PAGE: usize = 58;
-    const MAX_LINE_CHARS: usize = 92;
+/// DejaVu Sans, embedded into the binary for PDF exports. It covers Latin,
+/// Greek, and Hebrew. License: src-tauri/fonts/DejaVuSans-LICENSE.txt.
+const PDF_FONT: &[u8] = include_bytes!("../fonts/DejaVuSans.ttf");
 
+/// Render plain text into a paginated PDF using the embedded DejaVu Sans font.
+///
+/// The font covers Latin, Greek, and Hebrew, so accented text and
+/// original-language terms render correctly. Text is laid out left-to-right
+/// with no bidirectional reordering, so Hebrew appears in logical (not visual)
+/// order — Markdown or HTML export is preferable when Hebrew word order
+/// matters.
+fn render_text_pdf(title: &str, text: &str) -> Result<Vec<u8>, String> {
+    use printpdf::{Mm, PdfDocument};
+
+    // US Letter, in millimetres. printpdf's Mm/font-size types are f32.
+    const PAGE_W: f32 = 215.9;
+    const PAGE_H: f32 = 279.4;
+    const MARGIN: f32 = 18.0;
+    const FONT_SIZE: f32 = 10.0;
+    const LEADING: f32 = 4.4; // vertical mm between baselines
+    const LINES_PER_PAGE: usize = 54;
+    const MAX_LINE_CHARS: usize = 90;
+
+    // Wrap the source text into display lines, breaking on whitespace.
     let mut lines = vec![title.to_string(), String::new()];
     for raw_line in text.lines() {
         let mut line = raw_line.trim_end().to_string();
@@ -1072,79 +1083,62 @@ fn render_text_pdf(title: &str, text: &str) -> Vec<u8> {
         lines.push(line);
     }
 
-    let pages: Vec<Vec<String>> = lines
-        .chunks(LINES_PER_PAGE)
-        .map(|chunk| chunk.to_vec())
-        .collect();
-    let page_count = pages.len().max(1);
-    let font_id = 3 + page_count * 2;
-    let mut objects = Vec::new();
+    let (doc, first_page, first_layer) = PdfDocument::new(title, Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
+    let font = doc
+        .add_external_font(PDF_FONT)
+        .map_err(|e| format!("could not load the PDF font: {e}"))?;
 
-    let kids = (0..page_count)
-        .map(|idx| format!("{} 0 R", 3 + idx * 2))
-        .collect::<Vec<_>>()
-        .join(" ");
-    objects.push("<< /Type /Catalog /Pages 2 0 R >>".to_string());
-    objects.push(format!(
-        "<< /Type /Pages /Kids [ {kids} ] /Count {page_count} >>"
-    ));
+    // `lines` always holds at least the title row, so there is always a page.
+    let page_chunks: Vec<&[String]> = lines.chunks(LINES_PER_PAGE).collect();
+    let mut page_refs = vec![(first_page, first_layer)];
+    for _ in 1..page_chunks.len() {
+        page_refs.push(doc.add_page(Mm(PAGE_W), Mm(PAGE_H), "Layer 1"));
+    }
 
-    for idx in 0..page_count {
-        let page_id = 3 + idx * 2;
-        let content_id = page_id + 1;
-        objects.push(format!(
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 {font_id} 0 R >> >> /Contents {content_id} 0 R >>"
-        ));
-        let mut stream = String::from("BT\n/F1 10 Tf\n50 760 Td\n12 TL\n");
-        for line in pages.get(idx).cloned().unwrap_or_default() {
-            stream.push_str(&format!("({}) Tj\nT*\n", pdf_escape_text(&line)));
+    for (chunk, (page, layer_idx)) in page_chunks.iter().zip(page_refs.iter()) {
+        let layer = doc.get_page(*page).get_layer(*layer_idx);
+        let mut y = PAGE_H - MARGIN;
+        for line in chunk.iter() {
+            if !line.is_empty() {
+                layer.use_text(line, FONT_SIZE, Mm(MARGIN), Mm(y), &font);
+            }
+            y -= LEADING;
         }
-        stream.push_str("ET\n");
-        objects.push(format!(
-            "<< /Length {} >>\nstream\n{}endstream",
-            stream.len(),
-            stream
-        ));
     }
 
-    objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>".to_string());
-
-    let mut pdf = Vec::new();
-    pdf.extend_from_slice(b"%PDF-1.4\n");
-    let mut offsets = vec![0usize];
-    for (idx, object) in objects.iter().enumerate() {
-        offsets.push(pdf.len());
-        pdf.extend_from_slice(format!("{} 0 obj\n{}\nendobj\n", idx + 1, object).as_bytes());
-    }
-    let xref_offset = pdf.len();
-    pdf.extend_from_slice(format!("xref\n0 {}\n", objects.len() + 1).as_bytes());
-    pdf.extend_from_slice(b"0000000000 65535 f \n");
-    for offset in offsets.iter().skip(1) {
-        pdf.extend_from_slice(format!("{offset:010} 00000 n \n").as_bytes());
-    }
-    pdf.extend_from_slice(
-        format!(
-            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n",
-            objects.len() + 1
-        )
-        .as_bytes(),
-    );
-    pdf
+    doc.save_to_bytes()
+        .map_err(|e| format!("could not serialise the PDF: {e}"))
 }
 
-fn pdf_escape_text(value: &str) -> String {
-    let mut escaped = String::with_capacity(value.len());
-    for ch in value.chars() {
-        match ch {
-            '\\' => escaped.push_str("\\\\"),
-            '(' => escaped.push_str("\\("),
-            ')' => escaped.push_str("\\)"),
-            '\t' => escaped.push(' '),
-            ch if ch.is_ascii() && !ch.is_control() => escaped.push(ch),
-            _ => escaped.push(' '),
-        }
+#[cfg(test)]
+mod pdf_tests {
+    use super::render_text_pdf;
+
+    #[test]
+    fn renders_unicode_text_to_a_valid_multi_page_pdf() {
+        // Latin (accented), Greek, and Hebrew — all covered by the embedded
+        // DejaVu Sans font. Repeated enough to force pagination.
+        let body =
+            "Latin: café résumé naïve\nGreek: λόγος ἀγάπη Χριστός\nHebrew: בְּרֵאשִׁית\n".repeat(40);
+        let pdf = render_text_pdf("Unicode Export Test", &body).expect("PDF should render");
+
+        assert!(pdf.starts_with(b"%PDF"), "output should be a PDF");
+        assert!(
+            pdf.len() > 10_000,
+            "embedded font should make this non-trivial"
+        );
+        let tail = &pdf[pdf.len().saturating_sub(1024)..];
+        assert!(
+            tail.windows(5).any(|w| w == b"%%EOF"),
+            "PDF should end with the %%EOF marker",
+        );
     }
-    escaped
+
+    #[test]
+    fn renders_a_short_document() {
+        let pdf = render_text_pdf("Tiny", "one line").expect("PDF should render");
+        assert!(pdf.starts_with(b"%PDF"));
+    }
 }
 
 /// Ask the council a disputed-point question.
