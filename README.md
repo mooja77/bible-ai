@@ -149,11 +149,12 @@ Prerequisites:
 - Tauri 2 prerequisites for your operating system
 - Python 3 for corpus ingestion scripts
 
-Install dependencies:
+Install dependencies (the Node sidecar has its own `package.json`):
 
 ```bash
 cd app
 npm install
+cd sidecar && npm install && cd ..
 ```
 
 Start development mode:
