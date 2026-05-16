@@ -103,7 +103,7 @@ Rules:
 
 # Output format
 
-Same schema as an individual voice: a single JSON object, no prose, no fences, with "positions", "dissent_notes", "unresolved_tensions", "synthesis", "confidence", "confidence_rationale", and "evidence_classification".`;
+Same schema as an individual voice: a single JSON object, no prose, no fences, with "positions", "dissent_notes", "unresolved_tensions", "synthesis", "confidence", "confidence_rationale", "evidence_classification", and "research_trail". Per rule 14, always include "research_trail" — carry forward or infer the question-framing, retrieval, evidence, voice, synthesis, and limitation events from the visible voice outputs.`;
 
 export function buildVoicePrompt({ question, evidence }) {
   const lines = [

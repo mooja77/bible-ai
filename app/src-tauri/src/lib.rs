@@ -1022,6 +1022,15 @@ fn unix_stamp() -> u64 {
         .unwrap_or(0)
 }
 
+/// Render plain text into a minimal, dependency-free PDF.
+///
+/// LIMITATION: the output uses the PDF standard-14 Helvetica font and only
+/// emits ASCII glyphs — `pdf_escape_text` replaces every non-ASCII character
+/// with a space. Accented Latin text, Greek, and Hebrew will therefore not
+/// appear in PDF exports. Markdown and HTML exports preserve full Unicode and
+/// should be preferred when original-language terms matter. Lifting this
+/// limitation requires embedding a Unicode font (a deliberate dependency /
+/// bundle-size decision that has not been made).
 fn render_text_pdf(title: &str, text: &str) -> Vec<u8> {
     const LINES_PER_PAGE: usize = 58;
     const MAX_LINE_CHARS: usize = 92;

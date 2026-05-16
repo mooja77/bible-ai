@@ -90,6 +90,11 @@ Preview requirements:
 - Include source references for Council results and module entries.
 - Council result exports include cited evidence, dissent notes, and unresolved tensions when the saved result contains full response details.
 
+Export format note: Markdown and HTML exports preserve full Unicode. The PDF
+export uses a built-in ASCII-only font — accented Latin text, Greek, and Hebrew
+do not render in PDF. Prefer Markdown or HTML when original-language terms
+matter.
+
 ## Reader Navigation
 
 Bookmarks:
