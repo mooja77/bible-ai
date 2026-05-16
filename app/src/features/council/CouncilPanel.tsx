@@ -131,6 +131,10 @@ export function CouncilPanel({
   }, [loading]);
 
   const onAsk = async () => {
+    // Guard the function itself, not just the button: the Ctrl/⌘+Enter
+    // shortcut also calls onAsk, and a second in-flight request would
+    // queue behind the sidecar mutex and discard the first result.
+    if (loading) return;
     const q = question.trim();
     if (!q) return;
     setError(null);
