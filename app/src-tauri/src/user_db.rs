@@ -2018,9 +2018,8 @@ pub fn export_theology_markdown(
         Some(id) if include_subtopics => list_theology_topic_tree(conn, id)?,
         Some(id) => all_topics
             .iter()
-            .cloned()
-            .into_iter()
             .filter(|topic| topic.id == id)
+            .cloned()
             .collect::<Vec<_>>(),
         None => all_topics.clone(),
     };
@@ -2230,10 +2229,11 @@ pub fn export_theology_markdown(
                         .map(|value| format!(" Share-alike: {value}"))
                         .unwrap_or_default();
                     lines.push(format!(
-                        "- **{}** ({}) — {}",
+                        "- **{}** ({}) — {}{}",
                         attribution.title,
                         attribution.license,
-                        format!("{}{}", attribution.attribution, share_alike)
+                        attribution.attribution,
+                        share_alike
                     ));
                 }
                 lines.push(String::new());
@@ -2346,7 +2346,7 @@ fn theology_export_status(
 fn count_theology_export_questions(value: Option<&str>) -> usize {
     value
         .unwrap_or_default()
-        .split(|ch| ch == '\n' || ch == '?')
+        .split(['\n', '?'])
         .map(str::trim)
         .filter(|part| !part.is_empty())
         .count()
@@ -3940,7 +3940,7 @@ pub fn search_resources(
             fts_query,
             limit
         ],
-        |r| read_resource_entry_row(r),
+        read_resource_entry_row,
     )?;
     rows.collect()
 }
@@ -3967,7 +3967,7 @@ pub fn get_resource_entry(conn: &Connection, id: i64) -> SqlResult<Option<Resour
          JOIN resource_sources s ON s.id = c.source_id
          WHERE e.id = ?",
         params![id],
-        |r| read_resource_entry_row(r),
+        read_resource_entry_row,
     )
     .optional()
 }
@@ -4012,7 +4012,7 @@ fn list_recent_resource_entries(
             topic_id,
             limit
         ],
-        |r| read_resource_entry_row(r),
+        read_resource_entry_row,
     )?;
     rows.collect()
 }
@@ -4392,6 +4392,7 @@ fn rebuild_resource_entries_fts(conn: &Connection) -> SqlResult<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)] // Threads several id-remap maps for import; a context struct buys little here.
 fn prepare_duplicate_row(
     conn: &Connection,
     table: &str,
@@ -4628,8 +4629,7 @@ fn insert_import_row(
     if columns.is_empty() {
         return Ok(0);
     }
-    let placeholders = std::iter::repeat("?")
-        .take(columns.len())
+    let placeholders = std::iter::repeat_n("?", columns.len())
         .collect::<Vec<_>>()
         .join(", ");
     let verb = match conflict_strategy {

@@ -49,6 +49,12 @@ struct ModuleImportEntry {
 /// Lazy-init container for the user.sqlite connection.
 pub struct UserDbState(pub Mutex<Option<rusqlite::Connection>>);
 
+impl Default for UserDbState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UserDbState {
     pub fn new() -> Self {
         Self(Mutex::new(None))
@@ -572,6 +578,7 @@ fn list_modules(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Tauri command: each arg is an invoke field.
 fn create_module(
     app: AppHandle,
     state: tauri::State<'_, UserDbState>,
@@ -608,6 +615,7 @@ fn delete_module(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Tauri command: each arg is an invoke field.
 fn add_module_entry(
     app: AppHandle,
     state: tauri::State<'_, UserDbState>,
@@ -1094,7 +1102,7 @@ fn render_text_pdf(title: &str, text: &str) -> Vec<u8> {
         stream.push_str("ET\n");
         objects.push(format!(
             "<< /Length {} >>\nstream\n{}endstream",
-            stream.as_bytes().len(),
+            stream.len(),
             stream
         ));
     }
@@ -1146,6 +1154,7 @@ fn pdf_escape_text(value: &str) -> String {
 /// back to the FTS OR-query path. Either way, evidence is handed to the
 /// sidecar along with the question.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Tauri command: each arg is an invoke field.
 async fn ask_council(
     app: AppHandle,
     state: tauri::State<'_, SidecarState>,
@@ -1514,6 +1523,7 @@ fn list_resource_collections(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Tauri command: each arg is an invoke field.
 fn search_resources(
     app: AppHandle,
     state: tauri::State<'_, UserDbState>,
@@ -2147,10 +2157,11 @@ fn short_book_alias(name: &str) -> Option<String> {
     }
 }
 
-fn parse_reference_numbers(
-    value: &str,
-    max_chapter: i64,
-) -> Option<(i64, Option<i64>, Option<i64>, Option<i64>)> {
+/// (chapter, end_chapter, verse, end_verse) parsed from a reference string;
+/// the trailing fields are `None` when the reference omits that part.
+type ReferenceNumbers = (i64, Option<i64>, Option<i64>, Option<i64>);
+
+fn parse_reference_numbers(value: &str, max_chapter: i64) -> Option<ReferenceNumbers> {
     let trimmed = value.trim_start();
     let (chapter, mut rest) = consume_i64(trimmed)?;
     if chapter < 1 || chapter > max_chapter {
