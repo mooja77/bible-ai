@@ -418,6 +418,7 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
       active: openAiReady,
     },
   ];
+  const noProvidersConfigured = !googleReady && !openAiReady && !anthropicReady && !gatewayReady;
   return (
     <div
       className="soft-card p-3"
@@ -431,6 +432,13 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
           {voices.filter((voice) => voice.active).length}/{voices.length} enabled
         </span>
       </div>
+      {noProvidersConfigured && (
+        <div className="mb-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+          No AI provider is configured yet. The Council will try your local Claude
+          Code login — for reliable multi-voice analysis, open <strong>Settings</strong>{" "}
+          to add an OpenAI, Google, or Anthropic key.
+        </div>
+      )}
       <div className="grid md:grid-cols-4 gap-2">
         {voices.map((voice) => (
           <div key={voice.label} className="soft-card px-3 py-2">

@@ -62,18 +62,6 @@ function HistoryRow({
           </span>
           {session.question}
         </button>
-        {session.retrieval_mode && (
-          <span
-            className={
-              "text-[10px] font-mono px-1.5 py-0.5 rounded " +
-              (session.retrieval_mode === "semantic"
-                ? "bg-emerald-500/15 text-emerald-300"
-                : "bg-neutral-800 text-neutral-500")
-            }
-          >
-            {session.retrieval_mode}
-          </span>
-        )}
         <button
           type="button"
           onClick={onDelete}
