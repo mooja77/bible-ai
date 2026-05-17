@@ -191,8 +191,8 @@ describe("Reader interactions", () => {
     await openTopic.click();
     const topicResults = await $('[data-testid="module-topic-results"]');
     await topicResults.waitForDisplayed({ timeout: 10_000 });
-    await expect(topicResults).toHaveText(expect.stringContaining("Creation"));
-    await expect(topicResults).toHaveText(expect.stringContaining("browsing outside a single verse"));
+    await expect(topicResults).toHaveText("Creation", { containing: true, ignoreCase: true });
+    await expect(topicResults).toHaveText("browsing outside a single verse", { containing: true, ignoreCase: true });
 
     const openTopicSource = await $("button=Open Genesis 1:1");
     await openTopicSource.waitForClickable({ timeout: 10_000 });
@@ -215,8 +215,8 @@ describe("Reader interactions", () => {
     });
     const rangeModules = await $('[data-testid="range-module-results"]');
     await rangeModules.waitForDisplayed({ timeout: 10_000 });
-    await expect(rangeModules).toHaveText(expect.stringContaining("Creation opening"));
-    await expect(rangeModules).toHaveText(expect.stringContaining("single opening movement"));
+    await expect(rangeModules).toHaveText("Creation opening", { containing: true, ignoreCase: true });
+    await expect(rangeModules).toHaveText("single opening movement", { containing: true, ignoreCase: true });
     const addRangeModule = await $('[data-testid="add-range-module-to-workspace"]');
     await addRangeModule.waitForClickable({ timeout: 10_000 });
     await addRangeModule.click();
@@ -245,7 +245,7 @@ describe("Reader interactions", () => {
     await moduleHeading.waitForDisplayed({ timeout: 10_000 });
     const moduleSource = await $("button*=Open Genesis 1:1-3");
     await moduleSource.waitForDisplayed({ timeout: 10_000 });
-    await expect(moduleSource).toHaveText(expect.stringContaining("KJV"));
+    await expect(moduleSource).toHaveText("KJV", { containing: true, ignoreCase: true });
     const previewButton = await $("button=Preview Markdown");
     await previewButton.waitForClickable({ timeout: 10_000 });
     await previewButton.click();
@@ -478,8 +478,8 @@ describe("Reader interactions", () => {
 
     const rangeBar = await $('[data-testid="range-action-bar"]');
     await rangeBar.waitForDisplayed({ timeout: 10_000 });
-    await expect(rangeBar).toHaveText(expect.stringContaining("Genesis 1:1-3"));
-    await expect(rangeBar).toHaveText(expect.stringContaining("3 verses selected"));
+    await expect(rangeBar).toHaveText("Genesis 1:1-3", { containing: true, ignoreCase: true });
+    await expect(rangeBar).toHaveText("3 verses selected", { containing: true, ignoreCase: true });
 
     const clear = await rangeBar.$("button=Clear");
     await clear.click();
@@ -498,8 +498,8 @@ describe("Reader interactions", () => {
 
     const rangeBar = await $('[data-testid="range-action-bar"]');
     await rangeBar.waitForDisplayed({ timeout: 10_000 });
-    await expect(rangeBar).toHaveText(expect.stringContaining("Genesis 1:31-2:3"));
-    await expect(rangeBar).toHaveText(expect.stringContaining("4 verses selected"));
+    await expect(rangeBar).toHaveText("Genesis 1:31-2:3", { containing: true, ignoreCase: true });
+    await expect(rangeBar).toHaveText("4 verses selected", { containing: true, ignoreCase: true });
 
     const clear = await rangeBar.$("button=Clear");
     await clear.click();

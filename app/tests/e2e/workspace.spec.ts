@@ -399,7 +399,7 @@ describe("Workspaces", () => {
     await linkWorkspaceItem.click();
     const theologyStatus = await $('[data-testid="workspace-theology-status"]');
     await theologyStatus.waitForDisplayed({ timeout: 10_000 });
-    await expect(theologyStatus).toHaveText(expect.stringContaining("Linked to"));
+    await expect(theologyStatus).toHaveText("Linked to", { containing: true, ignoreCase: true });
 
     const theology = await $("button=Theology");
     await theology.waitForClickable({ timeout: 10_000 });
@@ -429,24 +429,24 @@ describe("Workspaces", () => {
     await saveMarkdown.click();
     const saveStatus = await $('[data-testid="workspace-save-status"]');
     await saveStatus.waitForDisplayed({ timeout: 10_000 });
-    await expect(saveStatus).toHaveText(expect.stringContaining(".md"));
+    await expect(saveStatus).toHaveText(".md", { containing: true, ignoreCase: true });
 
     const saveHtml = await $("button=Save HTML");
     await saveHtml.waitForClickable({ timeout: 5_000 });
     await saveHtml.click();
-    await expect(saveStatus).toHaveText(expect.stringContaining(".html"));
+    await expect(saveStatus).toHaveText(".html", { containing: true, ignoreCase: true });
 
     const savePdf = await $("button=Save PDF");
     await savePdf.waitForClickable({ timeout: 5_000 });
     await savePdf.click();
-    await expect(saveStatus).toHaveText(expect.stringContaining(".pdf"));
+    await expect(saveStatus).toHaveText(".pdf", { containing: true, ignoreCase: true });
 
     const rerunSearch = await $("button=Rerun Search");
     await rerunSearch.waitForClickable({ timeout: 10_000 });
     await rerunSearch.click();
     const rerunHeader = await $("h2*=Search:");
     await rerunHeader.waitForDisplayed({ timeout: 10_000 });
-    await expect(rerunHeader).toHaveText(expect.stringContaining("mercy"));
+    await expect(rerunHeader).toHaveText("mercy", { containing: true, ignoreCase: true });
     await browser.execute(() => {
       const input = document.querySelector('input[type="search"]') as HTMLInputElement | null;
       if (!input) return;

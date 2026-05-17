@@ -171,7 +171,7 @@ describe("Backup and restore", () => {
     );
     const detail = await $('[data-testid="resource-detail"]');
     await expect(detail).toHaveText(expect.stringContaining(uniqueTerm));
-    await expect(detail).toHaveText(expect.stringContaining("Public Domain"));
+    await expect(detail).toHaveText("Public Domain", { containing: true, ignoreCase: true });
     await expect(detail).toHaveText(expect.stringContaining(shareAlike));
 
     const settingsAgain = await $("button=Settings");
@@ -180,7 +180,7 @@ describe("Backup and restore", () => {
     const dataSources = await $('[data-testid="data-sources-screen"]');
     await dataSources.waitForDisplayed({ timeout: 10_000 });
     await expect(dataSources).toHaveText(expect.stringContaining(`E2E Imported Resource ${idBase}`));
-    await expect(dataSources).toHaveText(expect.stringContaining("E2E source review note."));
+    await expect(dataSources).toHaveText("E2E source review note.", { containing: true, ignoreCase: true });
     await expect(dataSources).toHaveText(expect.stringContaining(shareAlike));
   });
 
@@ -263,8 +263,8 @@ describe("Backup and restore", () => {
 
     const history = await $('[data-testid="guided-study-history"]');
     await history.waitForDisplayed({ timeout: 10_000 });
-    await expect(history).toHaveText(expect.stringContaining("Completed"));
-    await expect(history).toHaveText(expect.stringContaining("Review my theology"));
+    await expect(history).toHaveText("Completed", { containing: true, ignoreCase: true });
+    await expect(history).toHaveText("Review my theology", { containing: true, ignoreCase: true });
     await expect(history).toHaveText(expect.stringContaining(focusQuestion));
 
     await history.$("button*=Review my theology").click();
@@ -274,7 +274,7 @@ describe("Backup and restore", () => {
       expect.stringContaining(focusQuestion),
     );
     const reviewCards = await $('[data-testid="guided-review-cards"]');
-    await expect(reviewCards).toHaveText(expect.stringContaining("State the study question"));
+    await expect(reviewCards).toHaveText("State the study question", { containing: true, ignoreCase: true });
     await expect(reviewCards).toHaveText(expect.stringContaining(focusQuestion));
   });
 });

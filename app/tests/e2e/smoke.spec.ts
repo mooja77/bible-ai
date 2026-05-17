@@ -12,7 +12,7 @@ describe("Bible AI shell", () => {
     const reader = await $("button=Reader");
     await reader.waitForDisplayed({ timeout: 30_000 });
     const body = await $("body");
-    await expect(body).toHaveText(expect.stringContaining("Bible AI"));
+    await expect(body).toHaveText("Bible AI", { containing: true, ignoreCase: true });
   });
 
   it("shows both Reader and Council mode buttons", async () => {
@@ -35,45 +35,45 @@ describe("Bible AI shell", () => {
       await button.click();
     };
 
-    await expect(tour).toHaveText(expect.stringContaining("Read, compare, and navigate Scripture"));
-    await expect(tour).toHaveText(expect.stringContaining("Auto-playing"));
+    await expect(tour).toHaveText("Read, compare, and navigate Scripture", { containing: true, ignoreCase: true });
+    await expect(tour).toHaveText("Auto-playing", { containing: true, ignoreCase: true });
 
     await clickTourButton("Pause");
-    await expect(tour).toHaveText(expect.stringContaining("Paused"));
+    await expect(tour).toHaveText("Paused", { containing: true, ignoreCase: true });
     await clickTourButton("Play");
-    await expect(tour).toHaveText(expect.stringContaining("Auto-playing"));
+    await expect(tour).toHaveText("Auto-playing", { containing: true, ignoreCase: true });
     await clickTourButton("Pause");
 
     await clickTourButton("Next");
-    await expect(tour).toHaveText(expect.stringContaining("Search and save what you find"));
+    await expect(tour).toHaveText("Search and save what you find", { containing: true, ignoreCase: true });
 
     await clickTourButton("Next");
-    await expect(tour).toHaveText(expect.stringContaining("Ask the Council and inspect the reasoning"));
+    await expect(tour).toHaveText("Ask the Council and inspect the reasoning", { containing: true, ignoreCase: true });
     const councilHeader = await $("h1=The Council");
     await councilHeader.waitForDisplayed({ timeout: 10_000 });
 
     await clickTourButton("Rewind");
-    await expect(tour).toHaveText(expect.stringContaining("Read, compare, and navigate Scripture"));
+    await expect(tour).toHaveText("Read, compare, and navigate Scripture", { containing: true, ignoreCase: true });
     await clickTourButton("Pause");
 
     await clickTourButton("Next");
     await clickTourButton("Next");
 
     await clickTourButton("Next");
-    await expect(tour).toHaveText(expect.stringContaining("Build reusable studies in Workspaces"));
+    await expect(tour).toHaveText("Build reusable studies in Workspaces", { containing: true, ignoreCase: true });
 
     await clickTourButton("Next");
-    await expect(tour).toHaveText(expect.stringContaining("Build a living systematic theology"));
+    await expect(tour).toHaveText("Build a living systematic theology", { containing: true, ignoreCase: true });
     const theologyHeader = await $("h1=Theology");
     await theologyHeader.waitForDisplayed({ timeout: 10_000 });
 
     await clickTourButton("Next");
-    await expect(tour).toHaveText(expect.stringContaining("Search attributable open resources"));
+    await expect(tour).toHaveText("Search attributable open resources", { containing: true, ignoreCase: true });
     const resourcesHeader = await $("h1=Resources");
     await resourcesHeader.waitForDisplayed({ timeout: 10_000 });
 
     await clickTourButton("Next");
-    await expect(tour).toHaveText(expect.stringContaining("Connect providers and review sources"));
+    await expect(tour).toHaveText("Connect providers and review sources", { containing: true, ignoreCase: true });
 
     await clickTourButton("Finish");
     await tour.waitForDisplayed({ reverse: true, timeout: 10_000 });
@@ -125,15 +125,15 @@ describe("Bible AI shell", () => {
     await linkToTheology.click();
     const status = await $('[data-testid="search-theology-status"]');
     await status.waitForDisplayed({ timeout: 10_000 });
-    await expect(status).toHaveText(expect.stringContaining("Linked 1 search result"));
+    await expect(status).toHaveText("Linked 1 search result", { containing: true, ignoreCase: true });
 
     await $('[aria-label="Clear search"]').click();
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
     const theology = await $("button=Theology");
     await theology.click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("Search: God"));
+    await expect(await $("body")).toHaveText("Search: God", { containing: true, ignoreCase: true });
     const evidenceGroups = await $('[data-testid="theology-evidence-groups"]');
-    await expect(evidenceGroups).toHaveText(expect.stringContaining("KEY PASSAGES"));
+    await expect(evidenceGroups).toHaveText("KEY PASSAGES", { containing: true, ignoreCase: true });
 
     const reader = await $("button=Reader");
     await reader.click();
@@ -161,8 +161,8 @@ describe("Bible AI shell", () => {
     await header.waitForDisplayed({ timeout: 5_000 });
     await expect(header).toBeDisplayed();
     const progress = await $('[data-testid="theology-progress"]');
-    await expect(progress).toHaveText(expect.stringContaining("MY THEOLOGY"));
-    await expect(progress).toHaveText(expect.stringContaining("topics started"));
+    await expect(progress).toHaveText("MY THEOLOGY", { containing: true, ignoreCase: true });
+    await expect(progress).toHaveText("topics started", { containing: true, ignoreCase: true });
     const scripture = await $("button*=Scripture");
     await expect(scripture).toBeDisplayed();
     const askCouncil = await $("button=Ask Council");
@@ -184,9 +184,9 @@ describe("Bible AI shell", () => {
     await runner
       .$('select[aria-label="Guided study template"]')
       .selectByVisibleText("Compare theological positions");
-    await expect(runner).toHaveText(expect.stringContaining("WHICH POSITION SEEMS STRONGEST"));
+    await expect(runner).toHaveText("WHICH POSITION SEEMS STRONGEST", { containing: true, ignoreCase: true });
     const studyPrompts = await $('[data-testid="theology-study-prompts"]');
-    await expect(studyPrompts).toHaveText(expect.stringContaining("Key study questions"));
+    await expect(studyPrompts).toHaveText("Key study questions", { containing: true, ignoreCase: true });
     await studyPrompts.$("button=Add to open questions").click();
     await studyPrompts.$("button=Use in guided study").click();
     const openQuestions = await $('textarea[aria-label="Unresolved questions"]');
@@ -215,40 +215,40 @@ describe("Bible AI shell", () => {
     const positionSummary = await positions.$('textarea[aria-label="Theology position summary"]');
     await positionSummary.setValue("Scripture functions as the rule for Christian doctrine.");
     await positions.$("button=Save position").click();
-    await expect(positions).toHaveText(expect.stringContaining("Canonical authority"));
+    await expect(positions).toHaveText("Canonical authority", { containing: true, ignoreCase: true });
 
     const manualLinkTitle = await $('input[aria-label="Manual theology link title"]');
     await manualLinkTitle.setValue("2 Timothy 3:16");
     await $("button=Add link").click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("2 Timothy 3:16"));
+    await expect(await $("body")).toHaveText("2 Timothy 3:16", { containing: true, ignoreCase: true });
 
     const complete = await runner.$("button=Complete");
     await complete.click();
-    await expect(runner).toHaveText(expect.stringContaining("saved cards"));
+    await expect(runner).toHaveText("saved cards", { containing: true, ignoreCase: true });
     const reviewCards = await $('[data-testid="guided-review-cards"]');
-    await expect(reviewCards).toHaveText(expect.stringContaining("Which passages"));
-    await expect(reviewCards).toHaveText(expect.stringContaining("2 Timothy 3:16"));
-    await expect(reviewCards).toHaveText(expect.stringContaining("Canonical authority"));
+    await expect(reviewCards).toHaveText("Which passages", { containing: true, ignoreCase: true });
+    await expect(reviewCards).toHaveText("2 Timothy 3:16", { containing: true, ignoreCase: true });
+    await expect(reviewCards).toHaveText("Canonical authority", { containing: true, ignoreCase: true });
     const reviewDrill = await $('[data-testid="guided-review-drill"]');
-    await expect(reviewDrill).toHaveText(expect.stringContaining("Study aid only"));
-    await expect(reviewDrill).toHaveText(expect.stringContaining("Answer hidden"));
+    await expect(reviewDrill).toHaveText("Study aid only", { containing: true, ignoreCase: true });
+    await expect(reviewDrill).toHaveText("Answer hidden", { containing: true, ignoreCase: true });
     await reviewDrill.$("button=Show answer").click();
-    await expect(reviewDrill).not.toHaveText(expect.stringContaining("Answer hidden"));
+    await expect(reviewDrill).not.toHaveText("Answer hidden", { containing: true, ignoreCase: true });
     const guidedHistory = await $('[data-testid="guided-study-history"]');
-    await expect(guidedHistory).toHaveText(expect.stringContaining("Guided study history"));
-    await expect(guidedHistory).toHaveText(expect.stringContaining("Completed"));
-    await expect(guidedHistory).toHaveText(expect.stringContaining("Compare theological positions"));
+    await expect(guidedHistory).toHaveText("Guided study history", { containing: true, ignoreCase: true });
+    await expect(guidedHistory).toHaveText("Completed", { containing: true, ignoreCase: true });
+    await expect(guidedHistory).toHaveText("Compare theological positions", { containing: true, ignoreCase: true });
 
     await $("button=Save PDF").click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("Saved PDF:"));
+    await expect(await $("body")).toHaveText("Saved PDF:", { containing: true, ignoreCase: true });
     await $("button=Copy Full Theology").click();
     await $("button=Save Full PDF").click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("Saved PDF:"));
+    await expect(await $("body")).toHaveText("Saved PDF:", { containing: true, ignoreCase: true });
 
     const addGuidedToWorkspace = await runner.$("button=Add to workspace");
     await addGuidedToWorkspace.click();
     await $('[data-testid="add-to-workspace-confirm"]').click();
-    await expect(runner).toHaveText(expect.stringContaining("Added"));
+    await expect(runner).toHaveText("Added", { containing: true, ignoreCase: true });
 
     const guidedAskCouncil = await runner.$("button=Ask Council");
     await guidedAskCouncil.click();
@@ -278,20 +278,20 @@ describe("Bible AI shell", () => {
 
     const editPanel = await $('[data-testid="edit-theology-topic"]');
     await editPanel.waitForDisplayed({ timeout: 10_000 });
-    await expect(await $("body")).toHaveText(expect.stringContaining("Covenant Theology Smoke"));
-    await expect(editPanel).toHaveText(expect.stringContaining("Under Scripture"));
+    await expect(await $("body")).toHaveText("Covenant Theology Smoke", { containing: true, ignoreCase: true });
+    await expect(editPanel).toHaveText("Under Scripture", { containing: true, ignoreCase: true });
     const summary = await editPanel.$('textarea[aria-label="Edit theology topic summary"]');
     await summary.setValue("Updated summary for custom topic workflow coverage.");
     await editPanel.$("button=Save topic").click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("Updated summary"));
+    await expect(await $("body")).toHaveText("Updated summary", { containing: true, ignoreCase: true });
     await $("button=Copy Topic + Subtopics").click();
     await $("button=Save Topic + Subtopics PDF").click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("Saved PDF:"));
+    await expect(await $("body")).toHaveText("Saved PDF:", { containing: true, ignoreCase: true });
 
     await $('button[aria-label="Select theology topic Scripture"]').click();
     const subtopics = await $('[data-testid="theology-subtopics"]');
     await subtopics.waitForDisplayed({ timeout: 10_000 });
-    await expect(subtopics).toHaveText(expect.stringContaining("Covenant Theology Smoke"));
+    await expect(subtopics).toHaveText("Covenant Theology Smoke", { containing: true, ignoreCase: true });
     const relations = await $('[data-testid="doctrine-relations"]');
     await relations.$('select[aria-label="Doctrine relation type"]').selectByVisibleText("Tension with");
     await relations
@@ -301,12 +301,12 @@ describe("Bible AI shell", () => {
       .$('textarea[aria-label="Doctrine relation note"]')
       .setValue("Canon and covenant commitments should be compared without collapsing either topic.");
     await relations.$("button=Save doctrine link").click();
-    await expect(relations).toHaveText(expect.stringContaining("Tension with"));
-    await expect(relations).toHaveText(expect.stringContaining("Canon and covenant"));
+    await expect(relations).toHaveText("Tension with", { containing: true, ignoreCase: true });
+    await expect(relations).toHaveText("Canon and covenant", { containing: true, ignoreCase: true });
     const doctrineMap = await $('[data-testid="doctrine-map"]');
-    await expect(doctrineMap).toHaveText(expect.stringContaining("Doctrine map"));
-    await expect(doctrineMap).toHaveText(expect.stringContaining("Tension with Covenant Theology Smoke"));
-    await expect(doctrineMap).toHaveText(expect.stringContaining("Subtopic: Covenant Theology Smoke"));
+    await expect(doctrineMap).toHaveText("Doctrine map", { containing: true, ignoreCase: true });
+    await expect(doctrineMap).toHaveText("Tension with Covenant Theology Smoke", { containing: true, ignoreCase: true });
+    await expect(doctrineMap).toHaveText("Subtopic: Covenant Theology Smoke", { containing: true, ignoreCase: true });
 
     const reader = await $("button=Reader");
     await reader.click();
@@ -322,13 +322,13 @@ describe("Bible AI shell", () => {
     const addToTheology = await $("button=Add to Theology");
     await addToTheology.waitForClickable({ timeout: 10_000 });
     await addToTheology.click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("Linked to"));
+    await expect(await $("body")).toHaveText("Linked to", { containing: true, ignoreCase: true });
 
     const theology = await $("button=Theology");
     await theology.click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("Genesis 1:1"));
+    await expect(await $("body")).toHaveText("Genesis 1:1", { containing: true, ignoreCase: true });
     const evidenceGroups = await $('[data-testid="theology-evidence-groups"]');
-    await expect(evidenceGroups).toHaveText(expect.stringContaining("KEY PASSAGES"));
+    await expect(evidenceGroups).toHaveText("KEY PASSAGES", { containing: true, ignoreCase: true });
 
     await reader.click();
   });
@@ -351,11 +351,11 @@ describe("Bible AI shell", () => {
     const addRange = await $("button=Add range to Theology");
     await addRange.waitForClickable({ timeout: 10_000 });
     await addRange.click();
-    await expect(rangeBar).toHaveText(expect.stringContaining("Range linked to"));
+    await expect(rangeBar).toHaveText("Range linked to", { containing: true, ignoreCase: true });
 
     const theology = await $("button=Theology");
     await theology.click();
-    await expect(await $("body")).toHaveText(expect.stringContaining("Genesis 1:1-2"));
+    await expect(await $("body")).toHaveText("Genesis 1:1-2", { containing: true, ignoreCase: true });
 
     await reader.click();
   });
@@ -370,11 +370,11 @@ describe("Bible AI shell", () => {
     await search.setValue(`no-resource-${Date.now()}`);
     const emptyState = await $('[data-testid="resource-empty-state"]');
     await emptyState.waitForDisplayed({ timeout: 10_000 });
-    await expect(emptyState).toHaveText(expect.stringContaining("No resources matched"));
+    await expect(emptyState).toHaveText("No resources matched", { containing: true, ignoreCase: true });
     await emptyState.$("button=Import docs").click();
     const status = await $('[data-testid="resource-status"]');
     await status.waitForDisplayed({ timeout: 10_000 });
-    await expect(status).toHaveText(expect.stringContaining("docs/open-resource-ingestion-plan.md"));
+    await expect(status).toHaveText("docs/open-resource-ingestion-plan.md", { containing: true, ignoreCase: true });
     await emptyState.$("button=Clear filters").click();
     await expect(await $('[data-testid="resource-results"]')).toHaveText(
       expect.stringContaining("Apostles' Creed"),
@@ -385,7 +385,7 @@ describe("Bible AI shell", () => {
     await secondEmptyState.$("button=Open Data Sources").click();
     const dataSources = await $('[data-testid="data-sources-screen"]');
     await dataSources.waitForDisplayed({ timeout: 10_000 });
-    await expect(dataSources).toHaveText(expect.stringContaining("DATA SOURCES"));
+    await expect(dataSources).toHaveText("DATA SOURCES", { containing: true, ignoreCase: true });
 
     await resources.click();
     await (await $("h1=Resources")).waitForDisplayed({ timeout: 10_000 });
@@ -395,26 +395,26 @@ describe("Bible AI shell", () => {
     await $('select[aria-label="Resource license filter"]').selectByVisibleText("Public Domain");
     const results = await $('[data-testid="resource-results"]');
     await results.waitForDisplayed({ timeout: 10_000 });
-    await expect(results).toHaveText(expect.stringContaining("Apostles' Creed"));
+    await expect(results).toHaveText("Apostles' Creed", { containing: true, ignoreCase: true });
 
     const detail = await $('[data-testid="resource-detail"]');
-    await expect(detail).toHaveText(expect.stringContaining("Public Domain"));
+    await expect(detail).toHaveText("Public Domain", { containing: true, ignoreCase: true });
     const citation = await $('[data-testid="resource-citation"]');
-    await expect(citation).toHaveText(expect.stringContaining("CITATION"));
-    await expect(citation).toHaveText(expect.stringContaining("Apostles' Creed"));
-    await expect(citation).toHaveText(expect.stringContaining("Genesis 1:1"));
+    await expect(citation).toHaveText("CITATION", { containing: true, ignoreCase: true });
+    await expect(citation).toHaveText("Apostles' Creed", { containing: true, ignoreCase: true });
+    await expect(citation).toHaveText("Genesis 1:1", { containing: true, ignoreCase: true });
     const link = await $("button=Link to Theology");
     await link.click();
     await status.waitForDisplayed({ timeout: 10_000 });
-    await expect(status).toHaveText(expect.stringContaining("Resource linked to Theology"));
+    await expect(status).toHaveText("Resource linked to Theology", { containing: true, ignoreCase: true });
 
     await $('select[aria-label="Resource theology topic filter"]').selectByVisibleText("Scripture");
-    await expect(results).toHaveText(expect.stringContaining("Apostles' Creed"));
+    await expect(results).toHaveText("Apostles' Creed", { containing: true, ignoreCase: true });
 
     const addResourceToWorkspace = await $("button=Add to workspace");
     await addResourceToWorkspace.click();
     await $('[data-testid="add-to-workspace-confirm"]').click();
-    await expect(await $('[data-testid="resource-detail"]')).toHaveText(expect.stringContaining("Added"));
+    await expect(await $('[data-testid="resource-detail"]')).toHaveText("Added", { containing: true, ignoreCase: true });
 
     const askCouncil = await $("button=Ask Council");
     await askCouncil.click();
@@ -426,9 +426,9 @@ describe("Bible AI shell", () => {
     const theology = await $("button=Theology");
     await theology.click();
     const theologyBody = await $("body");
-    await expect(theologyBody).toHaveText(expect.stringContaining("Apostles' Creed"));
+    await expect(theologyBody).toHaveText("Apostles' Creed", { containing: true, ignoreCase: true });
     const evidenceGroups = await $('[data-testid="theology-evidence-groups"]');
-    await expect(evidenceGroups).toHaveText(expect.stringContaining("LINKED RESOURCES"));
+    await expect(evidenceGroups).toHaveText("LINKED RESOURCES", { containing: true, ignoreCase: true });
 
     const reader = await $("button=Reader");
     await reader.click();

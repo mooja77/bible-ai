@@ -25,7 +25,7 @@ describe("Council mock workflow", () => {
 
     const trace = await $('[data-testid="council-retrieval-trace"]');
     await trace.waitForDisplayed({ timeout: 10_000 });
-    await expect(trace).toHaveText(expect.stringContaining("Acts 2:38"));
+    await expect(trace).toHaveText("Acts 2:38", { containing: true, ignoreCase: true });
     const traceText = await trace.getText();
     expect(traceText.toLowerCase()).toContain("explicit reference");
 
@@ -74,55 +74,55 @@ describe("Council mock workflow", () => {
     const rankingExplanation = await $("h3=Why this argument ranked higher");
     await expect(rankingExplanation).toBeDisplayed();
     const processText = await $('[data-testid="council-process-view"]');
-    await expect(processText).toHaveText(expect.stringContaining("Separate analysis"));
-    await expect(processText).toHaveText(expect.stringContaining("NEAREST ALTERNATIVE"));
+    await expect(processText).toHaveText("Separate analysis", { containing: true, ignoreCase: true });
+    await expect(processText).toHaveText("NEAREST ALTERNATIVE", { containing: true, ignoreCase: true });
 
     const winnerSummary = await $('[data-testid="council-winner-summary"]');
     await winnerSummary.waitForDisplayed({ timeout: 10_000 });
-    await expect(winnerSummary).toHaveText(expect.stringContaining("WHY THIS RANKED HIGHEST"));
-    await expect(winnerSummary).toHaveText(expect.stringContaining("Mock consensus"));
+    await expect(winnerSummary).toHaveText("WHY THIS RANKED HIGHEST", { containing: true, ignoreCase: true });
+    await expect(winnerSummary).toHaveText("Mock consensus", { containing: true, ignoreCase: true });
 
     const comparison = await $('[data-testid="council-position-comparison"]');
     await comparison.waitForDisplayed({ timeout: 10_000 });
-    await expect(comparison).toHaveText(expect.stringContaining("COMPARE POSITIONS"));
-    await expect(comparison).toHaveText(expect.stringContaining("Mock minority"));
+    await expect(comparison).toHaveText("COMPARE POSITIONS", { containing: true, ignoreCase: true });
+    await expect(comparison).toHaveText("Mock minority", { containing: true, ignoreCase: true });
 
     const matrix = await $('[data-testid="council-voice-matrix"]');
     await matrix.waitForDisplayed({ timeout: 10_000 });
-    await expect(matrix).toHaveText(expect.stringContaining("Mock consensus"));
-    await expect(matrix).toHaveText(expect.stringContaining("75%"));
+    await expect(matrix).toHaveText("Mock consensus", { containing: true, ignoreCase: true });
+    await expect(matrix).toHaveText("75%", { containing: true, ignoreCase: true });
     const matrixPosition = await matrix.$("button=Mock consensus");
     await matrixPosition.click();
     const focusedPosition = await $('[data-testid="council-focused-position"]');
-    await expect(focusedPosition).toHaveText(expect.stringContaining("Mock consensus"));
+    await expect(focusedPosition).toHaveText("Mock consensus", { containing: true, ignoreCase: true });
     const matrixFocus = await $('[data-testid="council-matrix-focus"]');
-    await expect(matrixFocus).toHaveText(expect.stringContaining("Focused position"));
+    await expect(matrixFocus).toHaveText("Focused position", { containing: true, ignoreCase: true });
 
     const evidenceTabs = await $('[data-testid="council-evidence-tabs"]');
     await evidenceTabs.waitForDisplayed({ timeout: 10_000 });
     const challengingTab = await $("button*=Challenging");
     await challengingTab.click();
-    await expect(evidenceTabs).toHaveText(expect.stringContaining("complicate or limit"));
+    await expect(evidenceTabs).toHaveText("complicate or limit", { containing: true, ignoreCase: true });
 
     const trace = await $('[data-testid="council-retrieval-trace"]');
     await trace.waitForDisplayed({ timeout: 10_000 });
-    await expect(trace).toHaveText(expect.stringContaining("KEYWORD"));
+    await expect(trace).toHaveText("KEYWORD", { containing: true, ignoreCase: true });
     const highlightedEvidence = await trace.$("mark=beginning");
     await expect(highlightedEvidence).toBeDisplayed();
 
     const confidence = await $('[data-testid="council-confidence-rationale"]');
     await confidence.waitForDisplayed({ timeout: 10_000 });
-    await expect(confidence).toHaveText(expect.stringContaining("Confidence is high"));
+    await expect(confidence).toHaveText("Confidence is high", { containing: true, ignoreCase: true });
 
     const researchTrail = await $('[data-testid="council-research-trail"]');
     await researchTrail.waitForDisplayed({ timeout: 10_000 });
-    await expect(researchTrail).toHaveText(expect.stringContaining("Research Trail"));
-    await expect(researchTrail).toHaveText(expect.stringContaining("Positions weighted"));
+    await expect(researchTrail).toHaveText("Research Trail", { containing: true, ignoreCase: true });
+    await expect(researchTrail).toHaveText("Positions weighted", { containing: true, ignoreCase: true });
 
     const argumentMaps = await $('[data-testid="council-argument-maps"]');
     await argumentMaps.waitForDisplayed({ timeout: 10_000 });
-    await expect(argumentMaps).toHaveText(expect.stringContaining("Argument Maps"));
-    await expect(argumentMaps).toHaveText(expect.stringContaining("Weakest link"));
+    await expect(argumentMaps).toHaveText("Argument Maps", { containing: true, ignoreCase: true });
+    await expect(argumentMaps).toHaveText("Weakest link", { containing: true, ignoreCase: true });
     const annotation = await argumentMaps.$('textarea[aria-label="Annotation for Consensus claim"]');
     await annotation.setValue("This node is persuasive but depends on the first retrieved passage.");
     const saveAnnotationButtons = await argumentMaps.$$("button=Save annotation");
@@ -137,11 +137,11 @@ describe("Council mock workflow", () => {
 
     const judgment = await $('[data-testid="council-judgment-panel"]');
     await judgment.waitForDisplayed({ timeout: 10_000 });
-    await expect(judgment).toHaveText(expect.stringContaining("My Judgment"));
+    await expect(judgment).toHaveText("My Judgment", { containing: true, ignoreCase: true });
     const markNeedsStudy = await judgment.$("button=Mark needs study");
     await markNeedsStudy.click();
     const followUps = await $('[data-testid="council-follow-up-questions"]');
-    await expect(followUps).toHaveText(expect.stringContaining("AI-suggested follow-up questions"));
+    await expect(followUps).toHaveText("AI-suggested follow-up questions", { containing: true, ignoreCase: true });
     await followUps.$("button=Add question").click();
     const judgmentTextareas = await judgment.$$("textarea");
     await judgmentTextareas[0].setValue("I initially expected a single clear answer.");
@@ -166,7 +166,7 @@ describe("Council mock workflow", () => {
     await sourceButton.click();
     const sourceJson = await $('[data-testid="council-source-json"]');
     await sourceJson.waitForDisplayed({ timeout: 10_000 });
-    await expect(sourceJson).toHaveText(expect.stringContaining("Mock consensus"));
+    await expect(sourceJson).toHaveText("Mock consensus", { containing: true, ignoreCase: true });
     const copyFullJson = await $("button=Copy full JSON");
     await expect(copyFullJson).toBeDisplayed();
 

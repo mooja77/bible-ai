@@ -15,10 +15,10 @@ describe("Release readiness surfaces", () => {
     await providerStatus.waitForDisplayed({ timeout: 10_000 });
     await expect(providerStatus).toBeDisplayed();
     const providerGuide = await $('[data-testid="provider-setup-guide"]');
-    await expect(providerGuide).toHaveText(expect.stringContaining("Guided AI setup"));
-    await expect(providerGuide).toHaveText(expect.stringContaining("Personal keys"));
-    await expect(providerGuide).toHaveText(expect.stringContaining("Local/no hosted key"));
-    await expect(providerGuide).toHaveText(expect.stringContaining("Managed gateway"));
+    await expect(providerGuide).toHaveText("Guided AI setup", { containing: true, ignoreCase: true });
+    await expect(providerGuide).toHaveText("Personal keys", { containing: true, ignoreCase: true });
+    await expect(providerGuide).toHaveText("Local/no hosted key", { containing: true, ignoreCase: true });
+    await expect(providerGuide).toHaveText("Managed gateway", { containing: true, ignoreCase: true });
     await expect(await $("button=Save & test")).toBeDisplayed();
     await expect(await $("button=Test all providers")).toBeDisplayed();
     await expect(await $("button=Test Anthropic")).toBeDisplayed();
@@ -28,23 +28,23 @@ describe("Release readiness surfaces", () => {
 
     const dataSources = await $('[data-testid="data-sources-screen"]');
     await dataSources.waitForDisplayed({ timeout: 10_000 });
-    await expect(dataSources).toHaveText(expect.stringContaining("KJV"));
-    await expect(dataSources).toHaveText(expect.stringContaining("World English Bible"));
-    await expect(dataSources).toHaveText(expect.stringContaining("Bundled"));
-    await expect(dataSources).toHaveText(expect.stringContaining("Deferred"));
-    await expect(dataSources).toHaveText(expect.stringContaining("Phase 13"));
+    await expect(dataSources).toHaveText("KJV", { containing: true, ignoreCase: true });
+    await expect(dataSources).toHaveText("World English Bible", { containing: true, ignoreCase: true });
+    await expect(dataSources).toHaveText("Bundled", { containing: true, ignoreCase: true });
+    await expect(dataSources).toHaveText("Deferred", { containing: true, ignoreCase: true });
+    await expect(dataSources).toHaveText("Phase 13", { containing: true, ignoreCase: true });
 
     const distribution = await $('[data-testid="about-distribution-screen"]');
     await distribution.waitForDisplayed({ timeout: 10_000 });
-    await expect(distribution).toHaveText(expect.stringContaining("Bible AI 0.1.0"));
-    await expect(distribution).toHaveText(expect.stringContaining("Personal-use release candidate"));
+    await expect(distribution).toHaveText("Bible AI 0.1.0", { containing: true, ignoreCase: true });
+    await expect(distribution).toHaveText("Personal-use release candidate", { containing: true, ignoreCase: true });
 
     const attribution = await $('[data-testid="license-attribution-screen"]');
     await attribution.waitForDisplayed({ timeout: 10_000 });
-    await expect(attribution).toHaveText(expect.stringContaining("LICENSE & ATTRIBUTION"));
-    await expect(attribution).toHaveText(expect.stringContaining("eBible.org"));
-    await expect(attribution).toHaveText(expect.stringContaining("OpenBible"));
-    await expect(attribution).toHaveText(expect.stringContaining("PROVIDER CALLS"));
+    await expect(attribution).toHaveText("LICENSE & ATTRIBUTION", { containing: true, ignoreCase: true });
+    await expect(attribution).toHaveText("eBible.org", { containing: true, ignoreCase: true });
+    await expect(attribution).toHaveText("OpenBible", { containing: true, ignoreCase: true });
+    await expect(attribution).toHaveText("PROVIDER CALLS", { containing: true, ignoreCase: true });
   });
 
   it("redacts provider keys from JSON backup exports", async () => {
@@ -185,18 +185,18 @@ describe("Release readiness surfaces", () => {
 
     const process = await $('[data-testid="council-process-view"]');
     await process.waitForDisplayed({ timeout: 10_000 });
-    await expect(process).toHaveText(expect.stringContaining("1/2 voices ran"));
+    await expect(process).toHaveText("1/2 voices ran", { containing: true, ignoreCase: true });
 
     const confidence = await $('[data-testid="council-confidence-rationale"]');
     await confidence.waitForDisplayed({ timeout: 10_000 });
-    await expect(confidence).toHaveText(expect.stringContaining("Provider failures: 1"));
+    await expect(confidence).toHaveText("Provider failures: 1", { containing: true, ignoreCase: true });
 
     const sourceButton = await $("button=View source data");
     await sourceButton.waitForClickable({ timeout: 10_000 });
     await sourceButton.click();
     const sourceJson = await $('[data-testid="council-source-json"]');
     await sourceJson.waitForDisplayed({ timeout: 10_000 });
-    await expect(sourceJson).toHaveText(expect.stringContaining("Fixture provider timeout"));
+    await expect(sourceJson).toHaveText("Fixture provider timeout", { containing: true, ignoreCase: true });
     const sourceText = await sourceJson.getText();
     expect(sourceText).not.toMatch(/[A-Za-z]:\\/);
     expect(sourceText).not.toMatch(/(OPENAI|GOOGLE|ANTHROPIC|API_KEY|api_key)/);

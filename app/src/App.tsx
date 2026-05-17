@@ -925,6 +925,9 @@ function App() {
           )}
 
           <SearchInput value={searchQuery} onChange={updateSearchQuery} />
+          {/* Labelled so these read as the search's scope, distinct from the
+              reader's translation picker and book navigation list. */}
+          <p className="nav-section-title">Search in</p>
           <div className="grid grid-cols-2 gap-2">
             <select
               value={searchFilterTranslation}

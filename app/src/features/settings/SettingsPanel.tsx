@@ -413,24 +413,6 @@ export function SettingsPanel({
 
       <section className="surface-panel rounded-lg p-4 space-y-4">
         <h2 className="text-sm tracking-wider text-neutral-400">Council</h2>
-        <div className="grid md:grid-cols-3 gap-3">
-          <InfoBlock
-            label="No key"
-            value="Use Claude Code login for Claude and synthesis, plus Ollama for local retrieval embeddings."
-          />
-          <InfoBlock
-            label="Personal keys"
-            value="Add Anthropic, OpenAI, or Gemini API keys from the user's own provider accounts."
-          />
-          <InfoBlock
-            label="Managed gateway"
-            value="Point the app at a team/public gateway that owns provider routing and billing."
-          />
-          <InfoBlock
-            label="No shared keys"
-            value="Bible AI ships without provider credentials. Keys entered here stay local to this OS user."
-          />
-        </div>
         <div
           className="soft-card p-4 space-y-4 border-amber-500/20"
           data-testid="provider-setup-guide"
@@ -441,7 +423,9 @@ export function SettingsPanel({
                 Guided AI setup
               </h3>
               <p className="text-sm text-neutral-500 mt-1">
-                Pick how this install should run Council voices, then save and test before asking a question.
+                Pick how this install should run Council voices, then save and test
+                before asking a question. Bible AI ships with no provider keys —
+                anything you enter here stays local to this OS user.
               </p>
             </div>
             <span
