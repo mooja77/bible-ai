@@ -361,7 +361,7 @@ describe("Bible AI shell", () => {
   });
 
   it("searches Resources and links a public-domain fixture to Theology", async () => {
-    const resources = await $("button=Res");
+    const resources = await $("button=Resources");
     await resources.click();
 
     const header = await $("h1=Resources");

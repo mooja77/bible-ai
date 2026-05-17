@@ -156,7 +156,7 @@ describe("Backup and restore", () => {
       { timeout: 10_000, timeoutMsg: "resource backup JSON import did not complete" },
     );
 
-    const resources = await $("button=Res");
+    const resources = await $("button=Resources");
     await resources.waitForClickable({ timeout: 10_000 });
     await resources.click();
 

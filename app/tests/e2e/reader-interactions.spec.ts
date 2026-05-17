@@ -235,7 +235,7 @@ describe("Reader interactions", () => {
     const addedRangeModule = await $("span=Added");
     await addedRangeModule.waitForDisplayed({ timeout: 10_000 });
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
     const workspaceRow = await $(`button*=${rangeModuleWorkspace}`);
@@ -450,7 +450,7 @@ describe("Reader interactions", () => {
     const added = await $("span=Added");
     await added.waitForDisplayed({ timeout: 10_000 });
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
     const workspaceRow = await $(`button*=${workspaceTitle}`);

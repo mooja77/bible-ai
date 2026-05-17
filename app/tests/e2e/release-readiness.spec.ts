@@ -169,7 +169,7 @@ describe("Release readiness surfaces", () => {
       { timeout: 10_000, timeoutMsg: "quality fixture import did not complete" },
     );
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
     const workspace = await $(`button*=${title}`);

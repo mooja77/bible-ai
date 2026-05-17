@@ -3,9 +3,9 @@ import { browser, $, $$, expect } from "@wdio/globals";
 async function openWorkspaces() {
   const existingHeading = await $("h1=Workspaces");
   if (await existingHeading.isDisplayed().catch(() => false)) {
-    return $("button=Work");
+    return $("button=Workspaces");
   }
-  const work = await $("button=Work");
+  const work = await $("button=Workspaces");
   await work.waitForExist({ timeout: 10_000 });
   await browser.execute((button) => (button as HTMLButtonElement).click(), work);
   await $("h1=Workspaces").waitForDisplayed({ timeout: 10_000 });
@@ -364,7 +364,7 @@ describe("Workspaces", () => {
     });
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
 
@@ -502,7 +502,7 @@ describe("Workspaces", () => {
     });
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
     const workspaceRow = await $(`button*=${title}`);
@@ -677,7 +677,7 @@ describe("Workspaces", () => {
       { timeout: 10_000, timeoutMsg: "workspace fixture import did not complete" },
     );
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
     const workspaceRow = await $(`button*=${title}`);
@@ -802,7 +802,7 @@ describe("Workspaces", () => {
       { timeout: 10_000, timeoutMsg: "explanation fixture import did not complete" },
     );
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
     const workspaceRow = await $(`button*=${title}`);
@@ -880,7 +880,7 @@ describe("Workspaces", () => {
       { timeout: 10_000, timeoutMsg: "module entry fixture import did not complete" },
     );
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
     const workspaceRow = await $(`button*=${title}`);
@@ -1083,7 +1083,7 @@ describe("Workspaces", () => {
       { timeout: 10_000, timeoutMsg: "council fixture import did not complete" },
     );
 
-    const work = await $("button=Work");
+    const work = await $("button=Workspaces");
     await work.waitForClickable({ timeout: 10_000 });
     await work.click();
     const workspaceRow = await $(`button*=${title}`);

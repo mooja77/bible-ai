@@ -827,7 +827,7 @@ function App() {
             </button>
           </div>
 
-          <div className="flex gap-1 bg-neutral-900/80 p-1 rounded-lg border border-neutral-800">
+          <nav className="flex flex-col gap-0.5" aria-label="Main navigation">
             <ModeButton
               active={mode === "reader"}
               onClick={() => selectMode("reader")}
@@ -839,11 +839,6 @@ function App() {
               label="Council"
             />
             <ModeButton
-              active={mode === "settings"}
-              onClick={() => selectMode("settings")}
-              label="Settings"
-            />
-            <ModeButton
               active={mode === "theology"}
               onClick={() => selectMode("theology")}
               label="Theology"
@@ -851,14 +846,19 @@ function App() {
             <ModeButton
               active={mode === "resources"}
               onClick={() => selectMode("resources")}
-              label="Res"
+              label="Resources"
             />
             <ModeButton
               active={mode === "workspaces"}
               onClick={() => selectMode("workspaces")}
-              label="Work"
+              label="Workspaces"
             />
-          </div>
+            <ModeButton
+              active={mode === "settings"}
+              onClick={() => selectMode("settings")}
+              label="Settings"
+            />
+          </nav>
 
           <div
             className={tourDismissed ? "flex items-center justify-between gap-2" : "soft-card p-3 space-y-2"}
@@ -991,6 +991,10 @@ function App() {
             {referenceError && <p className="text-xs text-red-300">{referenceError}</p>}
           </div>
 
+          {/* Reader display controls (font, layout, translations) — hidden
+              outside the Reader; search and jump-to-reference stay global. */}
+          {mode === "reader" && (
+          <>
           <div className="flex items-center justify-between gap-2 text-xs text-neutral-400">
             <span>Text</span>
             <div className="flex items-center gap-1">
@@ -1048,18 +1052,22 @@ function App() {
             activeCodes={activeTranslations}
             onToggle={toggleTranslation}
           />
+          </>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <BookList
-            books={books}
-            selectedBookId={selectedBook?.id ?? null}
-            onSelect={(b) => {
-              setSelectedBook(b);
-              setSelectedChapter(1);
-              setMode("reader");
-            }}
-          />
+          {mode === "reader" && (
+            <BookList
+              books={books}
+              selectedBookId={selectedBook?.id ?? null}
+              onSelect={(b) => {
+                setSelectedBook(b);
+                setSelectedChapter(1);
+                setMode("reader");
+              }}
+            />
+          )}
           <NavigationShortcuts
             books={books}
             bookmarks={bookmarks}
@@ -1761,9 +1769,9 @@ function ModeButton({
       type="button"
       onClick={onClick}
       className={
-        "flex-1 text-xs py-1.5 rounded-md transition-colors " +
+        "w-full text-left text-sm px-3 py-2 rounded-md transition-colors " +
         (active
-          ? "bg-amber-500/15 text-amber-100 shadow-sm"
+          ? "bg-amber-500/15 text-amber-100 font-medium shadow-sm"
           : "text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200")
       }
     >
