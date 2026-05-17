@@ -28,10 +28,13 @@ const USER_TABLES: &[&str] = &[
     "resource_sources",
     "resource_collections",
     "resource_entries",
-    "theology_links",
     "guided_study_sessions",
     "study_workspaces",
     "study_items",
+    // Imported last: theology_links.target_id may reference council sessions
+    // or study items, which must be imported (and id-remapped) first under
+    // the "duplicate" conflict strategy.
+    "theology_links",
     "bookmarks",
     "reading_history",
     "saved_searches",
@@ -3253,6 +3256,64 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_import_remaps_theology_topic_parent_id() {
+        let conn = test_conn();
+        let old_parent_id = 20_001;
+        let old_child_id = 20_002;
+        let payload = serde_json::json!({
+            "app": "Bible AI",
+            "export_version": EXPORT_VERSION,
+            "user_schema_version": USER_SCHEMA_VERSION,
+            "exported_at": "2026-05-17T09:00:00Z",
+            "tables": {
+                "theology_topics": [
+                    {
+                        "id": old_parent_id,
+                        "slug": "duplicate-parent-topic",
+                        "title": "Duplicate Parent Topic",
+                        "parent_id": null,
+                        "summary": "Parent.",
+                        "sort_order": 900,
+                        "created_at": "2026-05-17T09:00:00Z",
+                        "updated_at": "2026-05-17T09:00:00Z"
+                    },
+                    {
+                        "id": old_child_id,
+                        "slug": "duplicate-child-topic",
+                        "title": "Duplicate Child Topic",
+                        "parent_id": old_parent_id,
+                        "summary": "Subtopic.",
+                        "sort_order": 901,
+                        "created_at": "2026-05-17T09:00:00Z",
+                        "updated_at": "2026-05-17T09:00:00Z"
+                    }
+                ]
+            }
+        });
+
+        // Before the fix the child's parent_id kept the source id, which has
+        // an FK constraint — the whole import rolled back with an FK error.
+        let report = import_user_data(&conn, &payload, "duplicate").expect("duplicate import");
+        assert_eq!(report.imported, 2);
+        let topics = list_theology_topics(&conn).expect("list topics");
+        let parent = topics
+            .iter()
+            .find(|t| t.title == "Duplicate Parent Topic")
+            .expect("parent imported");
+        let child = topics
+            .iter()
+            .find(|t| t.title == "Duplicate Child Topic")
+            .expect("child imported");
+        assert_ne!(parent.id, old_parent_id);
+        assert_ne!(child.id, old_child_id);
+        assert_eq!(
+            child.parent_id,
+            Some(parent.id),
+            "child parent_id should point at the imported parent's new id",
+        );
+    }
+
+    #[test]
     fn theology_export_includes_learning_history_context() {
         let conn = test_conn();
         let topic_id = create_theology_topic(
@@ -4293,6 +4354,7 @@ fn import_user_data_inner(
     let mut resource_collection_id_map = std::collections::HashMap::<i64, i64>::new();
     let mut resource_entry_id_map = std::collections::HashMap::<i64, i64>::new();
     let mut module_id_map = std::collections::HashMap::<i64, i64>::new();
+    let mut study_item_id_map = std::collections::HashMap::<i64, i64>::new();
 
     for table in USER_TABLES {
         let Some(rows_value) = tables.get(*table) else {
@@ -4323,6 +4385,7 @@ fn import_user_data_inner(
                     &resource_collection_id_map,
                     &resource_entry_id_map,
                     &module_id_map,
+                    &study_item_id_map,
                 )?;
             }
 
@@ -4372,6 +4435,10 @@ fn import_user_data_inner(
                     if let Some(old_id) = old_id {
                         module_id_map.insert(old_id, conn.last_insert_rowid());
                     }
+                } else if *table == "study_items" {
+                    if let Some(old_id) = old_id {
+                        study_item_id_map.insert(old_id, conn.last_insert_rowid());
+                    }
                 }
             }
         }
@@ -4392,6 +4459,25 @@ fn rebuild_resource_entries_fts(conn: &Connection) -> SqlResult<()> {
     Ok(())
 }
 
+/// Remap an optional foreign-key column on an import row. If the referenced
+/// row was imported under a new id, point at it; if it was not imported, null
+/// the link rather than risk an FK violation or a reference to an unrelated
+/// row that happens to reuse the old id.
+fn remap_optional_fk(
+    row: &mut serde_json::Map<String, serde_json::Value>,
+    column: &str,
+    id_map: &std::collections::HashMap<i64, i64>,
+) {
+    let Some(old) = row.get(column).and_then(serde_json::Value::as_i64) else {
+        return;
+    };
+    let value = match id_map.get(&old) {
+        Some(new) => serde_json::json!(new),
+        None => serde_json::Value::Null,
+    };
+    row.insert(column.to_string(), value);
+}
+
 #[allow(clippy::too_many_arguments)] // Threads several id-remap maps for import; a context struct buys little here.
 fn prepare_duplicate_row(
     conn: &Connection,
@@ -4405,6 +4491,7 @@ fn prepare_duplicate_row(
     resource_collection_id_map: &std::collections::HashMap<i64, i64>,
     resource_entry_id_map: &std::collections::HashMap<i64, i64>,
     module_id_map: &std::collections::HashMap<i64, i64>,
+    study_item_id_map: &std::collections::HashMap<i64, i64>,
 ) -> Result<(), String> {
     row.remove("id");
     match table {
@@ -4491,7 +4578,13 @@ fn prepare_duplicate_row(
                 .ok_or_else(|| format!("no imported resource collection mapping for id {old}"))?;
             row.insert("collection_id".to_string(), serde_json::json!(new));
         }
-        "theology_topics" => prepare_duplicate_theology_slug(conn, row)?,
+        "theology_topics" => {
+            prepare_duplicate_theology_slug(conn, row)?;
+            // Remap the self-referential parent. theology_topics.parent_id has
+            // an FK constraint, so a stale id would either fail the import or
+            // silently re-parent under an unrelated topic.
+            remap_optional_fk(row, "parent_id", theology_topic_id_map);
+        }
         "theology_positions"
         | "theology_conclusions"
         | "theology_links"
@@ -4505,14 +4598,21 @@ fn prepare_duplicate_row(
                 .copied()
                 .ok_or_else(|| format!("no imported theology topic mapping for id {old}"))?;
             row.insert("topic_id".to_string(), serde_json::json!(new));
-            if table == "theology_links"
-                && row.get("link_kind").and_then(serde_json::Value::as_str)
-                    == Some("resource_entry")
-            {
-                if let Some(old_target) = row.get("target_id").and_then(serde_json::Value::as_i64) {
-                    if let Some(new_target) = resource_entry_id_map.get(&old_target).copied() {
-                        row.insert("target_id".to_string(), serde_json::json!(new_target));
+            if table == "theology_links" {
+                // target_id points into a different table per link_kind; remap
+                // it for the kinds whose ids change on a duplicate import.
+                // verse / verse_range target stable corpus verse ids.
+                match row.get("link_kind").and_then(serde_json::Value::as_str) {
+                    Some("resource_entry") => {
+                        remap_optional_fk(row, "target_id", resource_entry_id_map);
                     }
+                    Some("council_session") => {
+                        remap_optional_fk(row, "target_id", council_session_id_map);
+                    }
+                    Some("workspace_item") => {
+                        remap_optional_fk(row, "target_id", study_item_id_map);
+                    }
+                    _ => {}
                 }
             }
         }
