@@ -539,7 +539,7 @@ export function TheologyPanel({
 
       <div className="grid xl:grid-cols-[18rem_1fr_16rem] lg:grid-cols-[18rem_1fr] gap-4">
         <aside className="surface-panel rounded-lg p-3 space-y-2">
-          <h2 className="text-xs uppercase tracking-wider text-neutral-500">Doctrine Topics</h2>
+          <h2 className="text-xs tracking-wider text-neutral-500">Doctrine Topics</h2>
           <div className="soft-card p-2 space-y-2" data-testid="create-theology-topic">
             <input
               value={topicDraft.title}
@@ -601,7 +601,7 @@ export function TheologyPanel({
                   }
                 >
                   <span className="block text-sm font-medium">{topic.title}</span>
-                  <span className="mt-1 flex flex-wrap gap-1 text-[0.68rem] uppercase tracking-wider text-neutral-500">
+                  <span className="mt-1 flex flex-wrap gap-1 text-[0.68rem] tracking-wider text-neutral-500">
                     <span>{topicStats[topic.id]?.status ?? "not started"}</span>
                     <span>{topicStats[topic.id]?.passageCount ?? 0} passages</span>
                     <span>{topicStats[topic.id]?.councilCount ?? 0} councils</span>
@@ -932,7 +932,7 @@ export function TheologyPanel({
 
               <div className="soft-card p-3 space-y-2">
                 <label
-                  className="text-xs uppercase tracking-wider text-neutral-500"
+                  className="text-xs tracking-wider text-neutral-500"
                   htmlFor="theology-confidence"
                 >
                   Confidence
@@ -1173,7 +1173,7 @@ export function TheologyPanel({
                     </div>
                   </div>
                   <label className="block space-y-1">
-                    <span className="text-xs uppercase tracking-wider text-neutral-500">
+                    <span className="text-xs tracking-wider text-neutral-500">
                       Template
                     </span>
                     <select
@@ -1216,7 +1216,7 @@ export function TheologyPanel({
                     rows={4}
                   />
                   <div className="border border-neutral-900 rounded px-3 py-2">
-                    <h4 className="text-xs uppercase tracking-wider text-neutral-500">
+                    <h4 className="text-xs tracking-wider text-neutral-500">
                       Review cards
                     </h4>
                     <p className="text-sm text-neutral-400 mt-1">
@@ -1230,7 +1230,7 @@ export function TheologyPanel({
                         <ul className="mt-2 space-y-2" data-testid="guided-review-cards">
                           {reviewCards.map((card, index) => (
                             <li key={`${card.kind}-${index}`} className="rounded border border-neutral-900 px-2 py-1.5">
-                              <p className="text-xs uppercase tracking-wider text-neutral-500">
+                              <p className="text-xs tracking-wider text-neutral-500">
                                 {card.kind}
                               </p>
                               <p className="text-sm text-neutral-300">{card.prompt}</p>
@@ -1244,7 +1244,7 @@ export function TheologyPanel({
                           <div className="mt-3 rounded border border-neutral-900 px-3 py-2" data-testid="guided-review-drill">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div>
-                                <p className="text-xs uppercase tracking-wider text-neutral-500">
+                                <p className="text-xs tracking-wider text-neutral-500">
                                   Study review
                                 </p>
                                 <p className="text-xs text-neutral-500">
@@ -1391,7 +1391,7 @@ export function TheologyPanel({
 
         <aside className="surface-panel rounded-lg p-4 space-y-4 lg:col-span-2 xl:col-span-1" data-testid="theology-progress">
           <div>
-            <h2 className="text-xs uppercase tracking-wider text-neutral-500">My Theology</h2>
+            <h2 className="text-xs tracking-wider text-neutral-500">My Theology</h2>
             <p className="text-sm text-neutral-300 mt-2">
               {progress.started}/{progress.total} topics started
             </p>
@@ -1405,7 +1405,7 @@ export function TheologyPanel({
             <ProgressMetric label="Open Qs" value={progress.openQuestions} />
           </div>
           <div className="border-t border-neutral-900 pt-3">
-            <h3 className="text-xs uppercase tracking-wider text-neutral-500">Needs attention</h3>
+            <h3 className="text-xs tracking-wider text-neutral-500">Needs attention</h3>
             <ul className="mt-2 space-y-1 text-sm text-neutral-400">
               {topics
                 .filter((topic) => (topicStats[topic.id]?.openQuestionCount ?? 0) > 0)
@@ -1747,7 +1747,7 @@ function DoctrineMap({
       </div>
       <div className="grid lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.25fr)] gap-3">
         <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-3">
-          <p className="text-xs uppercase tracking-wider text-amber-300">Current topic</p>
+          <p className="text-xs tracking-wider text-amber-300">Current topic</p>
           <p className="text-base font-semibold text-neutral-100 mt-1">{topic.title}</p>
           {topic.summary && (
             <p className="text-xs text-neutral-400 mt-2 line-clamp-3">{topic.summary}</p>
@@ -1772,7 +1772,7 @@ function DoctrineMap({
                   <p className="text-sm font-semibold">
                     {relationLabel(payload.relation)} {payload.target_topic_title ?? "related topic"}
                   </p>
-                  <span className="text-[11px] uppercase tracking-wider opacity-80">
+                  <span className="text-[11px] tracking-wider opacity-80">
                     {payload.relation.replace(/_/g, " ")}
                   </span>
                 </div>
@@ -1813,7 +1813,7 @@ function TheologyEvidenceSection({
   return (
     <section className="border border-neutral-900 rounded px-3 py-2">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-xs uppercase tracking-wider text-neutral-500">{title}</h4>
+        <h4 className="text-xs tracking-wider text-neutral-500">{title}</h4>
         <span className="text-xs text-neutral-600">{links.length}</span>
       </div>
       <ul className="mt-2 space-y-2">
@@ -1893,7 +1893,7 @@ function theologyLinkPreview(link: TheologyLink) {
 function ProgressMetric({ label, value }: { label: string; value: number }) {
   return (
     <div className="soft-card px-3 py-2">
-      <p className="text-xs uppercase tracking-wider text-neutral-500">{label}</p>
+      <p className="text-xs tracking-wider text-neutral-500">{label}</p>
       <p className="text-lg font-semibold text-neutral-100">{value}</p>
     </div>
   );
@@ -1943,7 +1943,7 @@ function TheologyTextarea({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-xs uppercase tracking-wider text-neutral-500">{label}</span>
+      <span className="text-xs tracking-wider text-neutral-500">{label}</span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}

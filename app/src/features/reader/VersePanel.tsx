@@ -110,7 +110,7 @@ export function VersePanel({
   return (
     <aside className="soft-card px-6 py-4 mt-6">
       <header className="flex items-baseline justify-between mb-3">
-        <h3 className="text-sm uppercase tracking-wider text-neutral-400">
+        <h3 className="text-sm tracking-wider text-neutral-400">
           Verse <span className="text-amber-300">{citation}</span>
         </h3>
         <button
@@ -220,7 +220,7 @@ export function VersePanel({
       {tab === "note" && <NoteTab verseId={verseId} onChanged={onMutated} />}
       {moduleEntries.length > 0 && (
         <section className="mt-4 border-t border-neutral-800 pt-3">
-          <h4 className="text-sm uppercase tracking-wider text-neutral-400 mb-2">
+          <h4 className="text-sm tracking-wider text-neutral-400 mb-2">
             Modules
           </h4>
           <ul className="space-y-3">

@@ -463,7 +463,7 @@ export function WorkspacesPanel({
             )}
 
             <section className="soft-card p-4">
-              <h3 className="text-sm uppercase tracking-wider text-neutral-400 mb-3">
+              <h3 className="text-sm tracking-wider text-neutral-400 mb-3">
                 Workspace Note
               </h3>
               <div className="grid gap-2">
@@ -515,7 +515,7 @@ export function WorkspacesPanel({
                 </div>
                 {previewOpen && (
                   <section className="surface-panel rounded-lg p-4">
-                    <h3 className="text-sm uppercase tracking-wider text-neutral-400 mb-3">
+                    <h3 className="text-sm tracking-wider text-neutral-400 mb-3">
                       Markdown Preview
                     </h3>
                     <pre
@@ -709,7 +709,7 @@ function WorkspaceItem({
     <li className="soft-card soft-card-hover p-4" data-testid="workspace-item">
       <header className="flex items-start justify-between gap-4 mb-2">
         <div className="min-w-0 flex-1">
-          <p className="text-xs uppercase tracking-wider text-neutral-500">{item.kind}</p>
+          <p className="text-xs tracking-wider text-neutral-500">{item.kind}</p>
           <h3 className="text-base font-semibold text-neutral-100">{displayTitle}</h3>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <input

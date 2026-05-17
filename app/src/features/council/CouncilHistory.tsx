@@ -14,7 +14,7 @@ export function CouncilHistory({ sessions, onSelect, onChanged }: Props) {
   if (sessions.length === 0) return null;
   return (
     <section className="border-t border-neutral-800 pt-4">
-      <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+      <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
         History ({sessions.length})
       </h3>
       <ul className="space-y-1">

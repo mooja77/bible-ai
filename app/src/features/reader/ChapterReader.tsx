@@ -648,7 +648,7 @@ export function RangeActionBar({
       )}
       {moduleEntries.length > 0 && (
         <section className="border-t border-neutral-800 pt-3" data-testid="range-module-results">
-          <h4 className="text-sm uppercase tracking-wider text-neutral-400 mb-2">
+          <h4 className="text-sm tracking-wider text-neutral-400 mb-2">
             Modules
           </h4>
           <ul className="space-y-3">

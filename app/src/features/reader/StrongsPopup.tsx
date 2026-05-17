@@ -98,7 +98,7 @@ export function StrongsPopup({ codes, surface, morph, onJumpToVerse, onClose }: 
 
         {occurrences.length > 0 && (
           <section className="border-t border-neutral-800 pt-3">
-            <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+            <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
               Occurrences ({occurrences.length})
             </h3>
             <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-2">
@@ -126,7 +126,7 @@ export function StrongsPopup({ codes, surface, morph, onJumpToVerse, onClose }: 
 
         {moduleEntries.length > 0 && (
           <section className="border-t border-neutral-800 pt-3">
-            <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+            <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
               Modules
             </h3>
             <ul className="space-y-3">

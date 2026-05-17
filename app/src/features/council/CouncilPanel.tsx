@@ -226,7 +226,7 @@ export function CouncilPanel({
           </button>
         </div>
         <label className="block space-y-1">
-          <span className="text-xs uppercase tracking-wider text-neutral-500">
+          <span className="text-xs tracking-wider text-neutral-500">
             My starting view before AI
           </span>
           <textarea
@@ -425,7 +425,7 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
       data-testid="council-voice-preview"
     >
       <div className="flex items-baseline justify-between gap-3 mb-2">
-        <h2 className="text-xs uppercase tracking-wider text-neutral-500">
+        <h2 className="text-xs tracking-wider text-neutral-500">
           Voices before submit
         </h2>
         <span className="text-xs text-neutral-600">
@@ -714,7 +714,7 @@ function CouncilJudgmentPanel({
       </div>
 
       <div className="soft-card p-3 space-y-2">
-        <label className="text-xs uppercase tracking-wider text-neutral-500" htmlFor="judgment-confidence">
+        <label className="text-xs tracking-wider text-neutral-500" htmlFor="judgment-confidence">
           Personal confidence
         </label>
         <div className="flex items-center gap-3">
@@ -890,7 +890,7 @@ function LabeledTextarea({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-xs uppercase tracking-wider text-neutral-500">{label}</span>
+      <span className="text-xs tracking-wider text-neutral-500">{label}</span>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -950,7 +950,7 @@ function CouncilResearchTrail({ response }: { response: CouncilResponse }) {
             <div className="soft-card p-3">
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h3 className="text-sm font-semibold text-neutral-100">{event.label}</h3>
-                <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
+                <span className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
                   {event.event_type}
                 </span>
                 {event.related_position && (
@@ -1128,7 +1128,7 @@ function ArgumentNodeCard({
   return (
     <div className="border border-neutral-900 rounded p-3 bg-neutral-950/40">
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
+        <span className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
           {node.kind}
         </span>
         <h4 className="text-sm font-semibold text-neutral-100">{node.label}</h4>
@@ -1140,7 +1140,7 @@ function ArgumentNodeCard({
         </p>
       ) : null}
       <label className="block mt-3 space-y-1">
-        <span className="text-xs uppercase tracking-wider text-neutral-500">My annotation</span>
+        <span className="text-xs tracking-wider text-neutral-500">My annotation</span>
         <textarea
           value={annotation}
           onChange={(e) => onChange(e.target.value)}
@@ -1456,7 +1456,7 @@ function AddToTheologyMenu({
       {open && (
         <span className="absolute right-0 z-20 mt-2 w-72 surface-panel rounded-lg border border-neutral-800 p-3 shadow-xl">
           <label className="block space-y-1">
-            <span className="text-xs uppercase tracking-wider text-neutral-500">Topic</span>
+            <span className="text-xs tracking-wider text-neutral-500">Topic</span>
             <select
               value={topicId ?? ""}
               onChange={(e) => setTopicId(Number(e.target.value) || null)}
@@ -1584,7 +1584,7 @@ function CouncilResultView({
     <div className="space-y-6">
       <section className="border-t border-neutral-800 pt-5">
         <div className="flex items-baseline gap-3 mb-3">
-          <h2 className="text-sm uppercase tracking-wider text-neutral-400">{heading}</h2>
+          <h2 className="text-sm tracking-wider text-neutral-400">{heading}</h2>
           <ConfidenceBadge confidence={result.confidence} />
         </div>
         {response && (
@@ -1605,7 +1605,7 @@ function CouncilResultView({
 
       {result.synthesis && (
         <section>
-          <h3 className="text-sm uppercase tracking-wider text-neutral-400 mb-2">
+          <h3 className="text-sm tracking-wider text-neutral-400 mb-2">
             Narrative synthesis
           </h3>
           <p
@@ -1619,7 +1619,7 @@ function CouncilResultView({
 
       {result.unresolved_tensions && result.unresolved_tensions.length > 0 && (
         <section>
-          <h3 className="text-sm uppercase tracking-wider text-neutral-400 mb-2">
+          <h3 className="text-sm tracking-wider text-neutral-400 mb-2">
             Unresolved tensions
           </h3>
           <ul className="list-disc list-inside text-sm text-neutral-300 space-y-1">
@@ -1632,7 +1632,7 @@ function CouncilResultView({
 
       {result.dissent_notes && (
         <section>
-          <h3 className="text-sm uppercase tracking-wider text-neutral-400 mb-2">
+          <h3 className="text-sm tracking-wider text-neutral-400 mb-2">
             Dissent notes
           </h3>
           <p className="text-sm text-neutral-300 leading-relaxed">{result.dissent_notes}</p>
@@ -1670,7 +1670,7 @@ function CouncilProcessView({ response }: { response: CouncilResponse }) {
       data-testid="council-process-view"
     >
       <div className="flex items-baseline justify-between gap-3 mb-3">
-        <h2 className="text-sm uppercase tracking-wider text-neutral-400">
+        <h2 className="text-sm tracking-wider text-neutral-400">
           How the Council reached this
         </h2>
         <span className="text-xs text-neutral-500">
@@ -1753,7 +1753,7 @@ function ProcessMetric({
 }) {
   return (
     <div className="soft-card px-3 py-2">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className="text-xs tracking-wide text-neutral-500">{label}</div>
       <div className="text-lg font-semibold text-neutral-100">{value}</div>
       <p className="text-xs text-neutral-500">{detail}</p>
     </div>
@@ -1833,7 +1833,7 @@ function ArgumentSnapshot({
   const pct = Math.round(position.weight * 100);
   return (
     <div className="border border-neutral-900 rounded px-3 py-2">
-      <div className="text-xs uppercase tracking-wide text-neutral-500 mb-1">{title}</div>
+      <div className="text-xs tracking-wide text-neutral-500 mb-1">{title}</div>
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-semibold text-neutral-100">{position.label}</span>
         <span className="font-mono text-sm text-amber-300">{pct}%</span>
@@ -1968,7 +1968,7 @@ function CouncilWinnerSummary({
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <div className="text-xs uppercase tracking-wide text-amber-300 mb-1">
+          <div className="text-xs tracking-wide text-amber-300 mb-1">
             Why this ranked highest
           </div>
           <h3 className="text-base font-semibold text-neutral-100">{leader.label}</h3>
@@ -2026,7 +2026,7 @@ function WinnerMetric({
 }) {
   return (
     <div className="border border-neutral-800 rounded px-3 py-2 bg-neutral-950/50">
-      <div className="text-[11px] uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className="text-[11px] tracking-wide text-neutral-500">{label}</div>
       <div className="text-sm font-semibold text-neutral-100">{value}</div>
       <p className="text-[11px] text-neutral-500 line-clamp-2">{detail}</p>
     </div>
@@ -2059,7 +2059,7 @@ function CouncilPositionComparison({
     >
       <div className="flex items-baseline justify-between gap-3 mb-3">
         <div>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-400">
+          <h2 className="text-sm tracking-wider text-neutral-400">
             Compare Positions
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -2185,7 +2185,7 @@ function PositionComparisonCard({
 function ComparisonFact({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-neutral-900 rounded px-2 py-1.5">
-      <dt className="text-[11px] uppercase tracking-wide text-neutral-600">{label}</dt>
+      <dt className="text-[11px] tracking-wide text-neutral-600">{label}</dt>
       <dd className="text-sm text-neutral-200">{value}</dd>
     </div>
   );
@@ -2349,7 +2349,7 @@ function EvidenceDisplayItem({
           {row.citation} ({row.translation_code})
         </button>
         <span
-          className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
+          className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
           title={sourceTooltip(row.source)}
         >
           {sourceDisplay(row.source)}
@@ -2399,7 +2399,7 @@ function CouncilVoiceMatrix({
 
   return (
     <section className="border-t border-neutral-800 pt-5" data-testid="council-voice-matrix">
-      <h2 className="text-sm uppercase tracking-wider text-neutral-400 mb-2">
+      <h2 className="text-sm tracking-wider text-neutral-400 mb-2">
         Voice Agreement Matrix
       </h2>
       <p className="text-xs text-neutral-500 mb-3">
@@ -2501,7 +2501,7 @@ function CouncilVoiceMatrix({
       )}
       {selected && (
         <div className="border border-neutral-800 rounded p-3 mt-3">
-          <div className="text-xs uppercase tracking-wide text-neutral-500 mb-1">
+          <div className="text-xs tracking-wide text-neutral-500 mb-1">
             Provider cell detail
           </div>
           <h3 className="text-sm font-semibold text-neutral-100">{selected.position.label}</h3>
@@ -2540,7 +2540,7 @@ function CouncilRetrievalTrace({
   if (rows.length === 0) return null;
   return (
     <section className="border-t border-neutral-800 pt-5" data-testid="council-retrieval-trace">
-      <h2 className="text-sm uppercase tracking-wider text-neutral-400 mb-2">
+      <h2 className="text-sm tracking-wider text-neutral-400 mb-2">
         Retrieval Trace
       </h2>
       <p className="text-xs text-neutral-500 mb-3">
@@ -2559,7 +2559,7 @@ function CouncilRetrievalTrace({
                 {row.citation} ({row.translation_code})
               </button>
               <span
-                className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
+                className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
                 title={sourceTooltip(row.source)}
               >
                 {row.source_label}
@@ -2705,7 +2705,7 @@ function CouncilConfidenceRationale({ response }: { response: CouncilResponse })
       data-testid="council-confidence-rationale"
     >
       <div className="flex items-baseline gap-2 mb-2">
-        <h2 className="text-sm uppercase tracking-wider text-neutral-400">
+        <h2 className="text-sm tracking-wider text-neutral-400">
           Confidence Rationale
         </h2>
         <ConfidenceBadge confidence={factors.level} />
@@ -2729,7 +2729,7 @@ function CouncilConfidenceRationale({ response }: { response: CouncilResponse })
       </ul>
       {factors.unresolved_tensions.length > 0 && (
         <div className="mt-3">
-          <h3 className="text-xs uppercase tracking-wide text-neutral-500 mb-1">
+          <h3 className="text-xs tracking-wide text-neutral-500 mb-1">
             Unresolved tensions
           </h3>
           <ul className="list-disc list-inside text-xs text-neutral-400 space-y-1">
@@ -2773,7 +2773,7 @@ function CouncilSourceDrawer({ response }: { response: CouncilResponse }) {
     <section className="border-t border-neutral-800 pt-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-400">
+          <h2 className="text-sm tracking-wider text-neutral-400">
             Source Data
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -2853,7 +2853,7 @@ function VoicesAuditTrail({
 
   return (
     <section className="border-t border-neutral-800 pt-5">
-      <h2 className="text-sm uppercase tracking-wider text-neutral-400 mb-3">
+      <h2 className="text-sm tracking-wider text-neutral-400 mb-3">
         Voices (audit trail)
       </h2>
       <ul className="space-y-2">
@@ -2888,7 +2888,7 @@ function CouncilEvidenceAudit({
   if (evidence.length === 0) return null;
   return (
     <section className="border-t border-neutral-800 pt-5">
-      <h2 className="text-sm uppercase tracking-wider text-neutral-400 mb-3">
+      <h2 className="text-sm tracking-wider text-neutral-400 mb-3">
         Retrieved Evidence
       </h2>
       <ul className="space-y-2 max-h-96 overflow-y-auto pr-2">
@@ -2909,7 +2909,7 @@ function CouncilEvidenceAudit({
                   {e.book_name} {e.chapter}:{e.verse} ({e.translation_code})
                 </button>
                 <span
-                  className="text-[10px] uppercase tracking-wide text-neutral-500"
+                  className="text-[10px] tracking-wide text-neutral-500"
                   title={sourceTooltip(e.source)}
                 >
                   {sourceDisplay(e.source)}

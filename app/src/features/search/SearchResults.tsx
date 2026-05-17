@@ -91,7 +91,7 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
     <div className="max-w-4xl mx-auto px-6 py-6">
       <header className="surface-panel rounded-lg px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-wider text-neutral-500">Search</p>
+          <p className="text-xs tracking-wider text-neutral-500">Search</p>
           <h2 className="text-xl font-semibold text-neutral-100">
             Search: <span className="text-amber-300">{query}</span>
           </h2>

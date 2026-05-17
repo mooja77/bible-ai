@@ -1607,7 +1607,7 @@ function NavigationShortcuts({
     <div className="mt-6 space-y-5">
       {bookmarks.length > 0 && (
         <section>
-          <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">Bookmarks</h3>
+          <h3 className="text-xs tracking-wider text-neutral-500 mb-2">Bookmarks</h3>
           <ul className="space-y-1">
             {bookmarks.slice(0, 8).map((b) => (
               <li key={b.id}>
@@ -1625,7 +1625,7 @@ function NavigationShortcuts({
       )}
       {history.length > 0 && (
         <section>
-          <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">Recent</h3>
+          <h3 className="text-xs tracking-wider text-neutral-500 mb-2">Recent</h3>
           <ul className="space-y-1">
             {history.map((h) => {
               const book = books.find((b) => b.id === h.book_id);
@@ -1646,7 +1646,7 @@ function NavigationShortcuts({
       )}
       {savedSearches.length > 0 && (
         <section>
-          <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+          <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
             Saved Searches
           </h3>
           <ul className="space-y-1">
@@ -1725,7 +1725,7 @@ function NavigationShortcuts({
       )}
       {workspaces.length > 0 && (
         <section>
-          <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+          <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
             Workspaces
           </h3>
           <ul className="space-y-1">
@@ -1977,7 +1977,7 @@ function GuidedTour({
       <section className="surface-panel w-full max-w-2xl rounded-lg overflow-hidden">
         <div className="flex items-start justify-between gap-4 border-b border-neutral-800 px-5 py-4">
           <div>
-            <p className="text-xs uppercase tracking-wider text-amber-300">{step.eyebrow}</p>
+            <p className="text-xs tracking-wider text-amber-300">{step.eyebrow}</p>
             <h2 className="text-xl font-semibold text-neutral-100 mt-1">{step.title}</h2>
           </div>
           <div className="flex items-center gap-2">

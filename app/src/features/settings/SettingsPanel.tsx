@@ -412,7 +412,7 @@ export function SettingsPanel({
       </header>
 
       <section className="surface-panel rounded-lg p-4 space-y-4">
-        <h2 className="text-sm uppercase tracking-wider text-neutral-400">Council</h2>
+        <h2 className="text-sm tracking-wider text-neutral-400">Council</h2>
         <div className="grid md:grid-cols-3 gap-3">
           <InfoBlock
             label="No key"
@@ -501,7 +501,7 @@ export function SettingsPanel({
               </div>
             </div>
             <div className="soft-card px-3 py-3 space-y-3">
-              <p className="text-xs uppercase tracking-wider text-neutral-500">
+              <p className="text-xs tracking-wider text-neutral-500">
                 Current setup
               </p>
               <div className="grid gap-2">
@@ -650,7 +650,7 @@ export function SettingsPanel({
       <section className="surface-panel rounded-lg p-4 space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-sm uppercase tracking-wider text-neutral-400">
+            <h2 className="text-sm tracking-wider text-neutral-400">
               Provider Status
             </h2>
             <p className="text-xs text-neutral-500 mt-1">
@@ -794,7 +794,7 @@ export function SettingsPanel({
       </section>
 
       <section className="surface-panel rounded-lg p-4 space-y-4">
-        <h2 className="text-sm uppercase tracking-wider text-neutral-400">User Data</h2>
+        <h2 className="text-sm tracking-wider text-neutral-400">User Data</h2>
         <p className="text-xs text-neutral-500">
           JSON backups include user-authored data and resource source metadata. Provider secrets and
           imported resource entry bodies are excluded.
@@ -895,7 +895,7 @@ export function SettingsPanel({
           {moduleStatus && <span className="text-xs text-neutral-400">{moduleStatus}</span>}
         </div>
         <div className="border-t border-neutral-800 pt-4 space-y-2">
-          <h3 className="text-xs uppercase tracking-wider text-neutral-500">
+          <h3 className="text-xs tracking-wider text-neutral-500">
             Installed Modules
           </h3>
           {installedModules.length === 0 ? (
@@ -932,7 +932,7 @@ export function SettingsPanel({
           )}
         </div>
         <div className="border-t border-neutral-800 pt-4 space-y-3">
-          <h3 className="text-xs uppercase tracking-wider text-neutral-500">
+          <h3 className="text-xs tracking-wider text-neutral-500">
             Topic Browser
           </h3>
           <div className="flex flex-wrap items-center gap-2">
@@ -1006,7 +1006,7 @@ export function SettingsPanel({
         data-testid="data-sources-screen"
       >
         <div>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-400">
+          <h2 className="text-sm tracking-wider text-neutral-400">
             Data Sources
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -1035,7 +1035,7 @@ export function SettingsPanel({
         </ul>
         {resourceSources.length > 0 && (
           <div className="border-t border-neutral-800 pt-3">
-            <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+            <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
               Open Resource Library
             </h3>
             <ul className="grid gap-2">
@@ -1077,7 +1077,7 @@ export function SettingsPanel({
           </div>
         )}
         <div className="border-t border-neutral-800 pt-3">
-          <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+          <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
             Candidate Sources
           </h3>
           <ul className="grid gap-2">
@@ -1102,7 +1102,7 @@ export function SettingsPanel({
         data-testid="license-attribution-screen"
       >
         <div>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-400">
+          <h2 className="text-sm tracking-wider text-neutral-400">
             License & Attribution
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -1146,7 +1146,7 @@ export function SettingsPanel({
         data-testid="about-distribution-screen"
       >
         <div>
-          <h2 className="text-sm uppercase tracking-wider text-neutral-400">
+          <h2 className="text-sm tracking-wider text-neutral-400">
             About & Distribution
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -1160,7 +1160,7 @@ export function SettingsPanel({
           <InfoBlock label="Public release gate" value="Complete clean-profile installer QA and multi-provider Council QA before publishing." />
         </div>
         <div className="border-t border-neutral-800 pt-3">
-          <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+          <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
             Release Notes
           </h3>
           <ul className="list-disc list-inside text-xs text-neutral-400 space-y-1">
@@ -1193,7 +1193,7 @@ export function SettingsPanel({
 
       {(diagnostics || diagnosticError) && (
         <section className="surface-panel rounded-lg p-4 space-y-3">
-          <h2 className="text-sm uppercase tracking-wider text-neutral-400">Diagnostics</h2>
+          <h2 className="text-sm tracking-wider text-neutral-400">Diagnostics</h2>
           {diagnosticError ? (
             <p className="text-sm text-red-300">{diagnosticError}</p>
           ) : diagnostics ? (
@@ -1451,7 +1451,7 @@ function SetupCheckPill({
         : "border-neutral-800 bg-neutral-950/35 text-neutral-300";
   return (
     <div className={`rounded-md border px-3 py-2 ${tone}`}>
-      <p className="text-xs uppercase tracking-wider opacity-75">{label}</p>
+      <p className="text-xs tracking-wider opacity-75">{label}</p>
       <p className="text-sm mt-0.5">{detail}</p>
     </div>
   );
@@ -1527,7 +1527,7 @@ function ProviderStatusCard({
 function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="soft-card px-3 py-2">
-      <p className="text-xs uppercase tracking-wider text-neutral-500">{label}</p>
+      <p className="text-xs tracking-wider text-neutral-500">{label}</p>
       <p className="text-sm text-neutral-300 mt-1">{value}</p>
     </div>
   );

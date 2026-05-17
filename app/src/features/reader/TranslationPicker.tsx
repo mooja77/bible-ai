@@ -9,7 +9,7 @@ interface Props {
 export function TranslationPicker({ translations, activeCodes, onToggle }: Props) {
   return (
     <div>
-      <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+      <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
         Translations
       </h3>
       <ul className="space-y-1">

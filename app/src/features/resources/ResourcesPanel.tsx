@@ -233,7 +233,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
 
       <div className="grid lg:grid-cols-[22rem_1fr] gap-4">
         <aside className="surface-panel rounded-lg p-3 space-y-2" data-testid="resource-results">
-          <h2 className="text-xs uppercase tracking-wider text-neutral-500">Results</h2>
+          <h2 className="text-xs tracking-wider text-neutral-500">Results</h2>
           {entries.length === 0 ? (
             <div className="space-y-3" data-testid="resource-empty-state">
               <p className="text-sm text-neutral-400">
@@ -308,11 +308,11 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
                 </p>
               </div>
               <div className="soft-card p-3" data-testid="resource-citation">
-                <h3 className="text-xs uppercase tracking-wider text-neutral-500">Citation</h3>
+                <h3 className="text-xs tracking-wider text-neutral-500">Citation</h3>
                 <p className="text-sm text-neutral-300 mt-1">{selectedCitation}</p>
                 {relatedScriptureRefs.length > 0 && (
                   <div className="mt-3">
-                    <h4 className="text-xs uppercase tracking-wider text-neutral-600">
+                    <h4 className="text-xs tracking-wider text-neutral-600">
                       Related Scripture
                     </h4>
                     <div className="flex flex-wrap gap-2 mt-2">
@@ -332,7 +332,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
                 {selected.body}
               </p>
               <div className="soft-card p-3">
-                <h3 className="text-xs uppercase tracking-wider text-neutral-500">Attribution</h3>
+                <h3 className="text-xs tracking-wider text-neutral-500">Attribution</h3>
                 <p className="text-sm text-neutral-300 mt-1">{selected.attribution}</p>
                 {selectedShareAlikeRequirements && (
                   <p className="text-xs text-amber-200 mt-2">
@@ -342,7 +342,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
               </div>
               <div className="soft-card p-3 flex flex-wrap items-end gap-2">
                 <label className="space-y-1">
-                  <span className="block text-xs uppercase tracking-wider text-neutral-500">
+                  <span className="block text-xs tracking-wider text-neutral-500">
                     Theology topic
                   </span>
                   <select
