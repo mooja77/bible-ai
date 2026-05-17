@@ -343,6 +343,12 @@ pub fn get_strongs(conn: &Connection, codes: &[String]) -> SqlResult<Vec<Strongs
     rows.collect()
 }
 
+/// Occurrences of a Strong's code across tagged translations.
+///
+/// Matches `wt.strongs` exactly. Codes are stored unpadded (`H1`, `H10`,
+/// `H100`…) and one per token, so a `LIKE '%code%'` substring match would
+/// pull in every code that merely starts with the query (`H1` → `H10`,
+/// `H100`, `H1000`, …).
 pub fn get_strongs_occurrences(
     conn: &Connection,
     code: &str,
@@ -356,7 +362,7 @@ pub fn get_strongs_occurrences(
          JOIN books b ON b.id = v.book_id
          JOIN translation_text tt
            ON tt.verse_id = wt.verse_id AND tt.translation_code = wt.translation_code
-         WHERE wt.strongs LIKE '%' || ?1 || '%'
+         WHERE wt.strongs = ?1
          ORDER BY v.id, wt.position
          LIMIT ?2",
     )?;
