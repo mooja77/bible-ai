@@ -358,22 +358,18 @@ export function positionsMatch(candidate: CouncilPosition, finalPosition: Counci
   if (candidate.cluster_id && finalPosition.cluster_id) {
     return candidate.cluster_id === finalPosition.cluster_id;
   }
-  const labels = [
-    finalPosition.label,
-    ...(finalPosition.source_position_labels ?? []),
-  ].map(normalizeLabel);
-  const candidateLabels = [
-    candidate.label,
-    ...(candidate.source_position_labels ?? []),
-  ].map(normalizeLabel);
-  return candidateLabels.some((candidateLabel) =>
-    labels.some(
-      (label) =>
-        candidateLabel === label ||
-        candidateLabel.includes(label) ||
-        label.includes(candidateLabel),
-    ),
+  // Order-independent token-set equality. Substring matching was too loose —
+  // it conflated distinct positions like "Grace" and "Common Grace", and an
+  // empty (symbol-only) label matched everything.
+  const finalKeys = new Set(
+    [finalPosition.label, ...(finalPosition.source_position_labels ?? [])]
+      .map(labelTokenKey)
+      .filter(Boolean),
   );
+  return [candidate.label, ...(candidate.source_position_labels ?? [])]
+    .map(labelTokenKey)
+    .filter(Boolean)
+    .some((key) => finalKeys.has(key));
 }
 
 export function formatPercent(value: number) {
@@ -484,6 +480,12 @@ function numberOrNull(value: unknown) {
 
 function normalizeLabel(label: string) {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Order-independent key for a position label: normalized, tokenized, sorted.
+ *  Empty when the label carries no alphanumeric content. */
+function labelTokenKey(label: string) {
+  return normalizeLabel(label).split(" ").filter(Boolean).sort().join(" ");
 }
 
 function escapeCell(value: unknown) {

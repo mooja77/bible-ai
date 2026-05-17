@@ -140,16 +140,44 @@ export function buildSynthesisPrompt({ question, voiceResults }) {
   return lines.join("\n");
 }
 
+/** Scan from the first `{` to its matching close brace, ignoring braces that
+ *  appear inside JSON strings. More precise than first-`{`-to-last-`}`, which
+ *  overshoots when trailing prose also contains a brace. Returns null when no
+ *  balanced object is found. */
+function balancedObjectSpan(s) {
+  const start = s.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inStr = false;
+  for (let i = start; i < s.length; i += 1) {
+    const c = s[i];
+    if (inStr) {
+      if (c === "\\") {
+        i += 1; // skip the escaped character
+      } else if (c === '"') {
+        inStr = false;
+      }
+      continue;
+    }
+    if (c === '"') {
+      inStr = true;
+    } else if (c === "{") {
+      depth += 1;
+    } else if (c === "}") {
+      depth -= 1;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 /** Pull the first JSON object out of a string, tolerating markdown fences and
  *  surrounding prose. Returns the JSON substring or null. */
 export function extractJson(s) {
   if (!s) return null;
   const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenced) return fenced[1].trim();
-  const first = s.indexOf("{");
-  const last = s.lastIndexOf("}");
-  if (first >= 0 && last > first) return s.slice(first, last + 1);
-  return null;
+  if (fenced) return balancedObjectSpan(fenced[1]) ?? fenced[1].trim();
+  return balancedObjectSpan(s);
 }
 
 /** LLMs (especially Gemini) often emit "JSON" with JS-isms strict JSON.parse
@@ -217,12 +245,27 @@ export function normaliseResult(obj, sourceLabel = "voice") {
   if (!Array.isArray(obj.positions) || obj.positions.length === 0) {
     throw new Error(`${sourceLabel}: positions array missing or empty`);
   }
-  const total = obj.positions.reduce((s, p) => s + (Number(p.weight) || 0), 0);
-  if (total > 0 && Math.abs(total - 1) > 0.01) {
-    for (const p of obj.positions) {
-      p.raw_weight = p.weight;
-      p.weight = (Number(p.weight) || 0) / total;
-    }
+  // Defensive weight handling: a provider can emit negative, missing, NaN, or
+  // non-summing weights. Clamp each to a non-negative number, then ensure the
+  // set sums to 1 — an even split when nothing usable was supplied — so the UI
+  // always renders a clean distribution.
+  const rawWeights = obj.positions.map((p) => p.weight);
+  for (const p of obj.positions) {
+    const w = Number(p.weight);
+    p.weight = Number.isFinite(w) && w > 0 ? w : 0;
+  }
+  const total = obj.positions.reduce((s, p) => s + p.weight, 0);
+  if (total <= 0) {
+    const even = 1 / obj.positions.length;
+    obj.positions.forEach((p, i) => {
+      p.raw_weight = rawWeights[i];
+      p.weight = even;
+    });
+  } else if (Math.abs(total - 1) > 0.01) {
+    obj.positions.forEach((p, i) => {
+      p.raw_weight = rawWeights[i];
+      p.weight = p.weight / total;
+    });
   }
   obj.positions = obj.positions.map((position) => ({
     ...position,

@@ -104,9 +104,20 @@ test("extractJson: pulls a bare object out of surrounding prose", () => {
   assert.equal(out, '{"a":1,"b":2}');
 });
 
-test("extractJson: spans from first { to last }", () => {
+test("extractJson: returns a balanced nested object", () => {
   const out = extractJson('{"outer":{"inner":1}}');
   assert.equal(out, '{"outer":{"inner":1}}');
+});
+
+test("extractJson: stops at the balanced close brace, ignoring trailing prose", () => {
+  // first-{ to last-} would overshoot to the brace in the closing remark.
+  const out = extractJson('{"a":1} — hope that helps }');
+  assert.equal(out, '{"a":1}');
+});
+
+test("extractJson: ignores braces inside JSON string values", () => {
+  const out = extractJson('{"note":"a } brace in a string"}');
+  assert.deepEqual(JSON.parse(out), { note: "a } brace in a string" });
 });
 
 test("extractJson: returns null when there is no JSON", () => {
@@ -178,6 +189,27 @@ test("normaliseResult: renormalises weights that do not sum to 1", () => {
   assert.ok(Math.abs(total - 1) < 1e-9, `weights should sum to 1, got ${total}`);
   assert.equal(out.positions[0].raw_weight, 0.6);
   assert.ok(Math.abs(out.positions[0].weight - 0.5) < 1e-9);
+});
+
+test("normaliseResult: clamps a negative weight to zero before renormalising", () => {
+  const obj = validResult();
+  obj.positions[0].weight = 1.5;
+  obj.positions[1].weight = -0.5; // a misbehaving provider
+  const out = normaliseResult(obj);
+  const total = out.positions.reduce((s, p) => s + p.weight, 0);
+  assert.ok(Math.abs(total - 1) < 1e-9, `weights should sum to 1, got ${total}`);
+  assert.ok(out.positions.every((p) => p.weight >= 0), "no negative weights");
+  assert.ok(Math.abs(out.positions[1].weight) < 1e-9, "the negative weight became 0");
+});
+
+test("normaliseResult: evenly splits weight when nothing usable is supplied", () => {
+  const obj = validResult();
+  delete obj.positions[0].weight;
+  obj.positions[1].weight = 0;
+  const out = normaliseResult(obj);
+  const total = out.positions.reduce((s, p) => s + p.weight, 0);
+  assert.ok(Math.abs(total - 1) < 1e-9, `weights should sum to 1, got ${total}`);
+  assert.ok(Math.abs(out.positions[0].weight - 0.5) < 1e-9, "even split across 2 positions");
 });
 
 test("normaliseResult: leaves weights alone when they already sum to ~1", () => {

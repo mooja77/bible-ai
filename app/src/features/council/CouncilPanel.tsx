@@ -150,7 +150,9 @@ export function CouncilPanel({
         translation_code: translationCode,
         testament: testament === "all" ? null : testament,
         book_id: bookId || null,
-        evidence_limit: evidenceLimit,
+        // Clamp to the supported range: the number input does not constrain
+        // typed values, and the backend rejects out-of-range limits.
+        evidence_limit: Math.min(120, Math.max(10, Math.round(evidenceLimit) || 60)),
       });
       setResponse(r);
       setActiveSessionId(r.session_id ?? null);

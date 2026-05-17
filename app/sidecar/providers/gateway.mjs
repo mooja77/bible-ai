@@ -51,23 +51,41 @@ function resultFromPayload(payload) {
   throw new Error("Managed Gateway: response did not include result, positions, text, or content");
 }
 
-async function callGateway({ question, evidence, env = process.env }) {
-  const resp = await fetch(gatewayEndpoint(configuredUrl(env)), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(env),
-    },
-    body: JSON.stringify({
-      schema: SCHEMA,
-      question,
-      evidence,
-      system_prompt: VOICE_SYSTEM_PROMPT,
-      user_prompt: buildVoicePrompt({ question, evidence }),
-    }),
-  });
+const DEFAULT_TIMEOUT_MS = 600_000;
 
-  const text = await resp.text();
+function gatewayTimeoutMs(env = process.env) {
+  const parsed = Number(env.MANAGED_GATEWAY_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
+}
+
+async function callGateway({ question, evidence, env = process.env }) {
+  // Bound the request: a hung gateway would otherwise never settle and
+  // stall the whole council until the sidecar's outer deadline.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), gatewayTimeoutMs(env));
+  let resp;
+  let text;
+  try {
+    resp = await fetch(gatewayEndpoint(configuredUrl(env)), {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(env),
+      },
+      body: JSON.stringify({
+        schema: SCHEMA,
+        question,
+        evidence,
+        system_prompt: VOICE_SYSTEM_PROMPT,
+        user_prompt: buildVoicePrompt({ question, evidence }),
+      }),
+    });
+    text = await resp.text();
+  } finally {
+    clearTimeout(timer);
+  }
+
   if (!resp.ok) {
     throw new Error(`Managed Gateway ${resp.status} ${resp.statusText}: ${text.slice(0, 300)}`);
   }

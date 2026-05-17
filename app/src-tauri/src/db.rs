@@ -218,10 +218,12 @@ fn sanitise_fts_query(q: &str) -> String {
                 .chars()
                 .filter(|c| c.is_alphanumeric() || matches!(c, '\'' | '-'))
                 .collect();
-            if cleaned.is_empty() {
-                None
-            } else {
+            // Require a real token: a bareword of only `'`/`-` is an FTS5
+            // operator fragment and makes MATCH raise a syntax error.
+            if cleaned.chars().any(char::is_alphanumeric) {
                 Some(cleaned)
+            } else {
+                None
             }
         })
         .collect::<Vec<_>>()

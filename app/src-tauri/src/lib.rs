@@ -178,6 +178,12 @@ fn get_word_tokens(
     book_id: i64,
     chapter: i64,
 ) -> Result<Vec<db::WordToken>, String> {
+    // Bound the indices: db::get_word_tokens derives a verse_id range with
+    // `book_id * 1_000_000 + chapter * 1_000`, which overflows on extreme
+    // values. The corpus has far fewer than these limits.
+    if !(1..=1000).contains(&book_id) || !(1..=1000).contains(&chapter) {
+        return Err("book_id and chapter must be within the corpus range".to_string());
+    }
     let conn = open_corpus(&app)?;
     db::get_word_tokens(&conn, &translation_code, book_id, chapter).map_err(|e| e.to_string())
 }
@@ -1175,7 +1181,10 @@ async fn ask_council(
     let selected_model = model
         .or_else(|| settings.claude_model.clone())
         .unwrap_or_else(|| "sonnet".to_string());
-    let limit = evidence_limit.unwrap_or(60) as usize;
+    // Clamp to a sane range: the raw value flows into Vec::with_capacity and
+    // `limit * 3` arithmetic, so a negative (wraps huge via `as usize`) or
+    // very large value would panic or exhaust memory.
+    let limit = evidence_limit.unwrap_or(60).clamp(1, 200) as usize;
     let retrieval_options = RetrievalOptions {
         strategy: retrieval_strategy.unwrap_or_else(|| "hybrid".to_string()),
         include_cross_refs: include_cross_refs.unwrap_or(true),
