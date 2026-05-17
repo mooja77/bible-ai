@@ -60,6 +60,9 @@ interface Props {
     requestId: number;
   } | null;
   onReferenceRangeTargetConsumed?: () => void;
+  /** When false the big chapter heading is suppressed — multi-column mode
+   *  renders one shared heading above the columns instead of repeating it. */
+  showChapterHeading?: boolean;
 }
 
 /** Hebrew is right-to-left. Everything else we currently ship is LTR. */
@@ -103,6 +106,7 @@ export function ChapterReader({
   density = "comfortable",
   referenceRangeTarget,
   onReferenceRangeTargetConsumed,
+  showChapterHeading = true,
 }: Props) {
   const rtl = isRtl(language);
   const [selectedVerse, setSelectedVerse] = useState<Verse | null>(null);
@@ -165,14 +169,16 @@ export function ChapterReader({
           (density === "compact" ? "mb-4 pb-3" : "mb-6 pb-4")
         }
       >
-        <h1
-          className={
-            "font-semibold text-neutral-100 " +
-            (density === "compact" ? "text-2xl" : "text-3xl")
-          }
-        >
-          {bookName} {chapter}
-        </h1>
+        {showChapterHeading && (
+          <h1
+            className={
+              "font-semibold text-neutral-100 " +
+              (density === "compact" ? "text-2xl" : "text-3xl")
+            }
+          >
+            {bookName} {chapter}
+          </h1>
+        )}
         <div className="flex flex-wrap items-center gap-2 mt-2">
           <span className="meta-pill">{translationCode}</span>
           <span className="text-sm text-neutral-500">{translationName}</span>
@@ -240,9 +246,9 @@ export function ChapterReader({
                   onClick={(event) => onVerseNumberClick(event, v)}
                   aria-label={`Verse ${v.verse} actions`}
                   className={
-                    "text-xs mx-1 select-none align-super cursor-pointer transition-colors " +
+                    "text-xs mx-1 px-1 rounded select-none align-super cursor-pointer transition-colors hover:bg-amber-500/20 " +
                     (isSelected
-                      ? "text-amber-200 font-semibold"
+                      ? "text-amber-200 font-semibold bg-amber-500/15"
                       : "text-amber-400/70 hover:text-amber-300")
                   }
                   style={{ fontFamily: "var(--font-sans)" }}

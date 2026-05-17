@@ -1287,7 +1287,15 @@ function App() {
                 onJumpToVerse={jumpToVerse}
               />
             ) : (
-              <div className="flex gap-0 min-h-full">
+              <div className="min-h-full">
+                {/* One shared chapter heading; each column shows only its
+                    translation badge so the title is not repeated per column. */}
+                <div className="px-6 pt-8 pb-3">
+                  <h1 className="text-3xl font-semibold text-neutral-100">
+                    {selectedBook.name} {selectedChapter}
+                  </h1>
+                </div>
+                <div className="flex gap-0">
                 {orderedActive.map((t, idx) => (
                   <div
                     key={t.code}
@@ -1299,6 +1307,7 @@ function App() {
                     <ChapterReader
                       bookName={selectedBook.name}
                       chapter={selectedChapter}
+                      showChapterHeading={false}
                       translationName={t.name}
                       translationCode={t.code}
                       language={t.language}
@@ -1320,6 +1329,7 @@ function App() {
                     />
                   </div>
                 ))}
+                </div>
               </div>
             )}
             {referenceRangePanel && (
