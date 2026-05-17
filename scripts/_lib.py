@@ -337,6 +337,10 @@ def upsert_translation(
         "ON CONFLICT(id) DO NOTHING",
         verse_rows,
     )
+    # Replace this translation's text wholesale so a re-ingest from a
+    # corrected source with fewer verses cannot leave orphan rows behind
+    # (translation_text_fts is rebuilt the same way just below).
+    conn.execute("DELETE FROM translation_text WHERE translation_code = ?", (code,))
     conn.executemany(
         "INSERT INTO translation_text (translation_code, verse_id, text) VALUES (?, ?, ?) "
         "ON CONFLICT(translation_code, verse_id) DO UPDATE SET text = excluded.text",

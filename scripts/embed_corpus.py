@@ -95,6 +95,7 @@ def main() -> None:
         started = time.time()
         dim = None
         processed = 0
+        failed = False
 
         for batch_start in range(0, remaining, args.batch_size):
             batch = rows[batch_start : batch_start + args.batch_size]
@@ -108,6 +109,7 @@ def main() -> None:
                 )
             except Exception as e:
                 print(f"\n  batch error at offset {batch_start}: {e}; exiting")
+                failed = True
                 break
 
             if dim is None:
@@ -135,6 +137,12 @@ def main() -> None:
                 flush=True,
             )
 
+        if failed:
+            print(
+                f"Stopped early after a batch error. {done}/{total} embeddings "
+                f"stored; re-run to resume from where it left off."
+            )
+            sys.exit(1)
         print(f"Done. {done}/{total} embeddings stored.")
     finally:
         conn.close()
