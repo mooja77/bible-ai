@@ -387,8 +387,13 @@ function App() {
     searchFilterTestament,
   ]);
 
+  // Monotonic id so an in-flight user-data load that resolves late (after a
+  // newer chapter was selected) cannot overwrite the current chapter's data.
+  const userDataReqId = useRef(0);
+
   // Refetch user data (highlights + notes) for the active chapter.
   const refetchUserData = useCallback(() => {
+    const reqId = (userDataReqId.current += 1);
     if (!selectedBook || !selectedChapter) {
       setHighlights([]);
       setRangeHighlights([]);
@@ -404,6 +409,7 @@ function App() {
       listNotesForChapter(bookId, chapter).catch(() => []),
       listRangeNotesForChapter(bookId, chapter).catch(() => [] as RangeNote[]),
     ]).then(([h, rh, n, rn]) => {
+      if (reqId !== userDataReqId.current) return; // superseded by a newer load
       setHighlights(h);
       setRangeHighlights(rh);
       setNotedVerseIds(n.map((x) => x.verse_id));
@@ -460,12 +466,19 @@ function App() {
   useEffect(() => {
     if (!scrollTarget || loading || mode !== "reader") return;
     const el = document.getElementById(`v-${scrollTarget}`);
+    // Keep scrollTarget set if the chapter has not rendered yet — a later
+    // run (chapterData is a dependency) will find the element.
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Restart the flash even if a prior flash class is still present.
+    el.classList.remove("verse-flash");
+    void el.offsetWidth; // force reflow so the animation replays
     el.classList.add("verse-flash");
-    const timer = window.setTimeout(() => el.classList.remove("verse-flash"), 1800);
+    // Not registered as effect cleanup on purpose: setScrollTarget(null) below
+    // re-runs this effect, and a cleanup-registered timer would be cleared
+    // before it could remove the class.
+    window.setTimeout(() => el.classList.remove("verse-flash"), 1800);
     setScrollTarget(null);
-    return () => window.clearTimeout(timer);
   }, [chapterData, loading, scrollTarget, mode]);
 
   const orderedActive = useMemo(

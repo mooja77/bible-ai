@@ -446,15 +446,15 @@ fn seed_theology_topics(conn: &Connection) -> SqlResult<()> {
             130,
         ),
     ];
+    // Seed the built-in doctrine topics once. This runs on every open, so it
+    // must DO NOTHING on conflict — these topics are user-editable, and an
+    // upsert would silently revert a user's renamed title or reordering on
+    // the next launch.
     for (slug, title, summary, sort_order) in TOPICS {
         conn.execute(
             "INSERT INTO theology_topics (slug, title, summary, sort_order)
              VALUES (?, ?, ?, ?)
-             ON CONFLICT(slug) DO UPDATE SET
-               title = excluded.title,
-               summary = COALESCE(theology_topics.summary, excluded.summary),
-               sort_order = excluded.sort_order,
-               updated_at = datetime('now')",
+             ON CONFLICT(slug) DO NOTHING",
             params![slug, title, summary, sort_order],
         )?;
     }
