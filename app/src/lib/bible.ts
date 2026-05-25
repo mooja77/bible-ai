@@ -312,6 +312,7 @@ export interface AppSettings {
   reader_layout?: "columns" | "interleaved" | null;
   reader_density?: "comfortable" | "compact" | null;
   sync_scroll?: boolean | null;
+  search_strategy?: string | null;
 }
 
 export const getAppSettings = () => invoke<AppSettings>("get_app_settings");

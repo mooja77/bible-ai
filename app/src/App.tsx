@@ -29,6 +29,8 @@ import {
   type ReadingHistoryItem,
   type SavedSearch,
   type SearchHit,
+  type SearchResponse,
+  type SearchStrategy,
   type CouncilResponse,
   type StudyWorkspaceSummary,
   type Translation,
@@ -41,6 +43,7 @@ import { ChapterGrid } from "./features/reader/ChapterGrid";
 import { ChapterReader, RangeActionBar } from "./features/reader/ChapterReader";
 import { TranslationPicker } from "./features/reader/TranslationPicker";
 import { SearchInput } from "./features/search/SearchInput";
+import { SearchStrategyControl } from "./features/search/SearchStrategyControl";
 import { SearchResults } from "./features/search/SearchResults";
 import { CouncilPanel } from "./features/council/CouncilPanel";
 import { StrongsPopup } from "./features/reader/StrongsPopup";
@@ -222,6 +225,9 @@ function App() {
   const [searchFilterTestament, setSearchFilterTestament] =
     useState<SearchTestamentFilter>("all");
   const [searchFilterBookId, setSearchFilterBookId] = useState(0);
+  const [searchStrategy, setSearchStrategy] = useState<SearchStrategy>("keyword");
+  const [searchDegraded, setSearchDegraded] = useState(false);
+  const [searchDegradedReason, setSearchDegradedReason] = useState<string | null>(null);
 
   const [mode, setMode] = useState<Mode>("reader");
   const [settings, setSettings] = useState<AppSettings>({});
@@ -277,6 +283,13 @@ function App() {
         setBooks(bs);
         setTranslations(ts);
         setSettings(savedSettings);
+        if (
+          savedSettings.search_strategy === "keyword" ||
+          savedSettings.search_strategy === "semantic" ||
+          savedSettings.search_strategy === "hybrid"
+        ) {
+          setSearchStrategy(savedSettings.search_strategy);
+        }
         setFontScale(savedSettings.font_scale ?? 1);
         setReaderLayout(savedSettings.reader_layout ?? "columns");
         setReaderDensity(savedSettings.reader_density ?? "comfortable");
@@ -392,15 +405,21 @@ function App() {
     if (!trimmed) {
       setSearchResults([]);
       setSearchLoading(false);
+      setSearchDegraded(false);
+      setSearchDegradedReason(null);
       return;
     }
     setSearchLoading(true);
-    const primary =
+    const filterPrimary =
       searchFilterTranslation === "all"
         ? null
         : searchFilterTranslation === "active"
           ? (activeTranslations[0] ?? null)
           : searchFilterTranslation;
+    const primary =
+      searchStrategy !== "keyword" && !filterPrimary
+        ? (activeTranslations[0] ?? "KJV")
+        : filterPrimary;
     searchTimer.current = window.setTimeout(() => {
       searchTimer.current = null;
       runSearch(
@@ -409,9 +428,14 @@ function App() {
         60,
         searchFilterBookId || null,
         searchFilterTestament === "all" ? null : searchFilterTestament,
+        searchStrategy,
+        settings.ollama_host ?? null,
       )
-        .then((hits) => {
-          if (requestId === searchRequestId.current) setSearchResults(hits);
+        .then((resp: SearchResponse) => {
+          if (requestId !== searchRequestId.current) return;
+          setSearchResults(resp.hits);
+          setSearchDegraded(resp.degraded);
+          setSearchDegradedReason(resp.degraded_reason);
         })
         .catch((e) => {
           if (requestId === searchRequestId.current) setError(String(e));
@@ -429,6 +453,8 @@ function App() {
     searchFilterTranslation,
     searchFilterBookId,
     searchFilterTestament,
+    searchStrategy,
+    settings.ollama_host,
   ]);
 
   // Monotonic id so an in-flight user-data load that resolves late (after a
@@ -984,6 +1010,15 @@ function App() {
           )}
 
           <SearchInput value={searchQuery} onChange={updateSearchQuery} />
+          <div className="mt-2">
+            <SearchStrategyControl
+              value={searchStrategy}
+              onChange={(next) => {
+                setSearchStrategy(next);
+                saveSettingsPatch({ search_strategy: next });
+              }}
+            />
+          </div>
           {/* Labelled so these read as the search's scope, distinct from the
               reader's translation picker and book navigation list. */}
           <p className="nav-section-title">Search in</p>
@@ -1220,6 +1255,8 @@ function App() {
             results={visibleSearchResults}
             loading={searchLoading}
             onSelect={onSelectSearchHit}
+            degraded={searchDegraded}
+            degradedReason={searchDegradedReason}
             onSaveSearch={async () => {
               const q = searchQuery.trim();
               if (!q) return;
