@@ -6153,6 +6153,37 @@ mod tests {
 
         assert_eq!(values.get("search_strategy"), Some(&"hybrid".to_string()));
     }
+
+    #[test]
+    fn search_notes_matches_all_tokens_case_insensitively() {
+        let conn = test_conn();
+        upsert_note(&conn, 1_001_001, "God is love").unwrap();
+        upsert_range_note(&conn, 1_001_002, 1_001_005, "love your neighbour").unwrap();
+        upsert_note(&conn, 1_001_010, "the law and the prophets").unwrap();
+
+        let hits = search_notes(&conn, &["love".to_string()], 50).unwrap();
+        let bodies: Vec<&str> = hits.iter().map(|h| h.body.as_str()).collect();
+        assert!(bodies.contains(&"God is love"));
+        assert!(bodies.contains(&"love your neighbour"));
+        assert!(!bodies.contains(&"the law and the prophets"));
+
+        let hits = search_notes(&conn, &["love".to_string(), "neighbour".to_string()], 50).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].kind, "range");
+        assert_eq!(hits[0].end_verse_id, Some(1_001_005));
+
+        let hits = search_notes(&conn, &["LOVE".to_string()], 50).unwrap();
+        assert_eq!(hits.len(), 2);
+
+        assert!(search_notes(&conn, &[], 50).unwrap().is_empty());
+    }
+
+    #[test]
+    fn like_pattern_escapes_wildcards() {
+        assert_eq!(like_pattern("a_b"), "%a\\_b%");
+        assert_eq!(like_pattern("50%"), "%50\\%%");
+        assert_eq!(like_pattern("grace"), "%grace%");
+    }
 }
 
 fn list_theology_topic_tree(conn: &Connection, root_id: i64) -> SqlResult<Vec<TheologyTopic>> {
@@ -8334,6 +8365,90 @@ pub struct RangeNote {
     pub end_verse_id: i64,
     pub body: String,
     pub updated_at: String,
+}
+
+#[allow(dead_code)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
+pub struct NoteMatch {
+    pub kind: String,  // "verse" | "range"
+    pub verse_id: i64, // verse note: the verse; range note: start_verse_id
+    pub end_verse_id: Option<i64>,
+    pub body: String,
+    pub updated_at: String,
+}
+
+/// Build a case-insensitive substring LIKE pattern, escaping SQLite LIKE
+/// metacharacters so they match literally (paired with `ESCAPE '\'`).
+#[allow(dead_code)]
+fn like_pattern(token: &str) -> String {
+    let mut out = String::with_capacity(token.len() + 2);
+    out.push('%');
+    for ch in token.chars() {
+        if matches!(ch, '\\' | '%' | '_') {
+            out.push('\\');
+        }
+        out.push(ch);
+    }
+    out.push('%');
+    out
+}
+
+/// Find notes whose body contains every token (case-insensitive substring),
+/// most-recently-edited first. Spans both note tables.
+#[allow(dead_code)]
+pub fn search_notes(conn: &Connection, tokens: &[String], limit: i64) -> SqlResult<Vec<NoteMatch>> {
+    if tokens.is_empty() {
+        return Ok(Vec::new());
+    }
+    let patterns: Vec<String> = tokens.iter().map(|t| like_pattern(t)).collect();
+    let cond = patterns
+        .iter()
+        .map(|_| "body LIKE ? ESCAPE '\\'")
+        .collect::<Vec<_>>()
+        .join(" AND ");
+
+    let mut out: Vec<NoteMatch> = Vec::new();
+
+    let verse_sql = format!("SELECT verse_id, body, updated_at FROM user_notes WHERE {cond}");
+    {
+        let mut stmt = conn.prepare(&verse_sql)?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(patterns.iter()), |r| {
+            Ok(NoteMatch {
+                kind: "verse".to_string(),
+                verse_id: r.get(0)?,
+                end_verse_id: None,
+                body: r.get(1)?,
+                updated_at: r.get(2)?,
+            })
+        })?;
+        for row in rows {
+            out.push(row?);
+        }
+    }
+
+    let range_sql = format!(
+        "SELECT start_verse_id, end_verse_id, body, updated_at FROM user_range_notes WHERE {cond}"
+    );
+    {
+        let mut stmt = conn.prepare(&range_sql)?;
+        let rows = stmt.query_map(rusqlite::params_from_iter(patterns.iter()), |r| {
+            Ok(NoteMatch {
+                kind: "range".to_string(),
+                verse_id: r.get(0)?,
+                end_verse_id: Some(r.get(1)?),
+                body: r.get(2)?,
+                updated_at: r.get(3)?,
+            })
+        })?;
+        for row in rows {
+            out.push(row?);
+        }
+    }
+
+    // ISO-8601 timestamps sort lexically == chronologically; newest first.
+    out.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+    out.truncate(limit.max(0) as usize);
+    Ok(out)
 }
 
 pub fn get_note(conn: &Connection, verse_id: i64) -> SqlResult<Option<Note>> {
