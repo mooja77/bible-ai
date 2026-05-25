@@ -81,18 +81,23 @@ describe("Note search", () => {
     await noteResult.waitForDisplayed({ timeout: 15_000 });
 
     // Assert the result contains the distinctive word.
-    await expect(noteResult).toHaveText(
-      expect.stringContaining(DISTINCTIVE_WORD),
-      { containing: true, ignoreCase: true },
-    );
+    await expect(noteResult).toHaveText(DISTINCTIVE_WORD, {
+      containing: true,
+      ignoreCase: true,
+    });
 
     // Assert the result contains the verse citation.
-    await expect(noteResult).toHaveText(
-      expect.stringContaining("Genesis"),
-      { containing: true, ignoreCase: true },
-    );
+    await expect(noteResult).toHaveText("Genesis", {
+      containing: true,
+      ignoreCase: true,
+    });
 
     // Clear the search to restore a clean state.
     await $('[aria-label="Clear search"]').click();
+
+    // Reset scope to scripture so subsequent specs start from the default state.
+    const scriptureScope = await $('[data-testid="search-scope-scripture"]');
+    await scriptureScope.waitForClickable({ timeout: 5_000 });
+    await scriptureScope.click();
   });
 });
