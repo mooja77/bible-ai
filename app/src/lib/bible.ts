@@ -917,6 +917,21 @@ export const deleteRangeNote = (startVerseId: number, endVerseId: number) =>
 export const listRangeNotesForChapter = (bookId: number, chapter: number) =>
   invoke<RangeNote[]>("list_range_notes_for_chapter", { bookId, chapter });
 
+export interface NoteHit {
+  kind: "verse" | "range";
+  verse_id: number;
+  end_verse_id: number | null;
+  citation: string;
+  book_id: number;
+  chapter: number;
+  verse: number;
+  body: string;
+  updated_at: string;
+}
+
+export const searchNotes = (query: string, limit = 50) =>
+  invoke<NoteHit[]>("search_notes", { query, limit });
+
 // ---------- Word tokens (Strong's) ----------
 
 export interface WordToken {
