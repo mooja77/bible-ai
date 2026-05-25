@@ -673,16 +673,121 @@ fn get_verse_range(
         .map_err(|e| e.to_string())
 }
 
+#[derive(serde::Serialize, Clone)]
+pub struct SearchResultHit {
+    pub verse_id: i64,
+    pub translation_code: String,
+    pub book_id: i64,
+    pub book_name: String,
+    pub book_osis: String,
+    pub chapter: i64,
+    pub verse: i64,
+    pub text: String,
+    /// Empty for meaning-only hits; otherwise the FTS snippet (may contain <mark>).
+    pub snippet: String,
+    /// "keyword" | "meaning" | "both"
+    pub match_kind: String,
+    /// Cosine similarity 0..1, present for meaning/both.
+    pub semantic_score: Option<f32>,
+}
+
+#[derive(serde::Serialize)]
+pub struct SearchResponse {
+    pub hits: Vec<SearchResultHit>,
+    pub strategy_requested: String,
+    pub strategy_used: String,
+    pub degraded: bool,
+    pub degraded_reason: Option<String>,
+}
+
+/// Merge semantic + keyword hits, deduped by verse_id.
+/// Order: verses matched both ways first (semantic-score order), then
+/// meaning-only (semantic-score order), then keyword-only (FTS order).
+fn merge_search_hits(
+    semantic: Vec<db::SemanticHit>,
+    keyword: Vec<db::SearchHit>,
+    limit: usize,
+) -> Vec<SearchResultHit> {
+    use std::collections::{HashMap, HashSet};
+    let mut kw_by_id: HashMap<i64, db::SearchHit> = HashMap::new();
+    let mut kw_order: Vec<i64> = Vec::new();
+    for h in keyword {
+        if !kw_by_id.contains_key(&h.verse_id) {
+            kw_order.push(h.verse_id);
+        }
+        kw_by_id.insert(h.verse_id, h);
+    }
+
+    let mut both: Vec<SearchResultHit> = Vec::new();
+    let mut meaning: Vec<SearchResultHit> = Vec::new();
+    let mut seen: HashSet<i64> = HashSet::new();
+    for s in semantic {
+        if !seen.insert(s.verse_id) {
+            continue;
+        }
+        let (match_kind, snippet) = match kw_by_id.get(&s.verse_id) {
+            Some(k) => ("both", k.snippet.clone()),
+            None => ("meaning", String::new()),
+        };
+        let hit = SearchResultHit {
+            verse_id: s.verse_id,
+            translation_code: s.translation_code,
+            book_id: s.book_id,
+            book_name: s.book_name,
+            book_osis: s.book_osis,
+            chapter: s.chapter,
+            verse: s.verse,
+            text: s.text,
+            snippet,
+            match_kind: match_kind.to_string(),
+            semantic_score: Some(s.score),
+        };
+        if match_kind == "both" {
+            both.push(hit);
+        } else {
+            meaning.push(hit);
+        }
+    }
+
+    let mut out: Vec<SearchResultHit> = both;
+    out.append(&mut meaning);
+    for id in kw_order {
+        if !seen.insert(id) {
+            continue;
+        }
+        if let Some(k) = kw_by_id.remove(&id) {
+            out.push(SearchResultHit {
+                verse_id: k.verse_id,
+                translation_code: k.translation_code,
+                book_id: k.book_id,
+                book_name: k.book_name,
+                book_osis: k.book_osis,
+                chapter: k.chapter,
+                verse: k.verse,
+                text: k.text,
+                snippet: k.snippet,
+                match_kind: "keyword".to_string(),
+                semantic_score: None,
+            });
+        }
+    }
+    out.truncate(limit);
+    out
+}
+
 #[tauri::command]
-fn search(
+#[allow(clippy::too_many_arguments)]
+async fn search(
     app: AppHandle,
     query: String,
     translation_code: Option<String>,
     limit: Option<i64>,
     book_id: Option<i64>,
     testament: Option<String>,
-) -> Result<Vec<db::SearchHit>, String> {
-    let query = query.trim();
+    strategy: Option<String>,
+    ollama_host: Option<String>,
+) -> Result<SearchResponse, String> {
+    let query = query.trim().to_string();
     if query.len() > 500 {
         return Err("search query is too long".to_string());
     }
@@ -690,23 +795,121 @@ fn search(
         validate_book_id(book_id)?;
     }
     let testament = normalize_testament_filter(testament)?;
-    let translation_code = translation_code
+    let requested = strategy
         .as_deref()
         .map(str::trim)
-        .filter(|value| !value.is_empty());
-    let conn = open_corpus(&app)?;
-    db::search(
-        &conn,
-        query,
-        translation_code,
-        bounded_limit(limit, 50, 200),
-        db::VerseSearchScope {
-            book_id,
-            testament: testament.as_deref(),
-            ..db::VerseSearchScope::default()
-        },
-    )
-    .map_err(|e| e.to_string())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_else(|| "keyword".to_string());
+    if !matches!(requested.as_str(), "keyword" | "semantic" | "hybrid") {
+        return Err("unsupported search strategy".to_string());
+    }
+    let limit = bounded_limit(limit, 50, 200);
+    let translation = translation_code
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty());
+
+    if query.is_empty() {
+        return Ok(SearchResponse {
+            hits: Vec::new(),
+            strategy_requested: requested.clone(),
+            strategy_used: requested,
+            degraded: false,
+            degraded_reason: None,
+        });
+    }
+
+    let scope = db::VerseSearchScope {
+        book_id,
+        testament: testament.as_deref(),
+        ..db::VerseSearchScope::default()
+    };
+
+    let use_semantic = matches!(requested.as_str(), "semantic" | "hybrid");
+    let use_fts = matches!(requested.as_str(), "keyword" | "hybrid");
+    let mut degraded = false;
+    let mut degraded_reason: Option<String> = None;
+
+    let semantic_hits: Vec<db::SemanticHit> = if use_semantic {
+        match translation {
+            None => {
+                degraded = true;
+                degraded_reason = Some(
+                    "Meaning search needs a specific translation — showing keyword results"
+                        .to_string(),
+                );
+                Vec::new()
+            }
+            Some(tr) => {
+                let has_embeddings: i64 = {
+                    let conn = open_corpus(&app)?;
+                    conn.query_row(
+                        "SELECT COUNT(*) FROM verse_embeddings WHERE translation_code = ?1 AND model = ?2",
+                        rusqlite::params![tr, EMBED_MODEL],
+                        |r| r.get(0),
+                    )
+                    .map_err(|e| e.to_string())?
+                };
+                if has_embeddings == 0 {
+                    degraded = true;
+                    degraded_reason = Some(format!(
+                        "No meaning index for {tr} — showing keyword results"
+                    ));
+                    Vec::new()
+                } else {
+                    match ollama::embed_with_host(EMBED_MODEL, &query, ollama_host.as_deref()).await
+                    {
+                        Ok(q_emb) => {
+                            let conn = open_corpus(&app)?;
+                            db::semantic_search(
+                                &conn,
+                                &q_emb,
+                                tr,
+                                EMBED_MODEL,
+                                limit as usize,
+                                scope,
+                            )
+                            .map_err(|e| e.to_string())?
+                        }
+                        Err(e) => {
+                            eprintln!("[search] semantic retrieval failed: {e}");
+                            degraded = true;
+                            degraded_reason = Some(
+                                "Meaning search needs Ollama running — showing keyword results"
+                                    .to_string(),
+                            );
+                            Vec::new()
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        Vec::new()
+    };
+
+    let need_fts = use_fts || (use_semantic && degraded);
+    let keyword_hits: Vec<db::SearchHit> = if need_fts {
+        let conn = open_corpus(&app)?;
+        db::search(&conn, &query, translation, limit, scope).map_err(|e| e.to_string())?
+    } else {
+        Vec::new()
+    };
+
+    let strategy_used = if degraded {
+        "keyword".to_string()
+    } else {
+        requested.clone()
+    };
+    let hits = merge_search_hits(semantic_hits, keyword_hits, limit as usize);
+
+    Ok(SearchResponse {
+        hits,
+        strategy_requested: requested,
+        strategy_used,
+        degraded,
+        degraded_reason,
+    })
 }
 
 #[tauri::command]
@@ -3419,6 +3622,59 @@ mod retrieval_filter_tests {
         assert_eq!(core_evidence_target(1), 1);
         assert_eq!(core_evidence_target(2), 1);
         assert_eq!(core_evidence_target(60), 45);
+    }
+}
+
+#[cfg(test)]
+mod search_merge_tests {
+    use super::merge_search_hits;
+    use crate::db::{SearchHit, SemanticHit};
+
+    fn sem(verse_id: i64, score: f32) -> SemanticHit {
+        SemanticHit {
+            verse_id,
+            translation_code: "KJV".into(),
+            book_id: 1,
+            book_name: "Genesis".into(),
+            book_osis: "Gen".into(),
+            chapter: 1,
+            verse: verse_id,
+            text: format!("verse {verse_id}"),
+            score,
+        }
+    }
+    fn kw(verse_id: i64) -> SearchHit {
+        SearchHit {
+            verse_id,
+            translation_code: "KJV".into(),
+            book_id: 1,
+            book_name: "Genesis".into(),
+            book_osis: "Gen".into(),
+            chapter: 1,
+            verse: verse_id,
+            text: format!("verse {verse_id}"),
+            snippet: format!("<mark>verse</mark> {verse_id}"),
+        }
+    }
+
+    #[test]
+    fn merges_both_then_meaning_then_keyword_and_dedupes() {
+        let out = merge_search_hits(vec![sem(10, 0.9), sem(11, 0.8)], vec![kw(11), kw(12)], 50);
+        let kinds: Vec<(&str, i64)> = out
+            .iter()
+            .map(|h| (h.match_kind.as_str(), h.verse_id))
+            .collect();
+        assert_eq!(kinds, vec![("both", 11), ("meaning", 10), ("keyword", 12)]);
+        let both = &out[0];
+        assert!(both.snippet.contains("<mark>"));
+        assert!(both.semantic_score.is_some());
+        assert_eq!(out[1].snippet, "");
+    }
+
+    #[test]
+    fn respects_limit() {
+        let out = merge_search_hits(vec![sem(1, 0.9)], vec![kw(2), kw(3)], 2);
+        assert_eq!(out.len(), 2);
     }
 }
 
