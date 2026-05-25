@@ -667,16 +667,7 @@ pub fn save_app_settings(conn: &Connection, settings: &AppSettings) -> SqlResult
     upsert_setting(conn, "reader_density", settings.reader_density.as_deref())?;
     let sync_scroll = settings.sync_scroll.map(|v| v.to_string());
     upsert_setting(conn, "sync_scroll", sync_scroll.as_deref())?;
-    // Clamp to a known strategy; anything unknown persists as keyword.
-    let search_strategy = settings
-        .search_strategy
-        .as_deref()
-        .map(str::trim)
-        .map(|v| match v {
-            "semantic" | "hybrid" => v,
-            _ => "keyword",
-        });
-    upsert_setting(conn, "search_strategy", search_strategy)?;
+    upsert_setting(conn, "search_strategy", settings.search_strategy.as_deref())?;
     Ok(())
 }
 
@@ -6061,6 +6052,107 @@ mod tests {
         let loaded = get_app_settings(&conn).expect("load");
         assert_eq!(loaded.search_strategy.as_deref(), Some("hybrid"));
     }
+
+    #[test]
+    fn normalize_app_setting_value_search_strategy() {
+        // All three allowed values are accepted as-is.
+        assert_eq!(
+            normalize_app_setting_value("search_strategy", "keyword").unwrap(),
+            "keyword"
+        );
+        assert_eq!(
+            normalize_app_setting_value("search_strategy", "semantic").unwrap(),
+            "semantic"
+        );
+        assert_eq!(
+            normalize_app_setting_value("search_strategy", "hybrid").unwrap(),
+            "hybrid"
+        );
+        // Whitespace is trimmed.
+        assert_eq!(
+            normalize_app_setting_value("search_strategy", " semantic ").unwrap(),
+            "semantic"
+        );
+        // Unknown values are rejected.
+        assert!(normalize_app_setting_value("search_strategy", "fulltext").is_err());
+        assert!(normalize_app_setting_value("search_strategy", "").is_err());
+    }
+
+    #[test]
+    fn user_data_import_normalizes_search_strategy() {
+        let conn = test_conn();
+        let payload = serde_json::json!({
+            "app": "Bible AI",
+            "export_version": EXPORT_VERSION,
+            "user_schema_version": USER_SCHEMA_VERSION,
+            "exported_at": "2026-05-25T09:00:00Z",
+            "tables": {
+                "app_settings": [
+                    {
+                        "key": "search_strategy",
+                        "value": "semantic",
+                        "updated_at": "2026-05-25T09:00:00Z"
+                    }
+                ]
+            }
+        });
+        let report =
+            import_user_data(&conn, &payload, "replace_existing").expect("import search_strategy");
+        assert_eq!(report.imported, 1);
+        assert_eq!(
+            get_setting(&conn, "search_strategy").expect("read search_strategy"),
+            Some("semantic".to_string())
+        );
+
+        // An unknown value must be rejected and the transaction rolled back.
+        let bad_payload = serde_json::json!({
+            "app": "Bible AI",
+            "export_version": EXPORT_VERSION,
+            "user_schema_version": USER_SCHEMA_VERSION,
+            "exported_at": "2026-05-25T09:00:00Z",
+            "tables": {
+                "app_settings": [
+                    {
+                        "key": "search_strategy",
+                        "value": "fulltext",
+                        "updated_at": "2026-05-25T09:00:00Z"
+                    }
+                ]
+            }
+        });
+        let err = import_user_data(&conn, &bad_payload, "replace_existing")
+            .expect_err("unknown search_strategy should fail import");
+        assert!(err.contains("search_strategy"));
+        // Prior value must be unchanged (rollback).
+        assert_eq!(
+            get_setting(&conn, "search_strategy").expect("read after failed import"),
+            Some("semantic".to_string())
+        );
+    }
+
+    #[test]
+    fn user_data_export_includes_search_strategy() {
+        let conn = test_conn();
+        upsert_setting(&conn, "search_strategy", Some("hybrid"))
+            .expect("save search_strategy setting");
+
+        let exported = export_user_data(&conn).expect("export user data");
+        let settings = exported
+            .pointer("/tables/app_settings")
+            .and_then(serde_json::Value::as_array)
+            .expect("settings rows");
+        let values = settings
+            .iter()
+            .filter_map(|row| {
+                Some((
+                    row.get("key")?.as_str()?.to_string(),
+                    row.get("value")?.as_str()?.to_string(),
+                ))
+            })
+            .collect::<std::collections::HashMap<_, _>>();
+
+        assert_eq!(values.get("search_strategy"), Some(&"hybrid".to_string()));
+    }
 }
 
 fn list_theology_topic_tree(conn: &Connection, root_id: i64) -> SqlResult<Vec<TheologyTopic>> {
@@ -7236,6 +7328,9 @@ fn normalize_app_setting_value(key: &str, value: &str) -> Result<String, String>
         }
         "reader_layout" => normalize_enum_setting_value(key, value, &["columns", "interleaved"]),
         "reader_density" => normalize_enum_setting_value(key, value, &["comfortable", "compact"]),
+        "search_strategy" => {
+            normalize_enum_setting_value(key, value, &["keyword", "semantic", "hybrid"])
+        }
         "sync_scroll" => normalize_bool_setting_value(key, value),
         _ => Err(format!("unsupported app setting: {key}")),
     }
