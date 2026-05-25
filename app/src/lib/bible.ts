@@ -27,6 +27,8 @@ export interface Verse {
   text: string;
 }
 
+export type SearchStrategy = "keyword" | "semantic" | "hybrid";
+
 export interface SearchHit {
   verse_id: number;
   translation_code: string;
@@ -36,8 +38,20 @@ export interface SearchHit {
   chapter: number;
   verse: number;
   text: string;
-  /** Snippet may contain <mark>...</mark> tags around matched terms. */
+  /** May contain <mark>...</mark>. Empty string for meaning-only hits. */
   snippet: string;
+  /** "keyword" | "meaning" | "both" */
+  match_kind: "keyword" | "meaning" | "both";
+  /** Cosine similarity 0..1, present for meaning/both. */
+  semantic_score?: number;
+}
+
+export interface SearchResponse {
+  hits: SearchHit[];
+  strategy_requested: SearchStrategy;
+  strategy_used: SearchStrategy;
+  degraded: boolean;
+  degraded_reason: string | null;
 }
 
 export const listBooks = () => invoke<Book[]>("list_books");
@@ -66,13 +80,17 @@ export const search = (
   limit = 50,
   bookId?: number | null,
   testament?: Testament | null,
+  strategy: SearchStrategy = "keyword",
+  ollamaHost?: string | null,
 ) =>
-  invoke<SearchHit[]>("search", {
+  invoke<SearchResponse>("search", {
     query,
     translationCode,
     limit,
     bookId,
     testament,
+    strategy,
+    ollamaHost: ollamaHost ?? null,
   });
 
 export interface CrossRef {
