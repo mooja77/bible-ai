@@ -130,6 +130,7 @@ export const config: WebdriverIO.Config = {
       "./tests/e2e/backup-restore.spec.ts",
       "./tests/e2e/council-mock.spec.ts",
       "./tests/e2e/search-semantic.spec.ts",
+      "./tests/e2e/notes-search.spec.ts",
       "./tests/e2e/release-readiness.spec.ts",
     ],
   ],
