@@ -26,7 +26,7 @@ export function renderWorkspaceMarkdown(workspace: StudyWorkspace): string {
         lines.push(
           `**${payload.citation ?? title}** (${payload.translation_code ?? ""})`,
           "",
-          stripHtml(String(payload.snippet ?? payload.text ?? "")).trim(),
+          stripSnippetMarkup(String(payload.snippet ?? payload.text ?? "")).trim(),
           "",
         );
         break;
@@ -39,7 +39,7 @@ export function renderWorkspaceMarkdown(workspace: StudyWorkspace): string {
         );
         for (const result of searchResultsFromPayload(payload)) {
           lines.push(
-            `- **${result.citation}** (${result.translation_code}) — ${stripHtml(result.snippet ?? result.text ?? "").trim()}`,
+            `- **${result.citation}** (${result.translation_code}) — ${stripSnippetMarkup(result.snippet ?? result.text ?? "").trim()}`,
           );
         }
         if (searchResultsFromPayload(payload).length > 0) lines.push("");
@@ -114,8 +114,8 @@ export function renderWorkspaceMarkdown(workspace: StudyWorkspace): string {
   return sanitizeExportText(lines.join("\n"));
 }
 
-function stripHtml(value: string): string {
-  return value.replace(/<[^>]*>/g, "");
+function stripSnippetMarkup(value: string): string {
+  return value.replace(/<\/?mark>/gi, "");
 }
 
 function formatSource(payload: Record<string, unknown>): string {
@@ -205,12 +205,12 @@ function appendCouncilSources(lines: string[], payload: Record<string, unknown>)
     lines.push("");
   }
 
-  if (response) {
-    appendCouncilJudgment(lines, payload.judgment as CouncilJudgment | undefined);
-    appendArgumentAnnotations(lines, payload.argument_annotations);
+  appendCouncilJudgment(lines, payload.judgment);
+  appendArgumentAnnotations(lines, payload.argument_annotations);
+  if (isCouncilResponse(response)) {
     lines.push(
       formatCouncilTransparencyMarkdown(
-        response as unknown as CouncilResponse,
+        response,
         String(payload.question ?? "Saved Council result"),
       ),
     );
@@ -230,7 +230,8 @@ function appendArgumentAnnotations(lines: string[], value: unknown) {
   lines.push("");
 }
 
-function appendCouncilJudgment(lines: string[], judgment?: CouncilJudgment | null) {
+function appendCouncilJudgment(lines: string[], value: unknown) {
+  const judgment = asRecord(value) as (CouncilJudgment & Record<string, unknown>) | null;
   if (!judgment) return;
   lines.push("**My judgment:**", "");
   if (judgment.before_judgment) {
@@ -251,15 +252,96 @@ function appendCouncilJudgment(lines: string[], judgment?: CouncilJudgment | nul
   if (judgment.open_questions) {
     lines.push(`- Open questions: ${judgment.open_questions}`);
   }
-  for (const position of judgment.position_judgments ?? []) {
-    lines.push(`- ${position.position_label}: ${position.user_rating}`);
-    if (position.notes) lines.push(`  - Notes: ${position.notes}`);
+  const positions = Array.isArray(judgment.position_judgments)
+    ? judgment.position_judgments
+    : [];
+  for (const position of positions) {
+    const p = asRecord(position);
+    if (!p) continue;
+    lines.push(`- ${String(p.position_label ?? "Position")}: ${String(p.user_rating ?? "")}`);
+    if (p.notes) lines.push(`  - Notes: ${String(p.notes)}`);
   }
   lines.push("");
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function isCouncilResponse(value: unknown): value is CouncilResponse {
+  const response = asRecord(value);
+  if (!response || !Array.isArray(response.voices) || !Array.isArray(response.manifest)) {
+    return false;
+  }
+  const synthesis = asRecord(response.synthesis);
+  if (!synthesis || !Array.isArray(synthesis.positions)) {
+    return false;
+  }
+  return (
+    isCouncilConfidence(synthesis.confidence) &&
+    synthesis.positions.every(isCouncilPositionLike) &&
+    response.voices.every(isCouncilVoiceLike) &&
+    response.manifest.every(isCouncilProviderLike)
+  );
+}
+
+function isCouncilVoiceLike(value: unknown) {
+  const voice = asRecord(value);
+  if (!voice) return false;
+  if (typeof voice.provider !== "string" || typeof voice.display_name !== "string") {
+    return false;
+  }
+  if (voice.status === "error" || voice.status === "skipped") return true;
+  if (voice.status !== "ok") return false;
+  const result = asRecord(voice.result);
+  return (
+    !!result &&
+    Array.isArray(result.positions) &&
+    result.positions.every(isCouncilPositionLike)
+  );
+}
+
+function isCouncilPositionLike(value: unknown) {
+  const position = asRecord(value);
+  if (
+    !position ||
+    typeof position.label !== "string" ||
+    typeof position.summary !== "string" ||
+    typeof position.weight !== "number" ||
+    !Number.isFinite(position.weight) ||
+    !Array.isArray(position.evidence)
+  ) {
+    return false;
+  }
+  return position.evidence.every((entry) => {
+    const evidence = asRecord(entry);
+    return (
+      !!evidence &&
+      typeof evidence.verse_id === "number" &&
+      Number.isSafeInteger(evidence.verse_id) &&
+      evidence.verse_id > 0 &&
+      typeof evidence.citation === "string" &&
+      typeof evidence.translation_code === "string" &&
+      typeof evidence.quote === "string" &&
+      typeof evidence.reasoning === "string"
+    );
+  });
+}
+
+function isCouncilProviderLike(value: unknown) {
+  const provider = asRecord(value);
+  return (
+    !!provider &&
+    typeof provider.name === "string" &&
+    typeof provider.display_name === "string" &&
+    typeof provider.available === "boolean"
+  );
+}
+
+function isCouncilConfidence(value: unknown) {
+  return value === "low" || value === "medium" || value === "high";
 }
 
 function uniqueCouncilEvidence(values: unknown[]) {
@@ -323,7 +405,7 @@ function sanitizeExportValue(value: unknown): unknown {
 function sanitizeExportText(value: string): string {
   return value
     .replace(
-      /\b[A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)[A-Z0-9_]*\s*[:=]\s*[^\s`'"]+/gi,
+      /\b[A-Z0-9_-]*(?:API[-_]?KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)[A-Z0-9_-]*\s*[:=]\s*(?:"[^"\r\n]*"?|'[^'\r\n]*'?|[^\s`'"]+)/gi,
       "[redacted secret]",
     )
     .replace(

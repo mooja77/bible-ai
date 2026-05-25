@@ -23,22 +23,38 @@ export function StrongsPopup({ codes, surface, morph, onJumpToVerse, onClose }: 
   const [moduleEntries, setModuleEntries] = useState<ModuleEntry[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     setEntries(null);
+    setOccurrences([]);
+    setModuleEntries([]);
     if (codes.length === 0) {
       setEntries([]);
-      setOccurrences([]);
-      setModuleEntries([]);
       return;
     }
     getStrongs(codes)
-      .then(setEntries)
-      .catch(() => setEntries([]));
+      .then((rows) => {
+        if (!cancelled) setEntries(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setEntries([]);
+      });
     getStrongsOccurrences(codes[0], 60)
-      .then(setOccurrences)
-      .catch(() => setOccurrences([]));
+      .then((rows) => {
+        if (!cancelled) setOccurrences(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setOccurrences([]);
+      });
     listModuleEntriesForStrongs(codes)
-      .then(setModuleEntries)
-      .catch(() => setModuleEntries([]));
+      .then((rows) => {
+        if (!cancelled) setModuleEntries(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setModuleEntries([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [codes.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
 import {
   addStudyItem,
   createTheologyLink,
@@ -17,6 +16,7 @@ import {
   updateStudyWorkspace,
   writeWorkspaceHtml,
   writeWorkspaceMarkdown,
+  writeWorkspaceMarkdownToPath,
   writeWorkspacePdf,
   type CouncilJudgment,
   type CouncilResponse,
@@ -75,11 +75,19 @@ export function WorkspacesPanel({
   const [workspaceQuery, setWorkspaceQuery] = useState("");
   const [itemQuery, setItemQuery] = useState("");
   const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
+  const workspaceListRequestId = useRef(0);
+  const selectedIdRef = useRef<number | null>(null);
 
   const refreshList = useCallback(async () => {
+    const requestId = ++workspaceListRequestId.current;
     const rows = await listStudyWorkspaces();
+    if (requestId !== workspaceListRequestId.current) return;
     setWorkspaces(rows);
-    setSelectedId((current) => current ?? rows[0]?.id ?? null);
+    setSelectedId((current) =>
+      current && rows.some((workspace) => workspace.id === current)
+        ? current
+        : rows[0]?.id ?? null,
+    );
   }, []);
 
   const loadWorkspace = useCallback(async (workspaceId: number) => {
@@ -95,9 +103,17 @@ export function WorkspacesPanel({
   }, [refreshList]);
 
   useEffect(() => {
+    let cancelled = false;
     listTheologyTopics()
-      .then(setTheologyTopics)
-      .catch(() => setTheologyTopics([]));
+      .then((topics) => {
+        if (!cancelled) setTheologyTopics(topics);
+      })
+      .catch(() => {
+        if (!cancelled) setTheologyTopics([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -105,13 +121,26 @@ export function WorkspacesPanel({
   }, [selectedWorkspaceId]);
 
   useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  useEffect(() => {
     if (!selectedId) {
       setWorkspace(null);
       return;
     }
+    let cancelled = false;
+    setWorkspace(null);
     loadWorkspace(selectedId)
-      .then(setWorkspace)
-      .catch((e) => setError(String(e)));
+      .then((nextWorkspace) => {
+        if (!cancelled) setWorkspace(nextWorkspace);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [loadWorkspace, selectedId]);
 
   useEffect(() => {
@@ -183,8 +212,7 @@ export function WorkspacesPanel({
         filters: [{ name: "Markdown", extensions: ["md"] }],
       });
       if (!path) return;
-      await writeTextFile(path, markdown);
-      setSavedPath(path);
+      setSavedPath(await writeWorkspaceMarkdownToPath(path, markdown));
     } catch (e) {
       setError(String(e));
     }
@@ -210,7 +238,7 @@ export function WorkspacesPanel({
 
   const refreshWorkspace = async (workspaceId: number) => {
     const next = await loadWorkspace(workspaceId);
-    setWorkspace(next);
+    if (selectedIdRef.current === workspaceId) setWorkspace(next);
     await refreshList();
     onChanged?.();
   };
@@ -436,6 +464,7 @@ export function WorkspacesPanel({
                 </button>
                 <button
                   type="button"
+                  data-testid="delete-workspace"
                   onClick={async () => {
                     await deleteStudyWorkspace(workspace.id);
                     setWorkspace(null);
@@ -556,13 +585,17 @@ export function WorkspacesPanel({
                           onAskCouncil={onAskCouncil}
                           onExplainItem={async () => {
                             const payload = item.payload;
-                            const startVerseId = Number(
+                            const startVerseId = positiveIntegerPayloadValue(
                               payload.verse_id ?? payload.start_verse_id ?? 0,
                             );
-                            if (startVerseId <= 0) return;
-                            const endVerseId = Number(payload.end_verse_id ?? startVerseId);
-                            const translationCode = String(payload.translation_code ?? "KJV");
-                            const citation = String(payload.citation ?? item.title ?? "Passage");
+                            if (!startVerseId) return;
+                            const requestedEndVerseId = positiveIntegerPayloadValue(payload.end_verse_id);
+                            const endVerseId =
+                              requestedEndVerseId && requestedEndVerseId >= startVerseId
+                                ? requestedEndVerseId
+                                : startVerseId;
+                            const translationCode = payloadString(payload.translation_code) ?? "KJV";
+                            const citation = payloadString(payload.citation) ?? item.title ?? "Passage";
                             const explanation = await explainPassage(
                               translationCode,
                               startVerseId,
@@ -570,7 +603,7 @@ export function WorkspacesPanel({
                             );
                             await addStudyItem(workspace.id, "explanation", `Explanation: ${citation}`, {
                               ...explanation,
-                              verse_id: payload.verse_id ?? startVerseId,
+                              verse_id: positiveIntegerPayloadValue(payload.verse_id) ?? startVerseId,
                               start_verse_id: startVerseId,
                               end_verse_id: endVerseId,
                               citation,
@@ -633,9 +666,11 @@ function WorkspaceItem({
   workspaceTitle: string;
 }) {
   const payload = item.payload;
-  const citation = String(payload.citation ?? item.title ?? item.kind);
-  const translation = String(payload.translation_code ?? "KJV");
-  const verseId = Number(payload.verse_id ?? payload.start_verse_id ?? 0);
+  const citation = payloadString(payload.citation) ?? item.title ?? item.kind;
+  const translation = payloadString(payload.translation_code) ?? "KJV";
+  const verseId = positiveIntegerPayloadValue(payload.verse_id ?? payload.start_verse_id);
+  const searchQuery = payloadString(payload.query);
+  const searchResultCount = nonNegativeIntegerPayloadValue(payload.result_count) ?? 0;
   const displayTitle = item.title ?? citation;
   const [draftTitle, setDraftTitle] = useState(displayTitle);
   const [titleSaved, setTitleSaved] = useState(false);
@@ -659,7 +694,11 @@ function WorkspaceItem({
   }, [payload.body, payload.text]);
 
   useEffect(() => {
-    setTheologyTopicId((current) => current ?? theologyTopics[0]?.id ?? null);
+    setTheologyTopicId((current) =>
+      current && theologyTopics.some((topic) => topic.id === current)
+        ? current
+        : theologyTopics[0]?.id ?? null,
+    );
   }, [theologyTopics]);
 
   const saveTitle = async () => {
@@ -770,7 +809,7 @@ function WorkspaceItem({
 
       {(item.kind === "verse" || item.kind === "verse_range" || item.kind === "search_hit") && (
         <>
-          {verseId > 0 && (
+          {verseId && (
             <button
               type="button"
               onClick={() => onJumpToVerse(verseId, translation)}
@@ -783,7 +822,7 @@ function WorkspaceItem({
             className="mt-2 text-sm text-neutral-200 leading-relaxed"
             style={{ fontFamily: "var(--font-serif)" }}
           >
-            {String(payload.text ?? payload.snippet ?? "").replace(/<[^>]*>/g, "")}
+            {stripSnippetMarkup(String(payload.text ?? payload.snippet ?? ""))}
           </p>
           {(item.kind === "verse" || item.kind === "verse_range") && (
             <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -821,7 +860,7 @@ function WorkspaceItem({
                     [
                       `${citation} (${translation})`,
                       "",
-                      String(payload.text ?? payload.snippet ?? "").replace(/<[^>]*>/g, ""),
+                      stripSnippetMarkup(String(payload.text ?? payload.snippet ?? "")),
                     ]
                       .filter(Boolean)
                       .join("\n"),
@@ -835,11 +874,11 @@ function WorkspaceItem({
               </button>
             </div>
           )}
-          {item.kind === "search_hit" && onRunSearch && Boolean(payload.query) && (
+          {item.kind === "search_hit" && onRunSearch && searchQuery && (
             <div className="flex flex-wrap items-center gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => onRunSearch(String(payload.query))}
+                onClick={() => onRunSearch(searchQuery)}
                 className="text-xs text-amber-300 hover:text-amber-200"
               >
                 Rerun Search
@@ -933,16 +972,16 @@ function WorkspaceItem({
       {item.kind === "search" && (
         <div className="text-sm text-neutral-300 space-y-2">
           <p>
-            Query: <span className="text-amber-200">{String(payload.query ?? citation)}</span>
+            Query: <span className="text-amber-200">{searchQuery ?? citation}</span>
           </p>
           <p className="text-xs text-neutral-500">
-            {Number(payload.result_count ?? 0)} result
-            {Number(payload.result_count ?? 0) === 1 ? "" : "s"} when saved
+            {searchResultCount} result
+            {searchResultCount === 1 ? "" : "s"} when saved
           </p>
-          {onRunSearch && Boolean(payload.query) && (
+          {onRunSearch && searchQuery && (
             <button
               type="button"
-              onClick={() => onRunSearch(String(payload.query))}
+              onClick={() => onRunSearch(searchQuery)}
               className="text-xs text-amber-300 hover:text-amber-200"
             >
               Rerun Search
@@ -966,7 +1005,7 @@ function WorkspaceItem({
             </ul>
           )}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            {verseId > 0 && (
+            {verseId && (
               <button
                 type="button"
                 onClick={() => onJumpToVerse(verseId, translation)}
@@ -1016,7 +1055,7 @@ function WorkspaceItem({
           </div>
           <p className="text-neutral-200 leading-relaxed">{String(payload.body ?? "")}</p>
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            {verseId > 0 && (
+            {verseId && (
               <button
                 type="button"
                 onClick={() => onJumpToVerse(verseId, translation)}
@@ -1114,6 +1153,24 @@ function payloadSearchText(payload: Record<string, unknown>) {
     .join(" ");
 }
 
+function payloadString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function positiveIntegerPayloadValue(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function nonNegativeIntegerPayloadValue(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function stripSnippetMarkup(value: string) {
+  return value.replace(/<\/?mark>/gi, "");
+}
+
 function mergeWorkspaceJudgments(
   workspace: StudyWorkspace | null,
   judgments: CouncilJudgment[],
@@ -1147,17 +1204,81 @@ function workspaceCouncilSessionId(payload: Record<string, unknown>) {
 }
 
 function numericPayloadValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+    ? value
+    : null;
 }
 
 function isCouncilResponse(value: unknown): value is CouncilResponse {
+  if (!isObjectRecord(value) || !Array.isArray(value.voices) || !Array.isArray(value.manifest)) {
+    return false;
+  }
+  const synthesis = value.synthesis;
+  if (!isObjectRecord(synthesis) || !Array.isArray(synthesis.positions)) {
+    return false;
+  }
   return (
-    !!value &&
-    typeof value === "object" &&
-    "synthesis" in value &&
-    "voices" in value &&
-    "manifest" in value
+    isCouncilConfidence(synthesis.confidence) &&
+    synthesis.positions.every(isCouncilPositionLike) &&
+    value.voices.every(isCouncilVoiceLike) &&
+    value.manifest.every(isCouncilProviderLike)
   );
+}
+
+function isCouncilVoiceLike(value: unknown) {
+  if (!isObjectRecord(value)) return false;
+  if (typeof value.provider !== "string" || typeof value.display_name !== "string") {
+    return false;
+  }
+  if (value.status === "error" || value.status === "skipped") return true;
+  if (value.status !== "ok") return false;
+  const result = value.result;
+  return (
+    isObjectRecord(result) &&
+    Array.isArray(result.positions) &&
+    result.positions.every(isCouncilPositionLike)
+  );
+}
+
+function isCouncilPositionLike(value: unknown) {
+  if (!isObjectRecord(value)) return false;
+  if (
+    typeof value.label !== "string" ||
+    typeof value.summary !== "string" ||
+    typeof value.weight !== "number" ||
+    !Number.isFinite(value.weight) ||
+    !Array.isArray(value.evidence)
+  ) {
+    return false;
+  }
+  return value.evidence.every(
+    (entry) =>
+      isObjectRecord(entry) &&
+      typeof entry.verse_id === "number" &&
+      Number.isSafeInteger(entry.verse_id) &&
+      entry.verse_id > 0 &&
+      typeof entry.citation === "string" &&
+      typeof entry.translation_code === "string" &&
+      typeof entry.quote === "string" &&
+      typeof entry.reasoning === "string",
+  );
+}
+
+function isCouncilProviderLike(value: unknown) {
+  return (
+    isObjectRecord(value) &&
+    typeof value.name === "string" &&
+    typeof value.display_name === "string" &&
+    typeof value.available === "boolean"
+  );
+}
+
+function isCouncilConfidence(value: unknown) {
+  return value === "low" || value === "medium" || value === "high";
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function SearchResultList({
@@ -1172,14 +1293,15 @@ function SearchResultList({
   return (
     <ul className="space-y-2 border-t border-neutral-800 pt-2">
       {raw.slice(0, 10).map((entry, index) => {
-        if (!entry || typeof entry !== "object") return null;
-        const result = entry as Record<string, unknown>;
-        const verseId = Number(result.verse_id ?? 0);
-        const translation = String(result.translation_code ?? "KJV");
-        const citation = String(result.citation ?? `Result ${index + 1}`);
+        if (!isObjectRecord(entry)) return null;
+        const result = entry;
+        const verseId = positiveIntegerPayloadValue(result.verse_id);
+        const translation = payloadString(result.translation_code) ?? "KJV";
+        const citation = payloadString(result.citation) ?? `Result ${index + 1}`;
+        const snippet = payloadString(result.snippet) ?? payloadString(result.text) ?? "";
         return (
-          <li key={`${translation}-${verseId}-${index}`} className="text-sm">
-            {verseId > 0 ? (
+          <li key={`${translation}-${verseId ?? "no-verse"}-${index}`} className="text-sm">
+            {verseId ? (
               <button
                 type="button"
                 onClick={() => onJumpToVerse(verseId, translation)}
@@ -1194,7 +1316,7 @@ function SearchResultList({
               className="mt-1 text-neutral-300"
               style={{ fontFamily: "var(--font-serif)" }}
             >
-              {String(result.snippet ?? result.text ?? "").replace(/<[^>]*>/g, "")}
+              {stripSnippetMarkup(snippet)}
             </p>
           </li>
         );

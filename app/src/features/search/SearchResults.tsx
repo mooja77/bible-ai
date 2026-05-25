@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createTheologyLink,
   listTheologyTopics,
@@ -20,24 +20,37 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
   const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
   const [theologyTopicId, setTheologyTopicId] = useState<number | null>(null);
   const [theologyStatus, setTheologyStatus] = useState("");
+  const resultsVersion = useRef(0);
   const selectedHits = useMemo(
     () => results.filter((hit) => selectedKeys.has(searchHitKey(hit))),
     [results, selectedKeys],
   );
 
   useEffect(() => {
+    let cancelled = false;
     listTheologyTopics()
       .then((topics) => {
+        if (cancelled) return;
         setTheologyTopics(topics);
-        setTheologyTopicId((current) => current ?? topics[0]?.id ?? null);
+        setTheologyTopicId((current) =>
+          current && topics.some((topic) => topic.id === current)
+            ? current
+            : topics[0]?.id ?? null,
+        );
       })
-      .catch(() => setTheologyTopics([]));
+      .catch(() => {
+        if (!cancelled) setTheologyTopics([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    resultsVersion.current += 1;
     setSelectedKeys(new Set());
     setTheologyStatus("");
-  }, [query]);
+  }, [query, results]);
 
   const toggleSelected = (hit: SearchHit) => {
     const key = searchHitKey(hit);
@@ -51,6 +64,7 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
 
   const linkSelectedToTheology = async () => {
     if (!theologyTopicId || selectedHits.length === 0) return;
+    const requestVersion = resultsVersion.current;
     setTheologyStatus("Linking...");
     try {
       await Promise.all(
@@ -76,6 +90,7 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
           });
         }),
       );
+      if (requestVersion !== resultsVersion.current) return;
       const topic = theologyTopics.find((item) => item.id === theologyTopicId);
       setTheologyStatus(
         `Linked ${selectedHits.length} search result${selectedHits.length === 1 ? "" : "s"} to ${
@@ -83,7 +98,7 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
         }.`,
       );
     } catch (e) {
-      setTheologyStatus(String(e));
+      if (requestVersion === resultsVersion.current) setTheologyStatus(String(e));
     }
   };
 
@@ -218,8 +233,9 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
                     <p
                       className="text-neutral-200 text-sm leading-relaxed"
                       style={{ fontFamily: "var(--font-serif)" }}
-                      dangerouslySetInnerHTML={{ __html: hit.snippet }}
-                    />
+                    >
+                      <SnippetText value={hit.snippet} />
+                    </p>
                   </button>
                   <AddToWorkspaceMenu
                     kind="search_hit"
@@ -250,4 +266,34 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
 
 function searchHitKey(hit: SearchHit) {
   return `${hit.translation_code}-${hit.verse_id}`;
+}
+
+function SnippetText({ value }: { value: string }) {
+  const chunks = splitSnippetText(value);
+  return (
+    <>
+      {chunks.map((chunk, index) =>
+        chunk.highlight ? (
+          <mark key={`${chunk.text}-${index}`}>{chunk.text}</mark>
+        ) : (
+          <span key={`${chunk.text}-${index}`}>{chunk.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function splitSnippetText(value: string) {
+  const chunks: Array<{ text: string; highlight: boolean }> = [];
+  let highlight = false;
+  for (const token of value.split(/(<mark>|<\/mark>)/g)) {
+    if (token === "<mark>") {
+      highlight = true;
+    } else if (token === "</mark>") {
+      highlight = false;
+    } else if (token.length > 0) {
+      chunks.push({ text: token, highlight });
+    }
+  }
+  return chunks;
 }

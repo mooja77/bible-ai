@@ -9,11 +9,15 @@ interface Props {
 export function BookList({ books, selectedBookId, onSelect }: Props) {
   const ot = books.filter((b) => b.testament === "OT");
   const nt = books.filter((b) => b.testament === "NT");
+  const dc = books.filter((b) => b.testament === "DC");
 
   return (
     <div className="flex flex-col gap-4 text-sm">
       <Section title="Old Testament" books={ot} selectedBookId={selectedBookId} onSelect={onSelect} />
       <Section title="New Testament" books={nt} selectedBookId={selectedBookId} onSelect={onSelect} />
+      {dc.length > 0 && (
+        <Section title="Deuterocanon" books={dc} selectedBookId={selectedBookId} onSelect={onSelect} />
+      )}
     </div>
   );
 }

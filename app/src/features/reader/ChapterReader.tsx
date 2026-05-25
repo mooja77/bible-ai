@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   addBookmark,
   createTheologyLink,
@@ -352,10 +352,26 @@ export function RangeActionBar({
   const [moduleEntries, setModuleEntries] = useState<ModuleEntry[]>([]);
   const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
   const [theologyTopicId, setTheologyTopicId] = useState<number | null>(null);
+  const rangeKey = `${translationCode}:${startVerseId}-${endVerseId}`;
+  const activeRangeKey = useRef(rangeKey);
+  const explainRequestId = useRef(0);
+
+  useEffect(() => {
+    activeRangeKey.current = rangeKey;
+    explainRequestId.current += 1;
+    setNoteOpen(false);
+    setNoteBody("");
+    setBusy(false);
+    setStatus(null);
+    setExplaining(false);
+    setExplanation(null);
+    setModuleEntries([]);
+  }, [rangeKey]);
 
   useEffect(() => {
     if (!noteOpen) return;
     let cancelled = false;
+    setNoteBody("");
     getRangeNote(startVerseId, endVerseId)
       .then((note) => {
         if (!cancelled) setNoteBody(note?.body ?? "");
@@ -368,6 +384,7 @@ export function RangeActionBar({
 
   useEffect(() => {
     let cancelled = false;
+    setModuleEntries([]);
     listModuleEntriesForRange(startVerseId, endVerseId)
       .then((entries) => {
         if (!cancelled) setModuleEntries(entries);
@@ -386,7 +403,11 @@ export function RangeActionBar({
       .then((topics) => {
         if (cancelled) return;
         setTheologyTopics(topics);
-        setTheologyTopicId((current) => current ?? topics[0]?.id ?? null);
+        setTheologyTopicId((current) =>
+          current && topics.some((topic) => topic.id === current)
+            ? current
+            : topics[0]?.id ?? null,
+        );
       })
       .catch(() => {
         if (!cancelled) setTheologyTopics([]);
@@ -398,91 +419,109 @@ export function RangeActionBar({
 
   const setRangeColor = async (color: string) => {
     if (busy) return;
+    const currentRangeKey = rangeKey;
     setBusy(true);
     setStatus(null);
     try {
       await upsertRangeHighlight(startVerseId, endVerseId, color);
       onChanged();
-      setStatus("Range highlighted");
+      if (activeRangeKey.current === currentRangeKey) setStatus("Range highlighted");
     } finally {
-      setBusy(false);
+      if (activeRangeKey.current === currentRangeKey) setBusy(false);
     }
   };
 
   const clearRangeColor = async () => {
     if (busy) return;
+    const currentRangeKey = rangeKey;
     setBusy(true);
     setStatus(null);
     try {
       await deleteRangeHighlight(startVerseId, endVerseId);
       onChanged();
-      setStatus("Range highlight cleared");
+      if (activeRangeKey.current === currentRangeKey) setStatus("Range highlight cleared");
     } finally {
-      setBusy(false);
+      if (activeRangeKey.current === currentRangeKey) setBusy(false);
     }
   };
 
   const bookmarkRange = async () => {
     if (busy) return;
+    const currentRangeKey = rangeKey;
     setBusy(true);
     setStatus(null);
     try {
       await addBookmark(startVerseId, endVerseId, citation);
       onChanged();
-      setStatus("Range bookmarked");
+      if (activeRangeKey.current === currentRangeKey) setStatus("Range bookmarked");
     } finally {
-      setBusy(false);
+      if (activeRangeKey.current === currentRangeKey) setBusy(false);
     }
   };
 
   const saveRangeNote = async () => {
     if (busy) return;
+    const currentRangeKey = rangeKey;
     setBusy(true);
     setStatus(null);
     try {
       const trimmed = noteBody.trim();
       if (trimmed) {
         await upsertRangeNote(startVerseId, endVerseId, trimmed);
-        setStatus("Range note saved");
+        if (activeRangeKey.current === currentRangeKey) setStatus("Range note saved");
       } else {
         await deleteRangeNote(startVerseId, endVerseId);
-        setStatus("Range note cleared");
+        if (activeRangeKey.current === currentRangeKey) setStatus("Range note cleared");
       }
       onChanged();
     } finally {
-      setBusy(false);
+      if (activeRangeKey.current === currentRangeKey) setBusy(false);
     }
   };
 
   const explainRange = async () => {
     if (explaining) return;
+    const requestId = ++explainRequestId.current;
     setExplaining(true);
     setStatus(null);
+    setExplanation(null);
     try {
-      setExplanation(await explainPassage(translationCode, startVerseId, endVerseId));
+      const nextExplanation = await explainPassage(translationCode, startVerseId, endVerseId);
+      if (requestId === explainRequestId.current) setExplanation(nextExplanation);
+    } catch (e) {
+      if (requestId === explainRequestId.current) setStatus(`Explain failed: ${String(e)}`);
     } finally {
-      setExplaining(false);
+      if (requestId === explainRequestId.current) setExplaining(false);
     }
   };
 
   const addRangeToTheology = async () => {
     if (!theologyTopicId) return;
-    setStatus(null);
-    await createTheologyLink({
-      topic_id: theologyTopicId,
-      link_kind: "verse_range",
-      target_id: startVerseId,
-      title: citation,
-      payload_json: JSON.stringify({
-        start_verse_id: startVerseId,
-        end_verse_id: endVerseId,
-        citation,
-        translation_code: translationCode,
-        text,
-      }),
-    });
-    const topic = theologyTopics.find((item) => item.id === theologyTopicId);
-    setStatus(`Range linked to ${topic?.title ?? "Theology"}`);
+    const currentRangeKey = rangeKey;
+    setStatus("Linking range to Theology...");
+    try {
+      await createTheologyLink({
+        topic_id: theologyTopicId,
+        link_kind: "verse_range",
+        target_id: startVerseId,
+        title: citation,
+        payload_json: JSON.stringify({
+          start_verse_id: startVerseId,
+          end_verse_id: endVerseId,
+          citation,
+          translation_code: translationCode,
+          text,
+        }),
+      });
+      const topic = theologyTopics.find((item) => item.id === theologyTopicId);
+      if (activeRangeKey.current === currentRangeKey) {
+        setStatus(`Range linked to ${topic?.title ?? "Theology"}`);
+      }
+    } catch (e) {
+      if (activeRangeKey.current === currentRangeKey) {
+        setStatus(`Theology link failed: ${String(e)}`);
+      }
+    }
   };
 
   return (
@@ -632,10 +671,20 @@ export function RangeActionBar({
               <button
                 type="button"
                 onClick={async () => {
+                  if (busy) return;
+                  const currentRangeKey = rangeKey;
+                  setBusy(true);
+                  setStatus(null);
                   setNoteBody("");
-                  await deleteRangeNote(startVerseId, endVerseId);
-                  onChanged();
-                  setStatus("Range note cleared");
+                  try {
+                    await deleteRangeNote(startVerseId, endVerseId);
+                    onChanged();
+                    if (activeRangeKey.current === currentRangeKey) {
+                      setStatus("Range note cleared");
+                    }
+                  } finally {
+                    if (activeRangeKey.current === currentRangeKey) setBusy(false);
+                  }
                 }}
                 disabled={busy}
                 className="text-xs text-red-400/80 hover:text-red-300 disabled:opacity-50"

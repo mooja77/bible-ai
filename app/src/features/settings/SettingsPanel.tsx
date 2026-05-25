@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   addModuleEntry,
   backupUserSqlite,
@@ -99,6 +99,7 @@ export function SettingsPanel({
   const [draft, setDraft] = useState<AppSettings>(settings);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [diagnostics, setDiagnostics] = useState<SetupDiagnostics | null>(null);
   const [diagnosticError, setDiagnosticError] = useState<string | null>(null);
@@ -119,17 +120,29 @@ export function SettingsPanel({
   const [topicBusy, setTopicBusy] = useState(false);
   const [topicStatus, setTopicStatus] = useState<string | null>(null);
   const [setupPath, setSetupPath] = useState<SetupPath>("personal");
+  const moduleRefreshRequestId = useRef(0);
 
   useEffect(() => {
     setDraft(settings);
+    setSaveError(null);
   }, [settings]);
 
   const refreshModules = async () => {
-    const [modules, topics, sources] = await Promise.all([
-      listModules(),
-      listModuleTopics(),
-      listResourceSources(),
-    ]);
+    const requestId = ++moduleRefreshRequestId.current;
+    let modules: ModuleSummary[];
+    let topics: ModuleTopic[];
+    let sources: ResourceSource[];
+    try {
+      [modules, topics, sources] = await Promise.all([
+        listModules(),
+        listModuleTopics(),
+        listResourceSources(),
+      ]);
+    } catch (e) {
+      if (requestId === moduleRefreshRequestId.current) throw e;
+      return;
+    }
+    if (requestId !== moduleRefreshRequestId.current) return;
     setInstalledModules(modules);
     setModuleTopics(topics);
     setResourceSources(sources);
@@ -137,21 +150,33 @@ export function SettingsPanel({
   };
 
   useEffect(() => {
-    refreshModules().catch(() => setInstalledModules([]));
+    let cancelled = false;
+    refreshModules().catch(() => {
+      if (!cancelled) setInstalledModules([]);
+    });
+    return () => {
+      cancelled = true;
+      moduleRefreshRequestId.current += 1;
+    };
   }, []);
 
   const update = (key: keyof AppSettings, value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
     setSaved(false);
+    setSaveError(null);
   };
 
   const submit = async () => {
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
     try {
       await onSave(draft);
       setSaved(true);
       return true;
+    } catch (e) {
+      setSaveError(String(e));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -397,8 +422,7 @@ export function SettingsPanel({
       ? hasPersonalKey
       : setupPath === "gateway"
         ? hasGateway
-        : hasOllama ||
-          diagnostics?.providers.some(
+        : diagnostics?.providers.some(
             (provider) => provider.name === "claude" && provider.available,
           ) === true;
 
@@ -451,7 +475,7 @@ export function SettingsPanel({
             <SetupPathButton
               active={setupPath === "local"}
               label="Local/no hosted key"
-              detail={hasOllama ? "Ollama host set" : "Claude Code or Ollama"}
+              detail={hasOllama ? "Ollama helps retrieval" : "Claude Code login"}
               onClick={() => setSetupPath("local")}
               testId="provider-setup-path-local"
             />
@@ -470,8 +494,8 @@ export function SettingsPanel({
               <div className="grid sm:grid-cols-2 gap-2">
                 <SetupCheckPill
                   label="Settings saved"
-                  state={saved ? "ok" : "pending"}
-                  detail={saved ? "Latest edits saved." : "Save after editing credentials."}
+                  state={saved ? "ok" : saveError ? "warning" : "pending"}
+                  detail={saved ? "Latest edits saved." : saveError ?? "Save after editing credentials."}
                 />
                 <SetupCheckPill
                   label="Tested providers"
@@ -513,6 +537,7 @@ export function SettingsPanel({
                   {checking ? "Testing..." : "Save & test"}
                 </button>
               </div>
+              {saveError && <p className="text-xs text-red-300">{saveError}</p>}
             </div>
           </div>
         </div>
@@ -800,7 +825,11 @@ export function SettingsPanel({
           >
             Copy backup JSON
           </button>
-          {backupStatus && <span className="text-xs text-neutral-400">{backupStatus}</span>}
+          {backupStatus && (
+            <span data-testid="backup-status" className="text-xs text-neutral-400">
+              {backupStatus}
+            </span>
+          )}
         </div>
         <div className="grid gap-3 border-t border-neutral-800 pt-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -1173,6 +1202,7 @@ export function SettingsPanel({
           {checking ? "Checking..." : "Test setup"}
         </button>
         {saved && <span className="text-xs text-emerald-300">Saved</span>}
+        {saveError && <span className="text-xs text-red-300">{saveError}</span>}
       </div>
 
       {(diagnostics || diagnosticError) && (
@@ -1255,11 +1285,11 @@ export function SettingsPanel({
 function moduleEntryReaderTarget(entry: ModuleEntry) {
   const metadata = entry.metadata ?? {};
   const verseId =
-    readNumber(metadata.verse_id) ??
-    readNumber(metadata.start_verse_id) ??
-    (entry.key_type === "verse" ? readNumber(entry.key_value) : null) ??
-    (entry.key_type === "verse_range" ? readNumber(entry.key_value.split("-")[0]) : null);
-  if (!verseId || verseId <= 0) return null;
+    readPositiveInteger(metadata.verse_id) ??
+    readPositiveInteger(metadata.start_verse_id) ??
+    (entry.key_type === "verse" ? readPositiveInteger(entry.key_value) : null) ??
+    (entry.key_type === "verse_range" ? readPositiveInteger(entry.key_value.split("-")[0]) : null);
+  if (!verseId) return null;
   return {
     verseId,
     translationCode: readString(metadata.translation_code) ?? "KJV",
@@ -1267,9 +1297,9 @@ function moduleEntryReaderTarget(entry: ModuleEntry) {
   };
 }
 
-function readNumber(value: unknown) {
+function readPositiveInteger(value: unknown) {
   const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function readString(value: unknown) {
@@ -1392,7 +1422,7 @@ function SetupPathDetails({ path }: { path: SetupPath }) {
           }
         : {
             title: "Use local or no hosted-key mode",
-            body: "Best for offline reading or users who already have Claude Code or Ollama configured locally. Hosted provider voices may be skipped until a key or gateway is added.",
+            body: "Best for offline reading or users who already have Claude Code configured locally. Ollama can support semantic retrieval, but Council voices still need Claude Code, a provider key, or a gateway.",
             steps: [
               "Use Claude Code login if available for Claude voice and synthesis.",
               "Set an Ollama host if local semantic retrieval should be tested.",

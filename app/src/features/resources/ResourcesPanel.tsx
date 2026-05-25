@@ -34,14 +34,27 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([listResourceSources(), listTheologyTopics(), listResourceCollections(null)])
-      .then(([nextSources, nextTopics, nextCollections]) => {
+    let cancelled = false;
+    Promise.all([listResourceSources(), listTheologyTopics()])
+      .then(([nextSources, nextTopics]) => {
+        if (cancelled) return;
         setSources(nextSources);
         setTopics(nextTopics);
-        setCollections(nextCollections);
-        setLinkTopicId(nextTopics[0]?.id ?? null);
+        setTopicFilterId((current) =>
+          current && nextTopics.some((topic) => topic.id === current) ? current : null,
+        );
+        setLinkTopicId((current) =>
+          current && nextTopics.some((topic) => topic.id === current)
+            ? current
+            : nextTopics[0]?.id ?? null,
+        );
       })
-      .catch((e) => setStatus(String(e)));
+      .catch((e) => {
+        if (!cancelled) setStatus(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -127,23 +140,32 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
 
   const attachToTheology = async () => {
     if (!selected?.id || !linkTopicId) return;
-    await createTheologyLink({
-      topic_id: linkTopicId,
-      link_kind: "resource_entry",
-      target_id: selected.id,
-      title: selected.title ?? selected.ref_value ?? "Resource entry",
-      payload_json: JSON.stringify({
-        source: selected.source_title,
-        collection: selected.collection_title,
-        collection_kind: selected.collection_kind,
-        license: selected.license,
-        attribution: selected.attribution,
-        share_alike_requirements: selectedShareAlikeRequirements,
-        citation: selectedCitation,
-        related_scripture_refs: relatedScriptureRefs,
-      }),
-    });
-    setStatus("Resource linked to Theology.");
+    if (!topics.some((topic) => topic.id === linkTopicId)) {
+      setStatus("Select a valid Theology topic before linking.");
+      return;
+    }
+    setStatus("Linking resource to Theology...");
+    try {
+      await createTheologyLink({
+        topic_id: linkTopicId,
+        link_kind: "resource_entry",
+        target_id: selected.id,
+        title: selected.title ?? selected.ref_value ?? "Resource entry",
+        payload_json: JSON.stringify({
+          source: selected.source_title,
+          collection: selected.collection_title,
+          collection_kind: selected.collection_kind,
+          license: selected.license,
+          attribution: selected.attribution,
+          share_alike_requirements: selectedShareAlikeRequirements,
+          citation: selectedCitation,
+          related_scripture_refs: relatedScriptureRefs,
+        }),
+      });
+      setStatus("Resource linked to Theology.");
+    } catch (e) {
+      setStatus(`Link failed: ${String(e)}`);
+    }
   };
 
   const askCouncilAboutResource = () => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   askCouncil,
   createTheologyLink,
@@ -89,11 +89,18 @@ export function CouncilPanel({
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [judgment, setJudgment] = useState<CouncilJudgment | null>(null);
   const [argumentAnnotations, setArgumentAnnotations] = useState<ArgumentAnnotation[]>([]);
+  const councilViewRequestId = useRef(0);
+  const sessionListRequestId = useRef(0);
 
   const refreshSessions = useCallback(() => {
+    const requestId = ++sessionListRequestId.current;
     listCouncilSessions(30)
-      .then(setSessions)
-      .catch(() => setSessions([]));
+      .then((rows) => {
+        if (requestId === sessionListRequestId.current) setSessions(rows);
+      })
+      .catch(() => {
+        if (requestId === sessionListRequestId.current) setSessions([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -111,11 +118,13 @@ export function CouncilPanel({
 
   useEffect(() => {
     if (restoredResult) {
+      councilViewRequestId.current += 1;
       setQuestion(restoredResult.question);
       setResponse(restoredResult.response);
       setActiveSessionId(restoredResult.response.session_id ?? null);
       setJudgment(readPayloadJudgment(restoredResult.response));
       setError(null);
+      setLoading(false);
       onRestoredResultConsumed?.();
     }
   }, [onRestoredResultConsumed, restoredResult]);
@@ -137,11 +146,12 @@ export function CouncilPanel({
     if (loading) return;
     const q = question.trim();
     if (!q) return;
+    const requestId = ++councilViewRequestId.current;
     setError(null);
-      setResponse(null);
-      setActiveSessionId(null);
-      setJudgment(null);
-      setArgumentAnnotations([]);
+    setResponse(null);
+    setActiveSessionId(null);
+    setJudgment(null);
+    setArgumentAnnotations([]);
     setLoading(true);
     try {
       const r = await askCouncil(q, undefined, {
@@ -154,6 +164,7 @@ export function CouncilPanel({
         // typed values, and the backend rejects out-of-range limits.
         evidence_limit: Math.min(120, Math.max(10, Math.round(evidenceLimit) || 60)),
       });
+      if (requestId !== councilViewRequestId.current) return;
       setResponse(r);
       setActiveSessionId(r.session_id ?? null);
       if (r.session_id && startingView.trim()) {
@@ -162,19 +173,23 @@ export function CouncilPanel({
           before_judgment: startingView.trim(),
         };
         await upsertCouncilJudgment(initialJudgment);
+        if (requestId !== councilViewRequestId.current) return;
         setJudgment(initialJudgment);
       }
       refreshSessions();
     } catch (e) {
-      setError(String(e));
+      if (requestId === councilViewRequestId.current) setError(String(e));
     } finally {
-      setLoading(false);
+      if (requestId === councilViewRequestId.current) setLoading(false);
     }
   };
 
   const onSelectSession = async (id: number) => {
+    const requestId = ++councilViewRequestId.current;
+    setLoading(false);
     try {
       const stored = await getCouncilSession(id);
+      if (requestId !== councilViewRequestId.current) return;
       if (stored) {
         setQuestion(stored.question);
         setResponse(stored.response);
@@ -185,7 +200,7 @@ export function CouncilPanel({
         setError(null);
       }
     } catch (e) {
-      setError(String(e));
+      if (requestId === councilViewRequestId.current) setError(String(e));
     }
   };
 
@@ -985,8 +1000,11 @@ function CouncilArgumentMaps({
   const [annotations, setAnnotations] = useState<Record<string, ArgumentAnnotation>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingNode, setSavingNode] = useState<string | null>(null);
+  const activeSessionId = useRef(sessionId);
 
   useEffect(() => {
+    activeSessionId.current = sessionId;
+    setSavingNode(null);
     if (!sessionId) {
       setAnnotations({});
       setDrafts({});
@@ -1014,6 +1032,7 @@ function CouncilArgumentMaps({
 
   const saveAnnotation = async (nodeId: string) => {
     if (!sessionId) return;
+    const savingSessionId = sessionId;
     const annotation = (drafts[nodeId] ?? "").trim();
     setSavingNode(nodeId);
     try {
@@ -1023,6 +1042,7 @@ function CouncilArgumentMaps({
         node_id: nodeId,
         annotation,
       });
+      if (activeSessionId.current !== savingSessionId) return;
       setAnnotations((current) => {
         const next = {
           ...current,
@@ -1037,7 +1057,7 @@ function CouncilArgumentMaps({
         return next;
       });
     } finally {
-      setSavingNode(null);
+      if (activeSessionId.current === savingSessionId) setSavingNode(null);
     }
   };
 
@@ -1330,6 +1350,7 @@ function CouncilRetrievalControls({
         <option value="all">All testaments</option>
         <option value="OT">Old Testament</option>
         <option value="NT">New Testament</option>
+        <option value="DC">Deuterocanon</option>
       </select>
       <select
         value={bookId}

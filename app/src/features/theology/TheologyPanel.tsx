@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createTheologyTopic,
   createTheologyLink,
@@ -130,6 +130,7 @@ export function TheologyPanel({
   const [exported, setExported] = useState(false);
   const [savedPdfPath, setSavedPdfPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const topicStatsRequestId = useRef(0);
 
   useEffect(() => {
     refreshTopics()
@@ -147,6 +148,7 @@ export function TheologyPanel({
   };
 
   const refreshTopicStats = async (rows = topics) => {
+    const requestId = ++topicStatsRequestId.current;
     const pairs = await Promise.all(
       rows.map(async (topic) => {
         const [topicConclusion, topicLinks] = await Promise.all([
@@ -156,6 +158,7 @@ export function TheologyPanel({
         return [topic.id, buildTopicStats(topicConclusion, topicLinks)] as const;
       }),
     );
+    if (requestId !== topicStatsRequestId.current) return;
     setTopicStats(Object.fromEntries(pairs));
   };
 
@@ -267,11 +270,6 @@ export function TheologyPanel({
           title: "",
           payload_json: "{}",
         });
-        setRelationDraft((current) => ({
-          ...current,
-          targetTopicId:
-            topics.find((topic) => topic.id !== selectedTopicId)?.id ?? current.targetTopicId,
-        }));
       })
       .catch(() => {
         if (!cancelled) setPositions([]);
@@ -315,6 +313,25 @@ export function TheologyPanel({
       cancelled = true;
     };
   }, [selectedGuidedTemplate, selectedTopicId]);
+
+  useEffect(() => {
+    if (!selectedTopicId) {
+      setRelationDraft((current) =>
+        current.targetTopicId === null ? current : { ...current, targetTopicId: null },
+      );
+      return;
+    }
+    setRelationDraft((current) => {
+      const currentTargetStillValid =
+        current.targetTopicId !== null &&
+        topics.some((topic) => topic.id === current.targetTopicId && topic.id !== selectedTopicId);
+      if (currentTargetStillValid) return current;
+      const nextTargetId = topics.find((topic) => topic.id !== selectedTopicId)?.id ?? null;
+      return current.targetTopicId === nextTargetId
+        ? current
+        : { ...current, targetTopicId: nextTargetId };
+    });
+  }, [selectedTopicId, topics]);
 
   const updateConclusion = (patch: Partial<TheologyConclusion>) => {
     setConclusion((current) => (current ? { ...current, ...patch } : current));
@@ -1633,13 +1650,15 @@ function readReviewCards(value?: string | null): ReviewCard[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .map((card) => {
-        if (!card || typeof card !== "object") return null;
-        const item = card as Record<string, unknown>;
-        const answer = String(item.answer ?? "").trim();
+        const item = asTheologyPayloadRecord(card);
+        if (!item) return null;
+        const answer = readPayloadString(item.answer);
         if (!answer) return null;
+        const kind = readPayloadString(item.kind) ?? "review";
+        const prompt = readPayloadString(item.prompt) ?? "Review";
         return {
-          kind: String(item.kind ?? "review"),
-          prompt: String(item.prompt ?? "Review"),
+          kind,
+          prompt,
           answer,
         };
       })
@@ -1675,10 +1694,25 @@ function readTheologyLinkPayload(link: TheologyLink): Record<string, unknown> {
   if (!link.payload_json) return {};
   try {
     const parsed = JSON.parse(link.payload_json);
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+    return asTheologyPayloadRecord(parsed) ?? {};
   } catch {
     return {};
   }
+}
+
+function asTheologyPayloadRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readPayloadString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readPositiveInteger(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function groupTheologyEvidence(links: TheologyLink[]) {
@@ -1885,9 +1919,13 @@ function theologyLinkPreview(link: TheologyLink) {
   ];
   return values
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-    .map((value) => value.replace(/<[^>]*>/g, "").trim())
+    .map((value) => stripSnippetMarkup(value).trim())
     .join(" - ")
     .slice(0, 220);
+}
+
+function stripSnippetMarkup(value: string) {
+  return value.replace(/<\/?mark>/gi, "");
 }
 
 function ProgressMetric({ label, value }: { label: string; value: number }) {
@@ -1902,17 +1940,19 @@ function ProgressMetric({ label, value }: { label: string; value: number }) {
 function parseDoctrineRelation(link: TheologyLink): DoctrineRelationPayload | null {
   if (link.link_kind !== "note") return null;
   try {
-    const payload = JSON.parse(link.payload_json ?? "{}") as Partial<DoctrineRelationPayload>;
+    const payload = asTheologyPayloadRecord(JSON.parse(link.payload_json ?? "{}"));
+    if (!payload) return null;
     if (payload.type !== "doctrine_relation") return null;
-    if (!payload.relation || !["depends_on", "supports", "tension"].includes(payload.relation)) {
+    const relation = readPayloadString(payload.relation);
+    if (!relation || !["depends_on", "supports", "tension"].includes(relation)) {
       return null;
     }
     return {
       type: "doctrine_relation",
-      relation: payload.relation as DoctrineRelationKind,
-      target_topic_id: payload.target_topic_id,
-      target_topic_title: payload.target_topic_title,
-      note: payload.note,
+      relation: relation as DoctrineRelationKind,
+      target_topic_id: readPositiveInteger(payload.target_topic_id),
+      target_topic_title: readPayloadString(payload.target_topic_title),
+      note: readPayloadString(payload.note),
     };
   } catch {
     return null;

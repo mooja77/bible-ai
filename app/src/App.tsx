@@ -51,9 +51,23 @@ import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
+const safeLocalStorageGet = (key: string) => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const safeLocalStorageSet = (key: string, value: string) => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* localStorage unavailable; keep the in-memory state only */
+  }
+};
 
 type Mode = "reader" | "council" | "theology" | "resources" | "workspaces" | "settings";
-type SearchTestamentFilter = "all" | "OT" | "NT";
+type SearchTestamentFilter = "all" | "OT" | "NT" | "DC";
 type ReaderLayout = "columns" | "interleaved";
 type ReaderDensity = "comfortable" | "compact";
 type CommandItem = {
@@ -161,7 +175,7 @@ const TOUR_STEPS: TourStep[] = [
     eyebrow: "Settings",
     body: "Settings covers AI setup, provider tests, data sources, backups, privacy notes, and release/distribution status.",
     tips: [
-      "No-key mode can use Claude Code login and Ollama.",
+      "No-key Council mode uses a local Claude Code login; Ollama supports semantic retrieval when embeddings are available.",
       "Personal API keys are stored in the OS credential vault and excluded from backups.",
       "Managed Gateway mode supports team/public deployments without exposing provider keys to end users.",
     ],
@@ -178,6 +192,14 @@ function App() {
   const [chapterData, setChapterData] = useState<Record<string, Verse[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark",
+  );
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    safeLocalStorageSet("bibleai-theme", theme);
+  }, [theme]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
@@ -193,6 +215,7 @@ function App() {
     translationCode: string;
     verses: Verse[];
   } | null>(null);
+  const referenceJumpRequestId = useRef(0);
   const [referenceInput, setReferenceInput] = useState("");
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [searchFilterTranslation, setSearchFilterTranslation] = useState("active");
@@ -202,6 +225,7 @@ function App() {
 
   const [mode, setMode] = useState<Mode>("reader");
   const [settings, setSettings] = useState<AppSettings>({});
+  const settingsSaveChain = useRef<Promise<void>>(Promise.resolve());
   const [fontScale, setFontScale] = useState(1);
   const [readerLayout, setReaderLayout] = useState<ReaderLayout>("columns");
   const [readerDensity, setReaderDensity] = useState<ReaderDensity>("comfortable");
@@ -210,6 +234,7 @@ function App() {
   const [readingHistory, setReadingHistory] = useState<ReadingHistoryItem[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [workspaceShortcuts, setWorkspaceShortcuts] = useState<StudyWorkspaceSummary[]>([]);
+  const navigationRequestId = useRef(0);
   const [workspaceFocusId, setWorkspaceFocusId] = useState<number | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
@@ -242,11 +267,13 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [bs, ts, savedSettings] = await Promise.all([
-          listBooks(),
-          listTranslations(),
-          getAppSettings().catch(() => ({} as AppSettings)),
-        ]);
+        const [bs, ts] = await Promise.all([listBooks(), listTranslations()]);
+        let savedSettings: AppSettings = {};
+        try {
+          savedSettings = await getAppSettings();
+        } catch (e) {
+          setWarning(`Settings load failed: ${String(e)}`);
+        }
         setBooks(bs);
         setTranslations(ts);
         setSettings(savedSettings);
@@ -274,20 +301,20 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const dismissed = window.localStorage.getItem(TOUR_DISMISSED_KEY) === "1";
+    const dismissed = safeLocalStorageGet(TOUR_DISMISSED_KEY) === "1";
     setTourDismissed(dismissed);
-    setProviderSetupDismissed(
-      window.localStorage.getItem(PROVIDER_SETUP_DISMISSED_KEY) === "1",
-    );
+    setProviderSetupDismissed(safeLocalStorageGet(PROVIDER_SETUP_DISMISSED_KEY) === "1");
   }, []);
 
   const refreshNavigationLists = useCallback(async () => {
+    const requestId = ++navigationRequestId.current;
     const [b, h, s, w] = await Promise.all([
       listBookmarks().catch(() => [] as Bookmark[]),
       listReadingHistory(8).catch(() => [] as ReadingHistoryItem[]),
       listSavedSearches().catch(() => [] as SavedSearch[]),
       listStudyWorkspaces().catch(() => [] as StudyWorkspaceSummary[]),
     ]);
+    if (requestId !== navigationRequestId.current) return;
     setBookmarks(b);
     setReadingHistory(h);
     setSavedSearches(s);
@@ -312,13 +339,21 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [activeTranslations, refreshNavigationLists, selectedBook, selectedChapter]);
 
+  const queueSettingsSave = useCallback((next: AppSettings) => {
+    const save = settingsSaveChain.current
+      .catch(() => undefined)
+      .then(() => saveAppSettings(next));
+    settingsSaveChain.current = save.catch(() => undefined);
+    return save;
+  }, []);
+
   const saveSettingsPatch = useCallback((patch: AppSettings) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      void saveAppSettings(next).catch((e) => setError(String(e)));
+      void queueSettingsSave(next).catch((e) => setError(String(e)));
       return next;
     });
-  }, []);
+  }, [queueSettingsSave]);
 
   useEffect(() => {
     if (!selectedBook || !selectedChapter || activeTranslations.length === 0) {
@@ -349,8 +384,10 @@ function App() {
   }, [activeTranslations, selectedBook, selectedChapter]);
 
   const searchTimer = useRef<number | null>(null);
+  const searchRequestId = useRef(0);
   useEffect(() => {
     if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    const requestId = ++searchRequestId.current;
     const trimmed = searchQuery.trim();
     if (!trimmed) {
       setSearchResults([]);
@@ -365,6 +402,7 @@ function App() {
           ? (activeTranslations[0] ?? null)
           : searchFilterTranslation;
     searchTimer.current = window.setTimeout(() => {
+      searchTimer.current = null;
       runSearch(
         trimmed,
         primary,
@@ -372,9 +410,15 @@ function App() {
         searchFilterBookId || null,
         searchFilterTestament === "all" ? null : searchFilterTestament,
       )
-        .then((hits) => setSearchResults(hits))
-        .catch((e) => setError(String(e)))
-        .finally(() => setSearchLoading(false));
+        .then((hits) => {
+          if (requestId === searchRequestId.current) setSearchResults(hits);
+        })
+        .catch((e) => {
+          if (requestId === searchRequestId.current) setError(String(e));
+        })
+        .finally(() => {
+          if (requestId === searchRequestId.current) setSearchLoading(false);
+        });
     }, 250);
     return () => {
       if (searchTimer.current) window.clearTimeout(searchTimer.current);
@@ -530,6 +574,7 @@ function App() {
   };
 
   const jumpToVerse = (verseId: number, translationCode: string) => {
+    referenceJumpRequestId.current += 1;
     const bookId = Math.floor(verseId / 1_000_000);
     const chapter = Math.floor((verseId % 1_000_000) / 1000);
     const book = books.find((b) => b.id === bookId);
@@ -547,6 +592,7 @@ function App() {
   };
 
   const jumpToReference = async () => {
+    const requestId = ++referenceJumpRequestId.current;
     const parsed = parseReference(referenceInput, books);
     if (!parsed) {
       setReferenceError("Use a reference like John 3:16 or John 3:16-4:2.");
@@ -578,6 +624,7 @@ function App() {
             parsed.verseId,
             parsed.endVerseId,
           );
+          if (requestId !== referenceJumpRequestId.current) return;
           if (verses.length === 0) {
             setReferenceError("No verses found for that range.");
             return;
@@ -588,6 +635,7 @@ function App() {
             verses,
           });
         } catch (e) {
+          if (requestId !== referenceJumpRequestId.current) return;
           setReferenceError(String(e));
           return;
         }
@@ -610,6 +658,7 @@ function App() {
   };
 
   const selectMode = (nextMode: Mode) => {
+    if (nextMode !== "reader") referenceJumpRequestId.current += 1;
     setMode(nextMode);
     if (nextMode !== "reader") setSearchQuery("");
   };
@@ -622,12 +671,12 @@ function App() {
   };
 
   const dismissTourPrompt = () => {
-    window.localStorage.setItem(TOUR_DISMISSED_KEY, "1");
+    safeLocalStorageSet(TOUR_DISMISSED_KEY, "1");
     setTourDismissed(true);
   };
 
   const dismissProviderSetupPrompt = () => {
-    window.localStorage.setItem(PROVIDER_SETUP_DISMISSED_KEY, "1");
+    safeLocalStorageSet(PROVIDER_SETUP_DISMISSED_KEY, "1");
     setProviderSetupDismissed(true);
   };
 
@@ -814,17 +863,27 @@ function App() {
               <h1 className="text-lg font-semibold text-neutral-100">Bible AI</h1>
               <p className="text-xs text-neutral-500 mt-0.5">Reader, Council, workspace</p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setCommandPaletteOpen(true);
-                setCommandPaletteQuery("");
-              }}
-              className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
-              aria-label="Open command palette"
-            >
-              Ctrl K
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+                className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
+                aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              >
+                {theme === "dark" ? "Light" : "Dark"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCommandPaletteOpen(true);
+                  setCommandPaletteQuery("");
+                }}
+                className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
+                aria-label="Open command palette"
+              >
+                Ctrl K
+              </button>
+            </div>
           </div>
 
           <nav className="flex flex-col gap-0.5" aria-label="Main navigation">
@@ -899,7 +958,7 @@ function App() {
               <div>
                 <p className="text-sm font-medium text-neutral-100">Connect AI when ready</p>
                 <p className="text-xs text-neutral-500 mt-0.5">
-                  Reading, search, notes, and workspaces work offline. Council voices need a local login, Ollama, a user-owned API key, or a managed gateway.
+                  Reading, search, notes, and workspaces work offline. Council voices need a local Claude Code login, a user-owned API key, or a managed gateway.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -952,6 +1011,7 @@ function App() {
               <option value="all">All testaments</option>
               <option value="OT">Old Testament</option>
               <option value="NT">New Testament</option>
+              <option value="DC">Deuterocanon</option>
             </select>
           </div>
           <select
@@ -1137,6 +1197,18 @@ function App() {
       </aside>
 
       <main className="flex-1 overflow-auto bg-neutral-950/20">
+        {warning && (
+          <div className="m-4 flex items-start justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            <span>{warning}</span>
+            <button
+              type="button"
+              className="text-xs text-amber-100 hover:text-white"
+              onClick={() => setWarning(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         {error ? (
           <div className="p-6 text-red-400 text-sm">
             <p className="font-semibold mb-1">Error</p>
@@ -1174,7 +1246,7 @@ function App() {
             onUserDataChanged={refreshUserDataAndNavigation}
             onJumpToVerse={jumpToVerse}
             onSave={async (next) => {
-              await saveAppSettings(next);
+              await queueSettingsSave(next);
               setSettings(next);
               if (next.font_scale) setFontScale(next.font_scale);
               if (next.reader_layout) setReaderLayout(next.reader_layout);
@@ -1764,7 +1836,6 @@ function settingsHasConfiguredAi(settings: AppSettings) {
     settings.openai_api_key,
     settings.google_api_key,
     settings.managed_gateway_url,
-    settings.ollama_host,
   ].some((value) => Boolean(value?.trim()));
 }
 

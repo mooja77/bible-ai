@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   deleteHighlight,
   deleteNote,
@@ -62,30 +62,84 @@ export function VersePanel({
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkLabel, setBookmarkLabel] = useState("");
   const [explanation, setExplanation] = useState<PassageExplanation | null>(null);
+  const [explanationError, setExplanationError] = useState<string | null>(null);
   const [explaining, setExplaining] = useState(false);
   const [moduleEntries, setModuleEntries] = useState<ModuleEntry[]>([]);
   const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
   const [theologyTopicId, setTheologyTopicId] = useState<number | null>(null);
   const [theologyLinkStatus, setTheologyLinkStatus] = useState("");
+  const activeVerseId = useRef(verseId);
+  const explainRequestId = useRef(0);
   const citation = `${bookName} ${chapter}:${verse}`;
 
   useEffect(() => {
-    listModuleEntriesForVerse(verseId)
-      .then(setModuleEntries)
-      .catch(() => setModuleEntries([]));
+    activeVerseId.current = verseId;
+    explainRequestId.current += 1;
+    setBookmarked(false);
+    setBookmarkLabel("");
+    setExplanation(null);
+    setExplanationError(null);
+    setExplaining(false);
+    setTheologyLinkStatus("");
   }, [verseId]);
 
   useEffect(() => {
+    let cancelled = false;
+    setModuleEntries([]);
+    listModuleEntriesForVerse(verseId)
+      .then((entries) => {
+        if (!cancelled) setModuleEntries(entries);
+      })
+      .catch(() => {
+        if (!cancelled) setModuleEntries([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [verseId]);
+
+  useEffect(() => {
+    let cancelled = false;
     listTheologyTopics()
       .then((topics) => {
+        if (cancelled) return;
         setTheologyTopics(topics);
-        setTheologyTopicId((current) => current ?? topics[0]?.id ?? null);
+        setTheologyTopicId((current) =>
+          current && topics.some((topic) => topic.id === current)
+            ? current
+            : topics[0]?.id ?? null,
+        );
       })
-      .catch(() => setTheologyTopics([]));
+      .catch(() => {
+        if (!cancelled) setTheologyTopics([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const explainSelectedVerse = async () => {
+    const requestId = ++explainRequestId.current;
+    setExplaining(true);
+    setExplanation(null);
+    setExplanationError(null);
+    try {
+      const nextExplanation = await explainPassage(translationCode, verseId);
+      if (requestId === explainRequestId.current) setExplanation(nextExplanation);
+    } catch (e) {
+      if (requestId === explainRequestId.current) setExplanationError(String(e));
+    } finally {
+      if (requestId === explainRequestId.current) setExplaining(false);
+    }
+  };
 
   const addVerseToTheology = async () => {
     if (!theologyTopicId) return;
+    const topic = theologyTopics.find((item) => item.id === theologyTopicId);
+    if (!topic) {
+      setTheologyLinkStatus("Select a valid Theology topic before linking.");
+      return;
+    }
     setTheologyLinkStatus("Saving...");
     try {
       await createTheologyLink({
@@ -100,10 +154,11 @@ export function VersePanel({
           text: verseText,
         }),
       });
-      const topic = theologyTopics.find((item) => item.id === theologyTopicId);
-      setTheologyLinkStatus(`Linked to ${topic?.title ?? "Theology"}`);
+      if (activeVerseId.current === verseId) {
+        setTheologyLinkStatus(`Linked to ${topic.title}`);
+      }
     } catch (e) {
-      setTheologyLinkStatus(String(e));
+      if (activeVerseId.current === verseId) setTheologyLinkStatus(String(e));
     }
   };
 
@@ -147,7 +202,7 @@ export function VersePanel({
           type="button"
           onClick={async () => {
             await addBookmark(verseId, null, bookmarkLabel.trim() || citation);
-            setBookmarked(true);
+            if (activeVerseId.current === verseId) setBookmarked(true);
             onMutated();
           }}
           className="px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-900 rounded"
@@ -156,14 +211,7 @@ export function VersePanel({
         </button>
         <button
           type="button"
-          onClick={async () => {
-            setExplaining(true);
-            try {
-              setExplanation(await explainPassage(translationCode, verseId));
-            } finally {
-              setExplaining(false);
-            }
-          }}
+          onClick={explainSelectedVerse}
           data-testid="explain-verse"
           className="px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-900 rounded"
         >
@@ -251,6 +299,11 @@ export function VersePanel({
           </ul>
         </section>
       )}
+      {explanationError && (
+        <p className="mt-4 border-t border-neutral-800 pt-3 text-sm text-red-300">
+          {explanationError}
+        </p>
+      )}
       {explanation && (
         <section className="mt-4 border-t border-neutral-800 pt-3">
           <div className="flex items-start justify-between gap-3">
@@ -315,11 +368,19 @@ function CrossRefsTab({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     setRefs(null);
     setError(null);
     getCrossRefs(verseId, "KJV", 20)
-      .then(setRefs)
-      .catch((e) => setError(String(e)));
+      .then((rows) => {
+        if (!cancelled) setRefs(rows);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [verseId]);
 
   if (error) return <p className="text-red-400 text-sm">{error}</p>;
@@ -431,13 +492,22 @@ function NoteTab({
   const [savedTick, setSavedTick] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+    setBody("");
     setLoaded(false);
+    setSavedTick(0);
     getNote(verseId)
       .then((n) => {
+        if (cancelled) return;
         setBody(n?.body ?? "");
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [verseId]);
 
   const save = async () => {

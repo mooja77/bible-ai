@@ -21,6 +21,7 @@ export interface Translation {
 
 export interface Verse {
   verse_id: number;
+  book_name: string;
   chapter: number;
   verse: number;
   text: string;
@@ -432,6 +433,9 @@ export const reorderStudyItems = (workspaceId: number, itemIds: number[]) =>
 
 export const writeWorkspaceMarkdown = (title: string, markdown: string) =>
   invoke<string>("write_workspace_markdown", { title, markdown });
+
+export const writeWorkspaceMarkdownToPath = (path: string, markdown: string) =>
+  invoke<string>("write_workspace_markdown_to_path", { path, markdown });
 
 export const writeWorkspaceHtml = (title: string, html: string) =>
   invoke<string>("write_workspace_html", { title, html });

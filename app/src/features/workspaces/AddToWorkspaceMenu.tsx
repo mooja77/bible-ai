@@ -35,12 +35,19 @@ export function AddToWorkspaceMenu({
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     listStudyWorkspaces()
       .then((rows) => {
+        if (cancelled) return;
         setWorkspaces(rows);
         setSelectedId(rows[0]?.id ?? "new");
       })
-      .catch(() => setWorkspaces([]));
+      .catch(() => {
+        if (!cancelled) setWorkspaces([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   const add = async () => {
