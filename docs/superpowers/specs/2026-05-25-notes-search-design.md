@@ -1,7 +1,7 @@
 # Search Your Notes — Design
 
 - **Date:** 2026-05-25
-- **Status:** Approved (design); ready for implementation plan
+- **Status:** Implemented (branch `notes-search`)
 - **Theme:** "Surface hidden features" enhancement pass, sub-project 2
 - **Owner:** John Moore
 
