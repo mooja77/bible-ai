@@ -28,6 +28,7 @@ import {
   type RangeNote,
   type ReadingHistoryItem,
   type SavedSearch,
+  type NoteHit,
   type SearchHit,
   type SearchResponse,
   type SearchStrategy,
@@ -37,6 +38,7 @@ import {
   type Verse,
   type WordToken,
   updateSavedSearchTitle,
+  searchNotes,
 } from "./lib/bible";
 import { BookList } from "./features/reader/BookList";
 import { ChapterGrid } from "./features/reader/ChapterGrid";
@@ -44,6 +46,8 @@ import { ChapterReader, RangeActionBar } from "./features/reader/ChapterReader";
 import { TranslationPicker } from "./features/reader/TranslationPicker";
 import { SearchInput } from "./features/search/SearchInput";
 import { SearchStrategyControl } from "./features/search/SearchStrategyControl";
+import { SearchScopeControl, type SearchScope } from "./features/search/SearchScopeControl";
+import { NoteSearchResults } from "./features/search/NoteSearchResults";
 import { SearchResults } from "./features/search/SearchResults";
 import { CouncilPanel } from "./features/council/CouncilPanel";
 import { StrongsPopup } from "./features/reader/StrongsPopup";
@@ -228,6 +232,9 @@ function App() {
   const [searchStrategy, setSearchStrategy] = useState<SearchStrategy>("keyword");
   const [searchDegraded, setSearchDegraded] = useState(false);
   const [searchDegradedReason, setSearchDegradedReason] = useState<string | null>(null);
+  const [searchScope, setSearchScope] = useState<SearchScope>("scripture");
+  const [noteResults, setNoteResults] = useState<NoteHit[]>([]);
+  const [noteLoading, setNoteLoading] = useState(false);
 
   const [mode, setMode] = useState<Mode>("reader");
   const [settings, setSettings] = useState<AppSettings>({});
@@ -398,6 +405,8 @@ function App() {
 
   const searchTimer = useRef<number | null>(null);
   const searchRequestId = useRef(0);
+  const noteRequestId = useRef(0);
+  const noteTimer = useRef<number | null>(null);
   useEffect(() => {
     if (searchTimer.current) window.clearTimeout(searchTimer.current);
     const requestId = ++searchRequestId.current;
@@ -407,6 +416,11 @@ function App() {
       setSearchLoading(false);
       setSearchDegraded(false);
       setSearchDegradedReason(null);
+      return;
+    }
+    if (searchScope !== "scripture") {
+      setSearchResults([]);
+      setSearchLoading(false);
       return;
     }
     setSearchLoading(true);
@@ -453,6 +467,7 @@ function App() {
     };
   }, [
     searchQuery,
+    searchScope,
     activeTranslations,
     searchFilterTranslation,
     searchFilterBookId,
@@ -460,6 +475,34 @@ function App() {
     searchStrategy,
     settings.ollama_host,
   ]);
+
+  useEffect(() => {
+    if (noteTimer.current) window.clearTimeout(noteTimer.current);
+    const requestId = ++noteRequestId.current;
+    const trimmed = searchQuery.trim();
+    if (searchScope !== "notes" || !trimmed) {
+      setNoteResults([]);
+      setNoteLoading(false);
+      return;
+    }
+    setNoteLoading(true);
+    noteTimer.current = window.setTimeout(() => {
+      noteTimer.current = null;
+      searchNotes(trimmed, 100)
+        .then((hits) => {
+          if (requestId === noteRequestId.current) setNoteResults(hits);
+        })
+        .catch((e) => {
+          if (requestId === noteRequestId.current) setError(String(e));
+        })
+        .finally(() => {
+          if (requestId === noteRequestId.current) setNoteLoading(false);
+        });
+    }, 250);
+    return () => {
+      if (noteTimer.current) window.clearTimeout(noteTimer.current);
+    };
+  }, [searchQuery, searchScope]);
 
   // Monotonic id so an in-flight user-data load that resolves late (after a
   // newer chapter was selected) cannot overwrite the current chapter's data.
@@ -679,6 +722,9 @@ function App() {
 
   const onSelectSearchHit = (hit: SearchHit) =>
     jumpToVerse(hit.verse_id, hit.translation_code);
+
+  const onSelectNote = (hit: NoteHit) =>
+    jumpToVerse(hit.verse_id, activeTranslations[0] ?? "KJV");
 
   const askCouncilAboutVerse = (_verseId: number, citation: string) => {
     setPendingCouncilQuestion(
@@ -1013,59 +1059,66 @@ function App() {
             </div>
           )}
 
+          <div className="mb-2">
+            <SearchScopeControl value={searchScope} onChange={setSearchScope} />
+          </div>
           <SearchInput value={searchQuery} onChange={updateSearchQuery} />
-          <div className="mt-2">
-            <SearchStrategyControl
-              value={searchStrategy}
-              onChange={(next) => {
-                setSearchStrategy(next);
-                saveSettingsPatch({ search_strategy: next });
-              }}
-            />
-          </div>
-          {/* Labelled so these read as the search's scope, distinct from the
-              reader's translation picker and book navigation list. */}
-          <p className="nav-section-title">Search in</p>
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              value={searchFilterTranslation}
-              onChange={(e) => setSearchFilterTranslation(e.target.value)}
-              className="settings-input text-xs"
-              aria-label="Search translation"
-            >
-              <option value="active">Active translation</option>
-              <option value="all">All translations</option>
-              {translations.map((t) => (
-                <option key={t.code} value={t.code}>
-                  {t.code}
-                </option>
-              ))}
-            </select>
-            <select
-              value={searchFilterTestament}
-              onChange={(e) => setSearchFilterTestament(e.target.value as SearchTestamentFilter)}
-              className="settings-input text-xs"
-              aria-label="Search testament"
-            >
-              <option value="all">All testaments</option>
-              <option value="OT">Old Testament</option>
-              <option value="NT">New Testament</option>
-              <option value="DC">Deuterocanon</option>
-            </select>
-          </div>
-          <select
-            value={searchFilterBookId}
-            onChange={(e) => setSearchFilterBookId(Number(e.target.value))}
-            className="settings-input text-xs"
-            aria-label="Search book"
-          >
-            <option value={0}>All books</option>
-            {books.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          {searchScope === "scripture" && (
+            <>
+              <div className="mt-2">
+                <SearchStrategyControl
+                  value={searchStrategy}
+                  onChange={(next) => {
+                    setSearchStrategy(next);
+                    saveSettingsPatch({ search_strategy: next });
+                  }}
+                />
+              </div>
+              {/* Labelled so these read as the search's scope, distinct from the
+                  reader's translation picker and book navigation list. */}
+              <p className="nav-section-title">Search in</p>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={searchFilterTranslation}
+                  onChange={(e) => setSearchFilterTranslation(e.target.value)}
+                  className="settings-input text-xs"
+                  aria-label="Search translation"
+                >
+                  <option value="active">Active translation</option>
+                  <option value="all">All translations</option>
+                  {translations.map((t) => (
+                    <option key={t.code} value={t.code}>
+                      {t.code}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={searchFilterTestament}
+                  onChange={(e) => setSearchFilterTestament(e.target.value as SearchTestamentFilter)}
+                  className="settings-input text-xs"
+                  aria-label="Search testament"
+                >
+                  <option value="all">All testaments</option>
+                  <option value="OT">Old Testament</option>
+                  <option value="NT">New Testament</option>
+                  <option value="DC">Deuterocanon</option>
+                </select>
+              </div>
+              <select
+                value={searchFilterBookId}
+                onChange={(e) => setSearchFilterBookId(Number(e.target.value))}
+                className="settings-input text-xs"
+                aria-label="Search book"
+              >
+                <option value={0}>All books</option>
+                {books.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
           <div className="space-y-1">
             <div className="flex gap-2">
@@ -1254,32 +1307,41 @@ function App() {
             <pre className="whitespace-pre-wrap">{error}</pre>
           </div>
         ) : searchActive ? (
-          <SearchResults
-            query={searchQuery.trim()}
-            results={visibleSearchResults}
-            loading={searchLoading}
-            onSelect={onSelectSearchHit}
-            degraded={searchDegraded}
-            degradedReason={searchDegradedReason}
-            onSaveSearch={async () => {
-              const q = searchQuery.trim();
-              if (!q) return;
-              const translation =
-                searchFilterTranslation === "active"
-                  ? (activeTranslations[0] ?? null)
-                  : searchFilterTranslation === "all"
-                    ? null
-                    : searchFilterTranslation;
-              await createSavedSearch(
-                q,
-                q,
-                translation,
-                searchFilterTestament === "all" ? null : searchFilterTestament,
-                searchFilterBookId || null,
-              );
-              await refreshNavigationLists();
-            }}
-          />
+          searchScope === "notes" ? (
+            <NoteSearchResults
+              query={searchQuery.trim()}
+              results={noteResults}
+              loading={noteLoading}
+              onSelect={onSelectNote}
+            />
+          ) : (
+            <SearchResults
+              query={searchQuery.trim()}
+              results={visibleSearchResults}
+              loading={searchLoading}
+              onSelect={onSelectSearchHit}
+              degraded={searchDegraded}
+              degradedReason={searchDegradedReason}
+              onSaveSearch={async () => {
+                const q = searchQuery.trim();
+                if (!q) return;
+                const translation =
+                  searchFilterTranslation === "active"
+                    ? (activeTranslations[0] ?? null)
+                    : searchFilterTranslation === "all"
+                      ? null
+                      : searchFilterTranslation;
+                await createSavedSearch(
+                  q,
+                  q,
+                  translation,
+                  searchFilterTestament === "all" ? null : searchFilterTestament,
+                  searchFilterBookId || null,
+                );
+                await refreshNavigationLists();
+              }}
+            />
+          )
         ) : mode === "settings" ? (
           <SettingsPanel
             settings={settings}
