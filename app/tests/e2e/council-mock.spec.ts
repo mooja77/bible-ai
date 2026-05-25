@@ -222,7 +222,8 @@ describe("Council mock workflow", () => {
     const deleteButton = await $(
       `//button[@title="${question}"]/following-sibling::button[@aria-label="Delete session"]`,
     );
-    await deleteButton.scrollIntoView();
+    await scrollIntoView(restoredSessionRow);
+    await restoredSessionRow.moveTo();
     await deleteButton.waitForClickable({ timeout: 10_000 });
     await deleteButton.click();
 
@@ -235,3 +236,9 @@ describe("Council mock workflow", () => {
     );
   });
 });
+
+async function scrollIntoView(element: WebdriverIO.Element) {
+  await browser.execute((target: HTMLElement) => {
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+  }, element);
+}

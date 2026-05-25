@@ -10,6 +10,7 @@ const fileArtifacts = [
   ["corpus", join(releaseRoot, "corpus.sqlite")],
   ["sidecar_entry", join(releaseRoot, "sidecar", "index.mjs")],
   ["sidecar_council", join(releaseRoot, "sidecar", "council.mjs")],
+  ["sidecar_explain", join(releaseRoot, "sidecar", "explain.mjs")],
   ["sidecar_package", join(releaseRoot, "sidecar", "package.json")],
   ["sidecar_lockfile", join(releaseRoot, "sidecar", "package-lock.json")],
   ["node_runtime", join(releaseRoot, "sidecar", "node", "node.exe")],
@@ -18,8 +19,11 @@ const fileArtifacts = [
 ];
 
 const directoryArtifacts = [
+  ["sidecar_providers", join(releaseRoot, "sidecar", "providers")],
   ["sidecar_dependencies", join(releaseRoot, "sidecar", "node_modules")],
 ];
+
+const forbiddenArtifacts = [["sidecar_tests", join(releaseRoot, "sidecar", "tests")]];
 
 const missing = fileArtifacts
   .filter(([, filePath]) => !filePath || !existsSync(filePath))
@@ -29,8 +33,15 @@ for (const [name, dirPath] of directoryArtifacts) {
   if (!existsSync(dirPath)) missing.push(name);
 }
 
+const forbidden = forbiddenArtifacts.filter(([, artifactPath]) => existsSync(artifactPath)).map(([name]) => name);
+
 if (missing.length > 0) {
   console.error(`Release manifest failed: missing ${missing.join(", ")}`);
+  process.exit(1);
+}
+
+if (forbidden.length > 0) {
+  console.error(`Release manifest failed: forbidden bundled artifact(s): ${forbidden.join(", ")}`);
   process.exit(1);
 }
 

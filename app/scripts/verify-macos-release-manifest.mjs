@@ -10,9 +10,12 @@ const requiredFileNames = [
   "corpus",
   "sidecar_entry",
   "sidecar_council",
+  "sidecar_explain",
+  "sidecar_package",
+  "sidecar_lockfile",
   "node_runtime",
 ];
-const requiredDirectoryNames = ["app_bundle", "sidecar_dependencies"];
+const requiredDirectoryNames = ["app_bundle", "sidecar_providers", "sidecar_dependencies"];
 const sha256Pattern = /^[a-f0-9]{64}$/;
 const failures = [];
 const successes = [];
@@ -49,6 +52,16 @@ if (!Array.isArray(manifest.directories)) {
   verifyRequiredEntries("directory", manifest.directories, requiredDirectoryNames);
   verifyUniqueEntries("directory", manifest.directories);
   for (const directory of manifest.directories) verifyDirectory(directory);
+}
+
+const sidecarProviders = Array.isArray(manifest.directories)
+  ? manifest.directories.find((directory) => directory?.name === "sidecar_providers")
+  : null;
+if (sidecarProviders?.path) {
+  const sidecarTestsPath = join(releaseRoot, String(sidecarProviders.path), "..", "tests");
+  if (existsSync(sidecarTestsPath)) {
+    failures.push(`sidecar_tests should not be bundled: ${sidecarTestsPath}`);
+  }
 }
 
 if (failures.length > 0) {
@@ -122,6 +135,14 @@ function verifyDirectory(directory) {
   }
   if (!relativePath) {
     failures.push(`${name} has no path`);
+    return;
+  }
+  if (!Number.isSafeInteger(Number(directory.files)) || Number(directory.files) <= 0) {
+    failures.push(`${name} has invalid file count: ${directory.files}`);
+    return;
+  }
+  if (!Number.isSafeInteger(Number(directory.bytes)) || Number(directory.bytes) <= 0) {
+    failures.push(`${name} has invalid byte count: ${directory.bytes}`);
     return;
   }
   const dirPath = join(releaseRoot, relativePath);

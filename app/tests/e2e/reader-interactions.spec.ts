@@ -95,6 +95,10 @@ describe("Reader interactions", () => {
     const explanation = await $("h4*=Explanation:");
     await explanation.waitForDisplayed({ timeout: 60_000 });
     await expect(explanation).toBeDisplayed();
+    await expect(explanation).toHaveText("Explanation: Genesis 1:1", {
+      containing: true,
+      ignoreCase: true,
+    });
 
     const closeBtn = await $('button[aria-label="Close verse panel"]');
     await closeBtn.click();
@@ -276,9 +280,7 @@ describe("Reader interactions", () => {
     await readerHeading.waitForDisplayed({ timeout: 10_000 });
     const reopenedRangeBar = await $('[data-testid="range-action-bar"]');
     if (await reopenedRangeBar.isDisplayed().catch(() => false)) {
-      const clearReopenedRange = await reopenedRangeBar.$("button=Clear");
-      await clearReopenedRange.waitForClickable({ timeout: 5_000 });
-      await clearReopenedRange.click();
+      await clearVisibleRangeBar("Genesis 1:1-3");
     }
 
     const layout = await $('select[aria-label="Reader layout"]');
@@ -405,8 +407,7 @@ describe("Reader interactions", () => {
 
     const clear = await rangeBar.$("button=Clear");
     await clear.waitForClickable({ timeout: 5_000 });
-    await clear.click();
-    await rangeBar.waitForDisplayed({ reverse: true, timeout: 5_000 });
+    await clearVisibleRangeBar("Genesis 1:1-3");
 
     await firstVerse.waitForClickable({ timeout: 5_000 });
     await firstVerse.click();
@@ -481,9 +482,7 @@ describe("Reader interactions", () => {
     await expect(rangeBar).toHaveText("Genesis 1:1-3", { containing: true, ignoreCase: true });
     await expect(rangeBar).toHaveText("3 verses selected", { containing: true, ignoreCase: true });
 
-    const clear = await rangeBar.$("button=Clear");
-    await clear.click();
-    await rangeBar.waitForDisplayed({ reverse: true, timeout: 5_000 });
+    await clearVisibleRangeBar("Genesis 1:1-3");
   });
 
   it("opens a cross-chapter range from the jump box", async () => {
@@ -501,9 +500,7 @@ describe("Reader interactions", () => {
     await expect(rangeBar).toHaveText("Genesis 1:31-2:3", { containing: true, ignoreCase: true });
     await expect(rangeBar).toHaveText("4 verses selected", { containing: true, ignoreCase: true });
 
-    const clear = await rangeBar.$("button=Clear");
-    await clear.click();
-    await rangeBar.waitForDisplayed({ reverse: true, timeout: 5_000 });
+    await clearVisibleRangeBar("Genesis 1:31-2:3");
   });
 
   it("switches to interleaved compact layout for parallel translations", async () => {
@@ -585,4 +582,34 @@ async function clickVerseAction(selector: string) {
   }, verseAction);
   await verseAction.waitForClickable({ timeout: 10_000 });
   await verseAction.click();
+}
+
+async function clearVisibleRangeBar(citation: string) {
+  await browser.execute((expectedCitation) => {
+    const bars = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-testid="range-action-bar"]'),
+    );
+    const bar = bars.find(
+      (element) =>
+        element.getClientRects().length > 0 &&
+        (element.textContent ?? "").includes(expectedCitation),
+    );
+    const clear = Array.from(bar?.querySelectorAll<HTMLButtonElement>("button") ?? []).find(
+      (button) => button.textContent?.trim() === "Clear",
+    );
+    clear?.click();
+  }, citation);
+
+  await browser.waitUntil(
+    async () => {
+      const bars = await $$('[data-testid="range-action-bar"]');
+      for (const bar of bars) {
+        if ((await bar.isDisplayed().catch(() => false)) && (await bar.getText()).includes(citation)) {
+          return false;
+        }
+      }
+      return true;
+    },
+    { timeout: 10_000, timeoutMsg: `range bar for ${citation} did not clear` },
+  );
 }

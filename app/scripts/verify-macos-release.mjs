@@ -6,6 +6,7 @@ import {
   findMacosDmg,
   isExecutable,
   macosAppExecutable,
+  summarizeDirectory,
 } from "./macos-release-utils.mjs";
 
 const failures = [];
@@ -31,12 +32,17 @@ if (!appBundle) {
   checkFile("corpus resource", join(resources, "corpus.sqlite"));
   checkFile("sidecar entry", join(resources, "sidecar", "index.mjs"));
   checkFile("sidecar council module", join(resources, "sidecar", "council.mjs"));
+  checkFile("sidecar explanation module", join(resources, "sidecar", "explain.mjs"));
+  checkFile("sidecar package", join(resources, "sidecar", "package.json"));
+  checkFile("sidecar lockfile", join(resources, "sidecar", "package-lock.json"));
   const nodePath = join(resources, "sidecar", "node", "bin", "node");
   checkFile("bundled macOS Node runtime", nodePath);
   if (existsSync(nodePath) && !isExecutable(nodePath)) {
     failures.push(`bundled macOS Node runtime is not executable: ${nodePath}`);
   }
+  checkDirectory("sidecar providers", join(resources, "sidecar", "providers"));
   checkDirectory("sidecar dependencies", join(resources, "sidecar", "node_modules"));
+  checkAbsent("sidecar tests", join(resources, "sidecar", "tests"));
 
   if (process.platform === "darwin" && process.env.BIBLE_AI_REQUIRE_MACOS_CODESIGN === "true") {
     const result = spawnSync("codesign", ["--verify", "--deep", "--strict", appBundle], {
@@ -91,5 +97,15 @@ function checkDirectory(label, dirPath) {
     failures.push(`${label} is not a directory: ${dirPath}`);
     return;
   }
+  if (summarizeDirectory(dirPath).files <= 0) {
+    failures.push(`${label} has no bundled files: ${dirPath}`);
+    return;
+  }
   successes.push(`${label}: ${dirPath}`);
+}
+
+function checkAbsent(label, artifactPath) {
+  if (existsSync(artifactPath)) {
+    failures.push(`${label} should not be bundled: ${artifactPath}`);
+  }
 }

@@ -12,6 +12,59 @@ async function openWorkspaces() {
   return work;
 }
 
+async function runSidebarSearch(query: string) {
+  const searchInput = await $('input[type="search"]');
+  await searchInput.waitForDisplayed({ timeout: 5_000 });
+  await searchInput.click();
+  await browser.execute(() => {
+    const input = document.querySelector('input[type="search"]') as HTMLInputElement | null;
+    if (!input) return;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await searchInput.setValue(query);
+
+  await browser.waitUntil(
+    async () => {
+      const header = await $("h2*=Search:");
+      if (!(await header.isDisplayed().catch(() => false))) return false;
+      return (await header.getText()).toLowerCase().includes(query.toLowerCase());
+    },
+    { timeout: 10_000, timeoutMsg: `search header did not render for ${query}` },
+  );
+  await browser.waitUntil(
+    async () => {
+      for (const hit of await $$('[data-testid="search-result"]')) {
+        if (await hit.isDisplayed().catch(() => false)) return true;
+      }
+      return false;
+    },
+    { timeout: 15_000, timeoutMsg: `search results did not render for ${query}` },
+  );
+  return $("h2*=Search:");
+}
+
+async function clickVisibleAddToWorkspaceConfirm() {
+  const clicked = await browser.execute(() => {
+    const confirm = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[data-testid="add-to-workspace-confirm"]'),
+    ).find((button) => button.offsetParent !== null && !button.disabled);
+    confirm?.click();
+    return Boolean(confirm);
+  });
+  if (!clicked) throw new Error("no visible Add to workspace confirmation button");
+}
+
+async function deleteCurrentWorkspace(title: string) {
+  const heading = await $(`h2=${title}`);
+  await heading.waitForDisplayed({ timeout: 10_000 });
+  const deleteButton = await $('[data-testid="delete-workspace"]');
+  await deleteButton.waitForDisplayed({ timeout: 10_000 });
+  await browser.execute((button) => (button as HTMLButtonElement).click(), deleteButton);
+  await heading.waitForDisplayed({ reverse: true, timeout: 10_000 });
+}
+
 describe("Workspaces", () => {
   it("creates and deletes a workspace", async () => {
     const title = `E2E workspace ${Date.now()}`;
@@ -39,8 +92,7 @@ describe("Workspaces", () => {
     await shortcut.click();
     await created.waitForDisplayed({ timeout: 10_000 });
 
-    await $("button=Delete").click();
-    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await deleteCurrentWorkspace(title);
   });
 
   it("updates and archives a workspace", async () => {
@@ -77,7 +129,7 @@ describe("Workspaces", () => {
     const title = `E2E note workspace ${Date.now()}`;
     const noteTitle = `Workspace note ${Date.now()}`;
     const editedBody =
-      "Edited workspace note body for Markdown export.\nOPENAI_API_KEY=TEST_WORKSPACE_LEAK_VALUE\nLocal path C:\\Users\\Example\\secret.txt";
+      "Edited workspace note body for Markdown export.\nOPENAI_API_KEY=\"TEST_WORKSPACE_LEAK_VALUE\"\nmanaged_gateway_token: 'TEST_WORKSPACE_QUOTED_TOKEN'\nx-api-key=TEST_WORKSPACE_HYPHEN_KEY\nLocal path C:\\Users\\Example\\secret.txt";
     await openWorkspaces();
 
     const input = await $('input[placeholder="New workspace"]');
@@ -121,14 +173,15 @@ describe("Workspaces", () => {
           text.includes("[redacted secret]") &&
           text.includes("[redacted local path]") &&
           !text.includes("TEST_WORKSPACE_LEAK_VALUE") &&
+          !text.includes("TEST_WORKSPACE_QUOTED_TOKEN") &&
+          !text.includes("TEST_WORKSPACE_HYPHEN_KEY") &&
           !text.includes("C:\\Users\\Example\\secret.txt")
         );
       },
       { timeout: 5_000, timeoutMsg: "markdown preview did not sanitize workspace note export" },
     );
 
-    await $("button=Delete").click();
-    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await deleteCurrentWorkspace(title);
   });
 
   it("includes resource share-alike requirements in workspace Markdown export", async () => {
@@ -217,8 +270,7 @@ describe("Workspaces", () => {
       { timeout: 5_000, timeoutMsg: "markdown preview did not include resource share-alike requirements" },
     );
 
-    await $("button=Delete").click();
-    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await deleteCurrentWorkspace(title);
   });
 
   it("includes guided study focus questions in workspace Markdown export", async () => {
@@ -318,20 +370,12 @@ describe("Workspaces", () => {
       { timeout: 5_000, timeoutMsg: "markdown preview did not include guided study focus question" },
     );
 
-    await $("button=Delete").click();
-    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await deleteCurrentWorkspace(title);
   });
 
   it("adds selected search results to a workspace and previews Markdown", async () => {
     const title = `E2E search workspace ${Date.now()}`;
-    const searchInput = await $('input[type="search"]');
-    await searchInput.waitForDisplayed({ timeout: 5_000 });
-    await searchInput.setValue("mercy");
-
-    const resultsHeader = await $("h2*=Search:");
-    await resultsHeader.waitForDisplayed({ timeout: 10_000 });
-    const firstHit = await $('[data-testid="search-result"]');
-    await firstHit.waitForDisplayed({ timeout: 10_000 });
+    const resultsHeader = await runSidebarSearch("mercy");
 
     await $("button=Save").click();
     const savedSearch = await $("button=mercy");
@@ -351,8 +395,7 @@ describe("Workspaces", () => {
     const workspaceTitle = await $('input[placeholder="Workspace title"]');
     await workspaceTitle.waitForDisplayed({ timeout: 5_000 });
     await workspaceTitle.setValue(title);
-    const confirms = await $$('[data-testid="add-to-workspace-confirm"]');
-    await confirms[0].click();
+    await clickVisibleAddToWorkspaceConfirm();
     const added = await $("span=Added");
     await added.waitForDisplayed({ timeout: 10_000 });
     await browser.execute(() => {
@@ -462,21 +505,13 @@ describe("Workspaces", () => {
     await reopenedWorkspaceRow.click();
     await created.waitForDisplayed({ timeout: 10_000 });
 
-    await $("button=Delete").click();
-    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await deleteCurrentWorkspace(title);
   });
 
   it("adds an individual search hit to a workspace and reruns its query", async () => {
     const title = `E2E search hit workspace ${Date.now()}`;
     const query = "faith";
-    const searchInput = await $('input[type="search"]');
-    await searchInput.waitForDisplayed({ timeout: 5_000 });
-    await searchInput.setValue(query);
-
-    const resultsHeader = await $("h2*=Search:");
-    await resultsHeader.waitForDisplayed({ timeout: 10_000 });
-    const firstHit = await $('[data-testid="search-result"]');
-    await firstHit.waitForDisplayed({ timeout: 10_000 });
+    const resultsHeader = await runSidebarSearch(query);
 
     const addHitButtons = await $$('[data-testid="add-search-hit-to-workspace"]');
     expect(addHitButtons.length).toBeGreaterThan(0);
@@ -488,8 +523,7 @@ describe("Workspaces", () => {
     const workspaceTitle = await $('input[placeholder="Workspace title"]');
     await workspaceTitle.waitForDisplayed({ timeout: 5_000 });
     await workspaceTitle.setValue(title);
-    const confirms = await $$('[data-testid="add-to-workspace-confirm"]');
-    await confirms[0].click();
+    await clickVisibleAddToWorkspaceConfirm();
     const added = await $("span=Added");
     await added.waitForDisplayed({ timeout: 10_000 });
 
@@ -546,8 +580,7 @@ describe("Workspaces", () => {
     await reopenedWorkspaceRow.click();
     await created.waitForDisplayed({ timeout: 10_000 });
 
-    await $("button=Delete").click();
-    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await deleteCurrentWorkspace(title);
   });
 
   it("renames, reruns, and deletes a saved search", async () => {
@@ -739,8 +772,7 @@ describe("Workspaces", () => {
     await reopenedWorkspaceRow.click();
     await created.waitForDisplayed({ timeout: 10_000 });
 
-    await $("button=Delete").click();
-    await created.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await deleteCurrentWorkspace(title);
   });
 
   it("renders an explanation workspace item and opens its source", async () => {

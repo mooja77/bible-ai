@@ -29,12 +29,17 @@ const fileArtifacts = [
   ["corpus", resources ? join(resources, "corpus.sqlite") : null],
   ["sidecar_entry", resources ? join(resources, "sidecar", "index.mjs") : null],
   ["sidecar_council", resources ? join(resources, "sidecar", "council.mjs") : null],
+  ["sidecar_explain", resources ? join(resources, "sidecar", "explain.mjs") : null],
+  ["sidecar_package", resources ? join(resources, "sidecar", "package.json") : null],
+  ["sidecar_lockfile", resources ? join(resources, "sidecar", "package-lock.json") : null],
   ["node_runtime", resources ? join(resources, "sidecar", "node", "bin", "node") : null],
 ];
 const directoryArtifacts = [
   ["app_bundle", appBundle],
+  ["sidecar_providers", resources ? join(resources, "sidecar", "providers") : null],
   ["sidecar_dependencies", resources ? join(resources, "sidecar", "node_modules") : null],
 ];
+const forbiddenArtifacts = [["sidecar_tests", resources ? join(resources, "sidecar", "tests") : null]];
 
 for (const [name, path] of fileArtifacts) {
   if (!path || !existsSync(path)) missing.push(name);
@@ -42,9 +47,15 @@ for (const [name, path] of fileArtifacts) {
 for (const [name, path] of directoryArtifacts) {
   if (!path || !existsSync(path)) missing.push(name);
 }
+const forbidden = forbiddenArtifacts.filter(([, path]) => path && existsSync(path)).map(([name]) => name);
 
 if (missing.length > 0) {
   console.error(`macOS release manifest failed: missing ${[...new Set(missing)].join(", ")}`);
+  process.exit(1);
+}
+
+if (forbidden.length > 0) {
+  console.error(`macOS release manifest failed: forbidden bundled artifact(s): ${forbidden.join(", ")}`);
   process.exit(1);
 }
 

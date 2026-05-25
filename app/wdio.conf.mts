@@ -4,18 +4,20 @@
  * Mirrors the official Tauri 2 + WebdriverIO example:
  *   - Capabilities use ONLY `tauri:options.application` (no browserName).
  *   - tauri-driver is spawned per-session in `beforeSession`, not globally.
- *   - The app binary is produced by `npm run tauri build -- --debug --no-bundle`,
- *     which goes through Tauri's build pipeline (so the WebView resolves
- *     `frontendDist` instead of staring at an empty page).
+ *   - The app binary is produced by `tauri build --debug --no-bundle`;
+ *     `scripts/stage-debug-resources.mjs` then mirrors bundle resources next
+ *     to the debug executable for clean E2E runs.
  *
  * Prereqs:
  *   - `tauri-driver.exe`  on PATH (~/.cargo/bin)
  *   - `msedgedriver.exe`  on PATH, version-matched to installed Edge
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -28,11 +30,85 @@ process.env.BIBLE_AI_MOCK_COUNCIL = "1";
 
 let tauriDriverProc: ChildProcess | null = null;
 let exiting = false;
+let profileRoot: string | null = null;
+let credentialService: string | null = null;
+
+function createE2eEnvironment() {
+  profileRoot = mkdtempSync(join(tmpdir(), "bible-ai-e2e-profile-"));
+  const appData = join(profileRoot, "AppData", "Roaming");
+  const localAppData = join(profileRoot, "AppData", "Local");
+  const userDataDir = join(appData, "com.jm.bibleai");
+  mkdirSync(appData, { recursive: true });
+  mkdirSync(localAppData, { recursive: true });
+  mkdirSync(userDataDir, { recursive: true });
+
+  credentialService = `Bible-AI-E2E-${process.pid}-${Date.now()}`;
+  return e2eEnv({
+    APPDATA: appData,
+    LOCALAPPDATA: localAppData,
+    BIBLE_AI_USER_DATA_DIR: userDataDir,
+    BIBLE_AI_CREDENTIAL_SERVICE: credentialService,
+    BIBLE_AI_DISABLE_PROJECT_ENV: "1",
+    BIBLE_AI_MOCK_COUNCIL: "1",
+  });
+}
+
+function e2eEnv(overrides: Record<string, string>) {
+  const keep = [
+    "ComSpec",
+    "Path",
+    "PATH",
+    "PATHEXT",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "SystemRoot",
+    "TEMP",
+    "TMP",
+    "USERNAME",
+    "USERPROFILE",
+    "WINDIR",
+  ];
+  const env: Record<string, string> = {};
+  for (const key of keep) {
+    if (process.env[key]) env[key] = process.env[key];
+  }
+  return { ...env, ...overrides };
+}
+
+function cleanupE2eCredentials() {
+  if (process.platform !== "win32" || !credentialService) return;
+  for (const name of [
+    "google_api_key",
+    "openai_api_key",
+    "anthropic_api_key",
+    "managed_gateway_token",
+  ]) {
+    const target = `${name}.${credentialService}`;
+    spawnSync("cmdkey.exe", [`/delete:${target}`], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+  }
+  credentialService = null;
+}
+
+function cleanupE2eProfile() {
+  if (!profileRoot) return;
+  const tmp = resolve(tmpdir());
+  const root = resolve(profileRoot);
+  if (root.startsWith(`${tmp}${sep}`) && basename(root).startsWith("bible-ai-e2e-profile-")) {
+    rmSync(root, { recursive: true, force: true });
+  }
+  profileRoot = null;
+}
 
 function closeTauriDriver() {
   exiting = true;
   tauriDriverProc?.kill();
   tauriDriverProc = null;
+  cleanupE2eCredentials();
+  cleanupE2eProfile();
 }
 
 // Belt-and-braces: tauri-driver lingers if the test process dies abnormally.
@@ -79,10 +155,13 @@ export const config: WebdriverIO.Config = {
   },
 
   beforeSession: () => {
+    const env = createE2eEnvironment();
+    exiting = false;
     // Spawn tauri-driver directly (no shell wrapper) so kill() reaches the
     // actual process instead of orphaning it inside cmd.exe — orphaned
     // tauri-driver instances hold port 4444 and break subsequent runs.
     tauriDriverProc = spawn("tauri-driver.exe", [], {
+      env,
       stdio: ["ignore", process.stdout, process.stderr],
     });
     tauriDriverProc.on("error", (err) => {

@@ -320,6 +320,8 @@ describe("Bible AI shell", () => {
     await verseOne.waitForClickable({ timeout: 10_000 });
     await verseOne.click();
     const addToTheology = await $("button=Add to Theology");
+    await addToTheology.waitForExist({ timeout: 10_000 });
+    await scrollIntoView(addToTheology);
     await addToTheology.waitForClickable({ timeout: 10_000 });
     await addToTheology.click();
     await expect(await $("body")).toHaveText("Linked to", { containing: true, ignoreCase: true });
@@ -349,6 +351,7 @@ describe("Bible AI shell", () => {
     const rangeBar = await $('[data-testid="range-action-bar"]');
     await rangeBar.waitForDisplayed({ timeout: 10_000 });
     const addRange = await $("button=Add range to Theology");
+    await scrollIntoView(addRange);
     await addRange.waitForClickable({ timeout: 10_000 });
     await addRange.click();
     await expect(rangeBar).toHaveText("Range linked to", { containing: true, ignoreCase: true });
@@ -405,8 +408,9 @@ describe("Bible AI shell", () => {
     await expect(citation).toHaveText("Genesis 1:1", { containing: true, ignoreCase: true });
     const link = await $("button=Link to Theology");
     await link.click();
-    await status.waitForDisplayed({ timeout: 10_000 });
-    await expect(status).toHaveText("Resource linked to Theology", { containing: true, ignoreCase: true });
+    const linkStatus = await $('[data-testid="resource-status"]');
+    await linkStatus.waitForDisplayed({ timeout: 10_000 });
+    await expect(linkStatus).toHaveText("Resource linked to Theology", { containing: true, ignoreCase: true });
 
     await $('select[aria-label="Resource theology topic filter"]').selectByVisibleText("Scripture");
     await expect(results).toHaveText("Apostles' Creed", { containing: true, ignoreCase: true });
@@ -434,3 +438,9 @@ describe("Bible AI shell", () => {
     await reader.click();
   });
 });
+
+async function scrollIntoView(element: WebdriverIO.Element) {
+  await browser.execute((target: HTMLElement) => {
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+  }, element);
+}

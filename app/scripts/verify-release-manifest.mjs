@@ -9,13 +9,15 @@ const requiredFileNames = [
   "corpus",
   "sidecar_entry",
   "sidecar_council",
+  "sidecar_explain",
   "sidecar_package",
   "sidecar_lockfile",
   "node_runtime",
   "nsis_installer",
   "msi_installer",
 ];
-const requiredDirectoryNames = ["sidecar_dependencies"];
+const requiredDirectoryNames = ["sidecar_providers", "sidecar_dependencies"];
+const forbiddenPaths = [["sidecar_tests", join(releaseRoot, "sidecar", "tests")]];
 const sha256Pattern = /^[a-f0-9]{64}$/;
 
 if (!existsSync(manifestPath)) {
@@ -75,6 +77,10 @@ if (!Array.isArray(manifest.directories)) {
   for (const directory of manifest.directories) {
     verifyDirectory(directory);
   }
+}
+
+for (const [name, artifactPath] of forbiddenPaths) {
+  if (existsSync(artifactPath)) failures.push(`${name} should not be bundled: ${artifactPath}`);
 }
 
 if (failures.length > 0) {

@@ -35,13 +35,7 @@ describe("Backup and restore", () => {
     await importButton.waitForClickable({ timeout: 10_000 });
     await importButton.click();
 
-    await browser.waitUntil(
-      async () => {
-        const body = await $("body");
-        return (await body.getText()).includes("Imported 1");
-      },
-      { timeout: 10_000, timeoutMsg: "backup JSON import did not complete" },
-    );
+    await waitForBackupStatus("Imported 1", "backup JSON import did not complete");
 
     const imported = await $(`button=${bookmarkLabel}`);
     await imported.waitForDisplayed({ timeout: 10_000 });
@@ -151,10 +145,7 @@ describe("Backup and restore", () => {
     await importButton.waitForClickable({ timeout: 10_000 });
     await importButton.click();
 
-    await browser.waitUntil(
-      async () => (await (await $("body")).getText()).includes("Imported 3"),
-      { timeout: 10_000, timeoutMsg: "resource backup JSON import did not complete" },
-    );
+    await waitForBackupStatus("Imported 3", "resource backup JSON import did not complete");
 
     const resources = await $("button=Resources");
     await resources.waitForClickable({ timeout: 10_000 });
@@ -248,10 +239,7 @@ describe("Backup and restore", () => {
     await importButton.waitForClickable({ timeout: 10_000 });
     await importButton.click();
 
-    await browser.waitUntil(
-      async () => (await (await $("body")).getText()).includes("Imported 2"),
-      { timeout: 10_000, timeoutMsg: "guided study backup JSON import did not complete" },
-    );
+    await waitForBackupStatus("Imported 2", "guided study backup JSON import did not complete");
 
     const theology = await $("button=Theology");
     await theology.waitForClickable({ timeout: 10_000 });
@@ -278,3 +266,16 @@ describe("Backup and restore", () => {
     await expect(reviewCards).toHaveText(expect.stringContaining(focusQuestion));
   });
 });
+
+async function waitForBackupStatus(expected: string, timeoutMsg: string) {
+  const status = await $('[data-testid="backup-status"]');
+  await status.waitForDisplayed({ timeout: 10_000 });
+  await browser.waitUntil(
+    async () => {
+      const text = await status.getText();
+      return text.includes(expected) || text.includes("failed");
+    },
+    { timeout: 10_000, timeoutMsg },
+  );
+  await expect(status).toHaveText(expected, { containing: true, ignoreCase: true });
+}
