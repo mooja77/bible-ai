@@ -410,12 +410,16 @@ function App() {
       return;
     }
     setSearchLoading(true);
+    setSearchDegraded(false);
+    setSearchDegradedReason(null);
     const filterPrimary =
       searchFilterTranslation === "all"
         ? null
         : searchFilterTranslation === "active"
           ? (activeTranslations[0] ?? null)
           : searchFilterTranslation;
+    // Meaning/hybrid need a concrete translation (embeddings are per-translation),
+    // so override an "all translations" selection with the active translation.
     const primary =
       searchStrategy !== "keyword" && !filterPrimary
         ? (activeTranslations[0] ?? "KJV")
