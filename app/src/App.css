@@ -73,6 +73,34 @@
   --btn-danger-text: #b91c1c;
   --scrollbar-thumb: #c4c8cf;
   --scrollbar-track: #e9ebef;
+
+  /* Accent text shades are light pastels tuned for dark surfaces. The
+     neutral scale and surface tokens above re-theme on their own, but raw
+     accent text utilities (text-amber-300, text-red-300, and so on) would
+     wash out on a light background. These shades are used only as
+     foreground (text and icons), so remapping the tokens darkens them
+     everywhere with no per-component edits, mirroring the inverted-neutral
+     approach. A lighter dark-mode shade (more emphasis) maps to a darker
+     light-mode value, preserving the emphasis hierarchy. amber-400 is left
+     unchanged because it is also used as a bg-amber-400 badge fill. */
+  --color-amber-100: #78350f;
+  --color-amber-200: #92400e;
+  --color-amber-300: #b45309;
+  --color-emerald-100: #064e3b;
+  --color-emerald-200: #065f46;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #059669;
+  --color-red-100: #7f1d1d;
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
+  --color-sky-200: #075985;
+  --color-sky-300: #0369a1;
+  --color-blue-300: #1d4ed8;
+
+  /* red-950 is used only as a translucent error-banner background; on light
+     it would read as a muddy dark wash, so make it a soft red tint. */
+  --color-red-950: #fecaca;
 }
 
 html, body, #root {
