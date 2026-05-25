@@ -54,6 +54,7 @@ const APP_SETTING_KEYS: &[&str] = &[
     "reader_layout",
     "reader_density",
     "sync_scroll",
+    "search_strategy",
 ];
 
 /// Schema applied on open (idempotent). Kept in sync with the user section of
@@ -584,6 +585,7 @@ pub struct AppSettings {
     pub reader_layout: Option<String>,
     pub reader_density: Option<String>,
     pub sync_scroll: Option<bool>,
+    pub search_strategy: Option<String>,
 }
 
 fn get_setting(conn: &Connection, key: &str) -> SqlResult<Option<String>> {
@@ -633,6 +635,7 @@ pub fn get_app_settings(conn: &Connection) -> SqlResult<AppSettings> {
         reader_layout: get_setting(conn, "reader_layout")?,
         reader_density: get_setting(conn, "reader_density")?,
         sync_scroll,
+        search_strategy: get_setting(conn, "search_strategy")?,
     })
 }
 
@@ -664,6 +667,16 @@ pub fn save_app_settings(conn: &Connection, settings: &AppSettings) -> SqlResult
     upsert_setting(conn, "reader_density", settings.reader_density.as_deref())?;
     let sync_scroll = settings.sync_scroll.map(|v| v.to_string());
     upsert_setting(conn, "sync_scroll", sync_scroll.as_deref())?;
+    // Clamp to a known strategy; anything unknown persists as keyword.
+    let search_strategy = settings
+        .search_strategy
+        .as_deref()
+        .map(str::trim)
+        .map(|v| match v {
+            "semantic" | "hybrid" => v,
+            _ => "keyword",
+        });
+    upsert_setting(conn, "search_strategy", search_strategy)?;
     Ok(())
 }
 
@@ -6037,6 +6050,16 @@ mod tests {
         assert!(markdown.contains(
             "- **Linked passage:** What does Genesis 1:1 contribute to this doctrine? — It anchors the topic in creation and divine agency."
         ));
+    }
+
+    #[test]
+    fn app_settings_round_trip_search_strategy() {
+        let conn = test_conn();
+        let mut s = AppSettings::default();
+        s.search_strategy = Some("hybrid".to_string());
+        save_app_settings(&conn, &s).expect("save");
+        let loaded = get_app_settings(&conn).expect("load");
+        assert_eq!(loaded.search_strategy.as_deref(), Some("hybrid"));
     }
 }
 
