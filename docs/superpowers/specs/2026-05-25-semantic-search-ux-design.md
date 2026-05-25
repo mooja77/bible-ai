@@ -1,7 +1,7 @@
 # Semantic Search in the Search Bar — Design
 
 - **Date:** 2026-05-25
-- **Status:** Approved (design); ready for implementation plan
+- **Status:** Implemented (branch `semantic-search-ux`)
 - **Theme:** "Surface hidden features" enhancement pass, sub-project 1
 - **Owner:** John Moore
 
