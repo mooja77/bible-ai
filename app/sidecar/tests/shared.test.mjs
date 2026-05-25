@@ -14,6 +14,7 @@ import {
   parseResponse,
   buildVoicePrompt,
   buildSynthesisPrompt,
+  redactSecrets,
 } from "../providers/_shared.mjs";
 
 /** A minimal but structurally valid CouncilResult-ish object. */
@@ -161,6 +162,27 @@ test("sanitiseJsonText: preserves an escaped quote inside a string", () => {
 });
 
 // ---------------------------------------------------------------------------
+// redactSecrets
+// ---------------------------------------------------------------------------
+
+test("redactSecrets: strips configured provider secrets from nested values", () => {
+  const out = redactSecrets(
+    {
+      error: "OpenAI rejected sk-test-secret-value",
+      nested: ["token gateway-token-value was refused"],
+      safe: "keep this",
+    },
+    {
+      OPENAI_API_KEY: "sk-test-secret-value",
+      MANAGED_GATEWAY_TOKEN: "gateway-token-value",
+    },
+  );
+  assert.equal(out.error, "OpenAI rejected [redacted secret]");
+  assert.deepEqual(out.nested, ["token [redacted secret] was refused"]);
+  assert.equal(out.safe, "keep this");
+});
+
+// ---------------------------------------------------------------------------
 // normaliseResult
 // ---------------------------------------------------------------------------
 
@@ -220,11 +242,31 @@ test("normaliseResult: leaves weights alone when they already sum to ~1", () => 
 
 test("normaliseResult: coerces missing string fields to empty strings", () => {
   const obj = validResult();
+  delete obj.positions[0].summary;
   delete obj.positions[0].why_not_higher;
   delete obj.positions[0].weakest_link;
   const out = normaliseResult(obj);
+  assert.equal(out.positions[0].summary, "");
   assert.equal(out.positions[0].why_not_higher, "");
   assert.equal(out.positions[0].weakest_link, "");
+});
+
+test("normaliseResult: defaults blank position labels", () => {
+  const obj = validResult();
+  obj.positions[0].label = "   ";
+  const out = normaliseResult(obj);
+  assert.equal(out.positions[0].label, "Position 1");
+});
+
+test("normaliseResult: filters non-string top-level narrative arrays", () => {
+  const obj = validResult();
+  obj.dissent_notes = 42;
+  obj.unresolved_tensions = ["real tension", null, 7, "another tension"];
+  obj.synthesis = { not: "text" };
+  const out = normaliseResult(obj);
+  assert.equal(out.dissent_notes, "");
+  assert.deepEqual(out.unresolved_tensions, ["real tension", "another tension"]);
+  assert.equal(out.synthesis, "");
 });
 
 test("normaliseResult: filters non-string interpretive_moves", () => {
@@ -232,6 +274,43 @@ test("normaliseResult: filters non-string interpretive_moves", () => {
   obj.positions[0].interpretive_moves = ["good", 42, null, "also good"];
   const out = normaliseResult(obj);
   assert.deepEqual(out.positions[0].interpretive_moves, ["good", "also good"]);
+});
+
+test("normaliseResult: normalises and drops invalid position evidence rows", () => {
+  const obj = validResult();
+  obj.positions[0].evidence = [
+    {
+      verse_id: "1001001",
+      citation: 42,
+      translation_code: null,
+      quote: "In the beginning...",
+      reasoning: false,
+    },
+    {
+      verse_id: 0,
+      citation: "Genesis 1:0",
+      translation_code: "KJV",
+      quote: "bad",
+      reasoning: "non-positive",
+    },
+    {
+      verse_id: 1001001.5,
+      citation: "Genesis 1:1.5",
+      translation_code: "KJV",
+      quote: "bad",
+      reasoning: "fractional",
+    },
+  ];
+  const out = normaliseResult(obj);
+  assert.deepEqual(out.positions[0].evidence, [
+    {
+      verse_id: 1001001,
+      citation: "",
+      translation_code: "",
+      quote: "In the beginning...",
+      reasoning: "",
+    },
+  ]);
 });
 
 test("normaliseResult: drops argument_map edges that reference unknown nodes", () => {
@@ -258,6 +337,7 @@ test("normaliseResult: drops evidence_classification rows with non-positive vers
     { verse_id: 1001001, status: "used", reasoning: "ok" },
     { verse_id: 0, status: "used", reasoning: "bad id" },
     { verse_id: -5, status: "used", reasoning: "bad id" },
+    { verse_id: 1001001.5, status: "used", reasoning: "bad id" },
   ];
   const out = normaliseResult(obj);
   assert.equal(out.evidence_classification.length, 1);

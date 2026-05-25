@@ -140,6 +140,32 @@ export function buildSynthesisPrompt({ question, voiceResults }) {
   return lines.join("\n");
 }
 
+export function redactSecrets(value, env = process.env) {
+  const secrets = [
+    env.GOOGLE_API_KEY,
+    env.OPENAI_API_KEY,
+    env.ANTHROPIC_API_KEY,
+    env.MANAGED_GATEWAY_TOKEN,
+  ]
+    .map((secret) => String(secret ?? "").trim())
+    .filter((secret) => secret.length >= 4)
+    .sort((a, b) => b.length - a.length);
+  if (secrets.length === 0) return value;
+
+  const redactString = (text) =>
+    secrets.reduce((current, secret) => current.split(secret).join("[redacted secret]"), text);
+
+  const visit = (item) => {
+    if (typeof item === "string") return redactString(item);
+    if (Array.isArray(item)) return item.map(visit);
+    if (item && typeof item === "object") {
+      return Object.fromEntries(Object.entries(item).map(([key, child]) => [key, visit(child)]));
+    }
+    return item;
+  };
+  return visit(value);
+}
+
 /** Scan from the first `{` to its matching close brace, ignoring braces that
  *  appear inside JSON strings. More precise than first-`{`-to-last-`}`, which
  *  overshoots when trailing prose also contains a brace. Returns null when no
@@ -267,33 +293,39 @@ export function normaliseResult(obj, sourceLabel = "voice") {
       p.weight = p.weight / total;
     });
   }
-  obj.positions = obj.positions.map((position) => ({
-    ...position,
-    supporting_evidence_ids: normaliseNumberArray(position?.supporting_evidence_ids),
-    challenging_evidence_ids: normaliseNumberArray(position?.challenging_evidence_ids),
-    why_not_higher:
-      typeof position?.why_not_higher === "string" ? position.why_not_higher : "",
-    confidence_rationale:
-      typeof position?.confidence_rationale === "string" ? position.confidence_rationale : "",
-    weakest_link: typeof position?.weakest_link === "string" ? position.weakest_link : "",
-    what_would_change_this:
-      typeof position?.what_would_change_this === "string"
-        ? position.what_would_change_this
-        : "",
-    interpretive_moves: Array.isArray(position?.interpretive_moves)
-      ? position.interpretive_moves.filter((value) => typeof value === "string")
-      : [],
-    argument_map: normaliseArgumentMap(position?.argument_map, position?.label),
-    cluster_id: typeof position?.cluster_id === "string" ? position.cluster_id : undefined,
-    source_position_labels: Array.isArray(position?.source_position_labels)
-      ? position.source_position_labels.filter((value) => typeof value === "string")
-      : [],
-  }));
-  obj.dissent_notes = obj.dissent_notes ?? "";
+  obj.positions = obj.positions.map((position, index) => {
+    const label = normaliseNonEmptyString(position?.label, `Position ${index + 1}`);
+    return {
+      ...position,
+      label,
+      summary: typeof position?.summary === "string" ? position.summary : "",
+      supporting_evidence_ids: normaliseNumberArray(position?.supporting_evidence_ids),
+      challenging_evidence_ids: normaliseNumberArray(position?.challenging_evidence_ids),
+      why_not_higher:
+        typeof position?.why_not_higher === "string" ? position.why_not_higher : "",
+      confidence_rationale:
+        typeof position?.confidence_rationale === "string" ? position.confidence_rationale : "",
+      weakest_link: typeof position?.weakest_link === "string" ? position.weakest_link : "",
+      what_would_change_this:
+        typeof position?.what_would_change_this === "string"
+          ? position.what_would_change_this
+          : "",
+      interpretive_moves: Array.isArray(position?.interpretive_moves)
+        ? position.interpretive_moves.filter((value) => typeof value === "string")
+        : [],
+      argument_map: normaliseArgumentMap(position?.argument_map, label),
+      evidence: normaliseEvidence(position?.evidence),
+      cluster_id: typeof position?.cluster_id === "string" ? position.cluster_id : undefined,
+      source_position_labels: Array.isArray(position?.source_position_labels)
+        ? position.source_position_labels.filter((value) => typeof value === "string")
+        : [],
+    };
+  });
+  obj.dissent_notes = typeof obj.dissent_notes === "string" ? obj.dissent_notes : "";
   obj.unresolved_tensions = Array.isArray(obj.unresolved_tensions)
-    ? obj.unresolved_tensions
+    ? obj.unresolved_tensions.filter((value) => typeof value === "string")
     : [];
-  obj.synthesis = obj.synthesis ?? "";
+  obj.synthesis = typeof obj.synthesis === "string" ? obj.synthesis : "";
   obj.confidence = ["low", "medium", "high"].includes(obj.confidence) ? obj.confidence : "medium";
   obj.confidence_rationale =
     typeof obj.confidence_rationale === "string" ? obj.confidence_rationale : "";
@@ -301,7 +333,7 @@ export function normaliseResult(obj, sourceLabel = "voice") {
   obj.evidence_classification = Array.isArray(obj.evidence_classification)
     ? obj.evidence_classification
         .map((entry) => ({
-          verse_id: Number(entry?.verse_id) || 0,
+          verse_id: normalisePositiveInteger(entry?.verse_id),
           status: allowedEvidenceStatuses.has(entry?.status) ? entry.status : "ignored",
           reasoning: typeof entry?.reasoning === "string" ? entry.reasoning : "",
         }))
@@ -324,6 +356,24 @@ export function normaliseResult(obj, sourceLabel = "voice") {
         .filter((entry) => entry.detail)
     : [];
   return obj;
+}
+
+function normaliseEvidence(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => ({
+      verse_id: normalisePositiveInteger(entry?.verse_id),
+      citation: typeof entry?.citation === "string" ? entry.citation : "",
+      translation_code:
+        typeof entry?.translation_code === "string" ? entry.translation_code : "",
+      quote: typeof entry?.quote === "string" ? entry.quote : "",
+      reasoning: typeof entry?.reasoning === "string" ? entry.reasoning : "",
+    }))
+    .filter((entry) => entry.verse_id > 0);
+}
+
+function normaliseNonEmptyString(value, fallback) {
+  return typeof value === "string" && value.trim() ? value : fallback;
 }
 
 function normaliseArgumentMap(value, positionLabel = "Position") {
@@ -375,6 +425,11 @@ function normaliseNumberArray(value) {
         .filter((item) => Number.isSafeInteger(item) && item > 0),
     ),
   );
+}
+
+function normalisePositiveInteger(value) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number > 0 ? number : 0;
 }
 
 export function parseResponse(text, sourceLabel) {

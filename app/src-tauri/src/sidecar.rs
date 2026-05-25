@@ -54,6 +54,16 @@ fn dev_sidecar_dir() -> PathBuf {
 }
 
 fn project_env_file() -> Option<PathBuf> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    if std::env::var("BIBLE_AI_DISABLE_PROJECT_ENV")
+        .ok()
+        .as_deref()
+        == Some("1")
+    {
+        return None;
+    }
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(|p| p.parent())
@@ -61,43 +71,76 @@ fn project_env_file() -> Option<PathBuf> {
     path.exists().then_some(path)
 }
 
-fn sidecar_dir(app: &AppHandle) -> PathBuf {
-    let bundled = app
+fn sidecar_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    match app
         .path()
         .resolve("sidecar", tauri::path::BaseDirectory::Resource)
-        .ok();
-    if let Some(dir) = bundled {
-        if dir.join("index.mjs").exists() {
-            return dir;
+    {
+        Ok(dir) => {
+            if dir.join("index.mjs").exists() || !cfg!(debug_assertions) {
+                Ok(dir)
+            } else {
+                Ok(dev_sidecar_dir())
+            }
+        }
+        Err(e) => {
+            if cfg!(debug_assertions) {
+                Ok(dev_sidecar_dir())
+            } else {
+                Err(format!("failed to resolve bundled sidecar path: {e}"))
+            }
         }
     }
-    dev_sidecar_dir()
 }
 
-fn node_command_for(dir: &std::path::Path) -> String {
+fn missing_sidecar_hint() -> &'static str {
+    if cfg!(debug_assertions) {
+        "run `npm install` in app/sidecar"
+    } else {
+        "the bundled sidecar is missing; reinstall the app"
+    }
+}
+
+fn missing_node_hint() -> &'static str {
+    if cfg!(debug_assertions) {
+        "Install Node.js, set BIBLE_AI_NODE, or bundle a runtime at sidecar/node"
+    } else {
+        "the bundled Node runtime is missing; reinstall the app"
+    }
+}
+
+fn node_command_for(dir: &std::path::Path) -> Result<String, String> {
     let bundled_node = if cfg!(windows) {
         dir.join("node").join("node.exe")
     } else {
         dir.join("node").join("bin").join("node")
     };
     if bundled_node.exists() {
-        return bundled_node.display().to_string();
+        return Ok(bundled_node.display().to_string());
     }
-    std::env::var("BIBLE_AI_NODE").unwrap_or_else(|_| "node".to_string())
+    if !cfg!(debug_assertions) {
+        return Err(format!(
+            "{} at {}",
+            missing_node_hint(),
+            bundled_node.display()
+        ));
+    }
+    Ok(std::env::var("BIBLE_AI_NODE").unwrap_or_else(|_| "node".to_string()))
 }
 
 impl Sidecar {
     pub async fn spawn(app: &AppHandle) -> Result<Self, String> {
-        let dir = sidecar_dir(app);
+        let dir = sidecar_dir(app)?;
         let entry = dir.join("index.mjs");
         if !entry.exists() {
             return Err(format!(
-                "sidecar entry not found at {} — run `npm install` in app/sidecar",
-                entry.display()
+                "sidecar entry not found at {} - {}",
+                entry.display(),
+                missing_sidecar_hint()
             ));
         }
 
-        let node_command = node_command_for(&dir);
+        let node_command = node_command_for(&dir)?;
         let mut command = Command::new(&node_command);
         // --env-file-if-exists requires Node >= 20.12. In development this
         // loads the project-root .env. Packaged apps rely on inherited env.
@@ -114,8 +157,9 @@ impl Sidecar {
             .spawn()
             .map_err(|e| {
                 format!(
-                    "failed to spawn sidecar with `{node_command}` from {}. Install Node.js, set BIBLE_AI_NODE, or bundle a runtime at sidecar/node: {e}",
-                    dir.display()
+                    "failed to spawn sidecar with `{node_command}` from {}. {}: {e}",
+                    dir.display(),
+                    missing_node_hint()
                 )
             })?;
 

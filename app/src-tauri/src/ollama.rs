@@ -37,6 +37,7 @@ pub async fn embed_with_host(
 ) -> Result<Vec<f32>, String> {
     let url = format!("{}/api/embeddings", configured_host(host_override));
     let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(3))
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|e| format!("ollama client: {e}"))?;

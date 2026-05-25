@@ -15,9 +15,11 @@
 
 import { createInterface } from "node:readline";
 import { runCouncil } from "./council.mjs";
+import { explainPassage } from "./explain.mjs";
 import { providerManifest } from "./providers/index.mjs";
 import { gatewayHealthEndpoint } from "./providers/gateway.mjs";
 import { probeClaudeVoice } from "./providers/claude.mjs";
+import { redactSecrets } from "./providers/_shared.mjs";
 
 const log = (...args) => console.error("[sidecar]", ...args);
 
@@ -98,7 +100,8 @@ async function runDiagnostics({ settings = {}, model = "sonnet" }) {
     google: env.GOOGLE_API_KEY
       ? await checkJsonEndpoint({
           name: "Google",
-          url: `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(env.GOOGLE_API_KEY)}`,
+          url: "https://generativelanguage.googleapis.com/v1beta/models",
+          headers: { "x-goog-api-key": env.GOOGLE_API_KEY },
         })
       : { configured: false, ok: false, error: "No Google API key configured" },
     openai: env.OPENAI_API_KEY
@@ -137,21 +140,6 @@ async function runDiagnostics({ settings = {}, model = "sonnet" }) {
   };
 }
 
-function explainPassage({ passage = [] }) {
-  const citation =
-    passage.length > 0
-      ? `${passage[0].book_name ?? "Passage"} ${passage[0].chapter}:${passage[0].verse}${passage.length > 1 ? `-${passage[passage.length - 1].verse}` : ""}`
-      : "Passage";
-  return {
-    citation,
-    summary: `${citation} is presented in its immediate textual context. Read the surrounding chapter before building a doctrine from the passage alone.`,
-    context: "This explanation mode is intentionally concise and distinct from the Council workflow. Use Council for disputed theological questions.",
-    key_terms: [],
-    cross_references: [],
-    cautions: ["Check genre, speaker, covenant context, and surrounding argument."],
-  };
-}
-
 async function handle(msg) {
   if (!msg || typeof msg !== "object") {
     return { id: msg?.id ?? null, type: "error", error: "invalid message" };
@@ -162,11 +150,13 @@ async function handle(msg) {
       case "ping":
         return { id, type: "pong", result: { now: Date.now() } };
       case "diagnostics": {
+        const settings = msg.settings ?? {};
+        const env = envWithSettings(settings);
         const result = await runDiagnostics({
-          settings: msg.settings ?? {},
+          settings,
           model: msg.model ?? "sonnet",
         });
-        return { id, type: "diagnostics_result", result };
+        return { id, type: "diagnostics_result", result: redactSecrets(result, env) };
       }
       case "explain": {
         return {
@@ -188,8 +178,10 @@ async function handle(msg) {
         return { id, type: "error", error: `unknown request type: ${msg.type}` };
     }
   } catch (err) {
-    log("handler error:", err);
-    return { id, type: "error", error: err?.message ?? String(err) };
+    const env = envWithSettings(msg.settings ?? {});
+    const error = redactSecrets(err?.message ?? String(err), env);
+    log("handler error:", error);
+    return { id, type: "error", error };
   }
 }
 
@@ -213,6 +205,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  log("fatal:", err);
+  log("fatal:", redactSecrets(err?.message ?? String(err)));
   process.exit(1);
 });

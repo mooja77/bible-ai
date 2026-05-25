@@ -29,7 +29,14 @@
     "targets": "all",
     "resources": {
       "../../data/corpus.sqlite": "corpus.sqlite",
-      "../sidecar": "sidecar"
+      "../sidecar/index.mjs": "sidecar/index.mjs",
+      "../sidecar/council.mjs": "sidecar/council.mjs",
+      "../sidecar/explain.mjs": "sidecar/explain.mjs",
+      "../sidecar/providers": "sidecar/providers",
+      "../sidecar/package.json": "sidecar/package.json",
+      "../sidecar/package-lock.json": "sidecar/package-lock.json",
+      "../sidecar/node": "sidecar/node",
+      "../sidecar/node_modules": "sidecar/node_modules"
     },
     "icon": [
       "icons/32x32.png",

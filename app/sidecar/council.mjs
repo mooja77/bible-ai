@@ -21,6 +21,7 @@ import {
   SYNTHESIS_SYSTEM_PROMPT,
   buildSynthesisPrompt,
   parseResponse,
+  redactSecrets,
 } from "./providers/_shared.mjs";
 
 const log = (...args) => console.error("[council]", ...args);
@@ -38,13 +39,14 @@ async function runOneVoice(provider, { question, evidence, env, model }) {
       duration_ms: Date.now() - started,
     };
   } catch (err) {
-    log(`voice ${provider.name} failed:`, err?.message ?? err);
+    const error = redactSecrets(err?.message ?? String(err), env);
+    log(`voice ${provider.name} failed:`, error);
     return {
       provider: provider.name,
-      display_name: provider.display_name,
+      display_name: provider.displayName?.({ env, model }) ?? provider.display_name,
       status: "error",
       result: null,
-      error: err?.message ?? String(err),
+      error,
       duration_ms: Date.now() - started,
     };
   }
@@ -87,11 +89,20 @@ function ensurePositionEvidence(synthesis, evidence) {
   if (!synthesis || !Array.isArray(synthesis.positions)) return synthesis;
   const evidenceById = new Map(
     evidence
-      .filter((row) => Number.isSafeInteger(Number(row?.verse_id)))
+      .filter((row) => {
+        const id = Number(row?.verse_id);
+        return Number.isSafeInteger(id) && id > 0;
+      })
       .map((row) => [Number(row.verse_id), row]),
   );
   for (const position of synthesis.positions) {
-    if (Array.isArray(position.evidence) && position.evidence.length > 0) continue;
+    const hasUsableEvidence =
+      Array.isArray(position.evidence) &&
+      position.evidence.some((entry) => {
+        const id = Number(entry?.verse_id);
+        return Number.isSafeInteger(id) && id > 0;
+      });
+    if (hasUsableEvidence) continue;
     const candidateIds = [
       ...(Array.isArray(position.supporting_evidence_ids)
         ? position.supporting_evidence_ids
@@ -399,7 +410,10 @@ export async function runCouncil({ question, evidence, model, settings }) {
     try {
       synthesis = await synthesise({ question, successfulVoices: ok, model, env });
     } catch (err) {
-      log("synthesis failed, falling back to first voice:", err?.message ?? err);
+      log(
+        "synthesis failed, falling back to first voice:",
+        redactSecrets(err?.message ?? String(err), env),
+      );
       synthesis = ok[0].result;
     }
   }

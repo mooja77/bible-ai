@@ -4,13 +4,16 @@ mod ollama;
 mod sidecar;
 mod user_db;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
 use sidecar::{build_council_request, question_to_fts_query, SidecarState};
 
 const EMBED_MODEL: &str = "nomic-embed-text";
+const USER_DATA_DIR_ENV: &str = "BIBLE_AI_USER_DATA_DIR";
+const MIN_VERSE_ID: i64 = 1_001_001;
+const MAX_VERSE_ID: i64 = 1_001_000_999;
 
 const MODULE_KINDS: &[&str] = &["commentary", "lexicon", "dictionary", "map", "timeline"];
 const MODULE_KEY_TYPES: &[&str] = &["verse", "verse_range", "strongs", "topic"];
@@ -46,6 +49,511 @@ struct ModuleImportEntry {
     metadata: Option<serde_json::Value>,
 }
 
+fn bounded_limit(limit: Option<i64>, default: i64, max: i64) -> i64 {
+    limit.unwrap_or(default).clamp(1, max)
+}
+
+fn validate_book_id(book_id: i64) -> Result<(), String> {
+    if !(1..=1000).contains(&book_id) {
+        return Err("book_id must be within the corpus range".to_string());
+    }
+    Ok(())
+}
+
+fn validate_book_chapter(book_id: i64, chapter: i64) -> Result<(), String> {
+    validate_book_id(book_id)?;
+    if !(1..=1000).contains(&chapter) {
+        return Err("chapter must be within the corpus range".to_string());
+    }
+    Ok(())
+}
+
+fn validate_verse_id(verse_id: i64) -> Result<(), String> {
+    if !(MIN_VERSE_ID..=MAX_VERSE_ID).contains(&verse_id) {
+        return Err("verse_id must be within the corpus range".to_string());
+    }
+    Ok(())
+}
+
+fn validate_verse_range(start_verse_id: i64, end_verse_id: i64) -> Result<(), String> {
+    validate_verse_id(start_verse_id)?;
+    validate_verse_id(end_verse_id)?;
+    if start_verse_id > end_verse_id {
+        return Err("start verse must be before end verse".to_string());
+    }
+    Ok(())
+}
+
+fn validate_hex_color(color: &str) -> Result<&str, String> {
+    let color = color.trim();
+    let valid = color.len() == 7
+        && color.starts_with('#')
+        && color[1..].chars().all(|ch| ch.is_ascii_hexdigit());
+    if !valid {
+        return Err("highlight color must be a #RRGGBB hex value".to_string());
+    }
+    Ok(color)
+}
+
+fn normalize_module_key_value(key_type: &str, key_value: &str) -> Result<String, String> {
+    let key_value = key_value.trim();
+    if key_value.is_empty() {
+        return Err("module entry requires key_value".to_string());
+    }
+    match key_type {
+        "verse" => {
+            let verse_id = key_value
+                .parse::<i64>()
+                .map_err(|_| "module verse key must be a verse_id".to_string())?;
+            validate_verse_id(verse_id)?;
+            Ok(verse_id.to_string())
+        }
+        "verse_range" => {
+            let (start, end) = key_value
+                .split_once('-')
+                .ok_or_else(|| "module verse_range key must be start-end".to_string())?;
+            let start = start
+                .trim()
+                .parse::<i64>()
+                .map_err(|_| "module verse_range start must be a verse_id".to_string())?;
+            let end = end
+                .trim()
+                .parse::<i64>()
+                .map_err(|_| "module verse_range end must be a verse_id".to_string())?;
+            validate_verse_range(start, end)?;
+            Ok(format!("{start}-{end}"))
+        }
+        "strongs" => {
+            if key_value.len() > 32 {
+                return Err("module Strong's key is too long".to_string());
+            }
+            if !key_value
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
+            {
+                return Err("module Strong's key contains unsupported characters".to_string());
+            }
+            Ok(key_value.to_ascii_uppercase())
+        }
+        "topic" => {
+            if key_value.len() > 160 {
+                return Err("module topic key is too long".to_string());
+            }
+            Ok(key_value.to_string())
+        }
+        _ => Err(format!("unsupported key_type: {key_type}")),
+    }
+}
+
+fn normalize_strongs_codes(codes: Vec<String>) -> Result<Vec<String>, String> {
+    let codes = codes
+        .into_iter()
+        .map(|code| code.trim().to_string())
+        .filter(|code| !code.is_empty())
+        .collect::<Vec<_>>();
+    if codes.len() > 64 {
+        return Err("too many Strong's codes requested".to_string());
+    }
+    if codes.iter().any(|code| code.len() > 32) {
+        return Err("Strong's code is too long".to_string());
+    }
+    Ok(codes)
+}
+
+fn normalize_testament_filter(value: Option<String>) -> Result<Option<String>, String> {
+    let Some(value) = value
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+    else {
+        return Ok(None);
+    };
+    if matches!(value.as_str(), "OT" | "NT" | "DC") {
+        Ok(Some(value))
+    } else {
+        Err("testament must be OT, NT, or DC".to_string())
+    }
+}
+
+fn normalize_optional_text_setting(
+    value: &mut Option<String>,
+    label: &str,
+    max_chars: usize,
+) -> Result<(), String> {
+    let Some(raw) = value.take() else {
+        return Ok(());
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        *value = None;
+        return Ok(());
+    }
+    if trimmed.chars().count() > max_chars {
+        return Err(format!("{label} is too long"));
+    }
+    if trimmed.chars().any(char::is_control) {
+        return Err(format!("{label} cannot contain control characters"));
+    }
+    *value = Some(trimmed.to_string());
+    Ok(())
+}
+
+fn normalize_secret_setting(
+    value: &mut Option<String>,
+    label: &str,
+    max_chars: usize,
+) -> Result<(), String> {
+    if let Some(raw) = value {
+        let trimmed = raw.trim().to_string();
+        if trimmed.chars().count() > max_chars {
+            return Err(format!("{label} is too long"));
+        }
+        if !trimmed.is_empty() && trimmed.chars().any(char::is_control) {
+            return Err(format!("{label} cannot contain control characters"));
+        }
+        *raw = trimmed;
+    }
+    Ok(())
+}
+
+fn normalize_model_setting(value: &mut Option<String>, label: &str) -> Result<(), String> {
+    normalize_optional_text_setting(value, label, 128)
+}
+
+fn normalize_model_id(value: &str, label: &str) -> Result<String, String> {
+    let mut normalized = Some(value.to_string());
+    normalize_model_setting(&mut normalized, label)?;
+    normalized.ok_or_else(|| format!("{label} is required"))
+}
+
+fn normalize_http_url_setting(value: &mut Option<String>, label: &str) -> Result<(), String> {
+    normalize_optional_text_setting(value, label, 2048)?;
+    let Some(raw) = value.as_deref() else {
+        return Ok(());
+    };
+    let parsed = reqwest::Url::parse(raw).map_err(|_| format!("{label} must be a valid URL"))?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(format!("{label} must use http or https"));
+    }
+    if parsed.host_str().is_none() {
+        return Err(format!("{label} must include a host"));
+    }
+    Ok(())
+}
+
+fn normalize_translation_code_value(value: &str, label: &str) -> Result<String, String> {
+    let code = value.trim();
+    if code.is_empty() {
+        return Err(format!("{label} is required"));
+    }
+    if code.len() > 32 {
+        return Err(format!("{label} is too long"));
+    }
+    if !code
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '_' || ch == '-')
+    {
+        return Err(format!("{label} contains unsupported characters"));
+    }
+    Ok(code.to_ascii_uppercase())
+}
+
+fn normalize_translation_setting(value: &mut Option<String>, label: &str) -> Result<(), String> {
+    let Some(raw) = value.take() else {
+        return Ok(());
+    };
+    if raw.trim().is_empty() {
+        *value = None;
+        return Ok(());
+    }
+    *value = Some(normalize_translation_code_value(&raw, label)?);
+    Ok(())
+}
+
+fn normalize_active_translations(value: &mut Option<String>) -> Result<(), String> {
+    let Some(raw) = value.take() else {
+        return Ok(());
+    };
+    let mut seen = std::collections::HashSet::new();
+    let mut codes = Vec::new();
+    for part in raw.split(',') {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let code = normalize_translation_code_value(part, "active translation")?;
+        if seen.insert(code.clone()) {
+            codes.push(code);
+        }
+    }
+    if codes.len() > 24 {
+        return Err("too many active translations".to_string());
+    }
+    *value = (!codes.is_empty()).then(|| codes.join(","));
+    Ok(())
+}
+
+fn normalize_enum_setting(
+    value: &mut Option<String>,
+    label: &str,
+    allowed: &[&str],
+) -> Result<(), String> {
+    let Some(raw) = value.take() else {
+        return Ok(());
+    };
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        *value = None;
+        return Ok(());
+    }
+    if !allowed.contains(&trimmed) {
+        return Err(format!("{label} is unsupported"));
+    }
+    *value = Some(trimmed.to_string());
+    Ok(())
+}
+
+fn normalize_app_settings(settings: &mut user_db::AppSettings) -> Result<(), String> {
+    normalize_secret_setting(&mut settings.google_api_key, "Google API key", 8192)?;
+    normalize_secret_setting(&mut settings.openai_api_key, "OpenAI API key", 8192)?;
+    normalize_secret_setting(&mut settings.anthropic_api_key, "Anthropic API key", 8192)?;
+    normalize_secret_setting(
+        &mut settings.managed_gateway_token,
+        "Managed gateway token",
+        8192,
+    )?;
+    normalize_http_url_setting(&mut settings.managed_gateway_url, "Managed gateway URL")?;
+    normalize_http_url_setting(&mut settings.ollama_host, "Ollama host")?;
+    normalize_model_setting(&mut settings.claude_model, "Claude model")?;
+    normalize_model_setting(&mut settings.openai_model, "OpenAI model")?;
+    normalize_model_setting(&mut settings.gemini_model, "Gemini model")?;
+    normalize_model_setting(&mut settings.anthropic_model, "Anthropic API model")?;
+    normalize_translation_setting(&mut settings.retrieval_translation, "Retrieval translation")?;
+    normalize_active_translations(&mut settings.active_translations)?;
+    normalize_enum_setting(
+        &mut settings.reader_layout,
+        "Reader layout",
+        &["columns", "interleaved"],
+    )?;
+    normalize_enum_setting(
+        &mut settings.reader_density,
+        "Reader density",
+        &["comfortable", "compact"],
+    )?;
+    settings.font_scale = settings
+        .font_scale
+        .and_then(|value| value.is_finite().then(|| value.clamp(0.8, 1.4)));
+    Ok(())
+}
+
+fn has_legacy_provider_key_rows(settings: &user_db::AppSettings) -> bool {
+    settings.google_api_key.is_some()
+        || settings.openai_api_key.is_some()
+        || settings.anthropic_api_key.is_some()
+        || settings.managed_gateway_token.is_some()
+}
+
+fn provider_settings_for_legacy_migration(settings: &user_db::AppSettings) -> user_db::AppSettings {
+    let mut migrated = settings.clone();
+    keep_only_non_empty_secret(&mut migrated.google_api_key);
+    keep_only_non_empty_secret(&mut migrated.openai_api_key);
+    keep_only_non_empty_secret(&mut migrated.anthropic_api_key);
+    keep_only_non_empty_secret(&mut migrated.managed_gateway_token);
+    migrated
+}
+
+fn keep_only_non_empty_secret(value: &mut Option<String>) {
+    if value.as_deref().is_none_or(|v| v.trim().is_empty()) {
+        *value = None;
+    }
+}
+
+#[cfg(test)]
+mod command_input_tests {
+    use super::{
+        bounded_limit, normalize_app_settings, normalize_model_id, normalize_module_key_value,
+        normalize_strongs_codes, normalize_testament_filter, normalize_translation_code_value,
+        provider_settings_for_legacy_migration, validate_book_chapter, validate_book_id,
+        validate_hex_color, validate_verse_range,
+    };
+    use crate::user_db::AppSettings;
+
+    #[test]
+    fn bounded_limit_rejects_sqlite_unbounded_negative_limits() {
+        assert_eq!(bounded_limit(None, 20, 100), 20);
+        assert_eq!(bounded_limit(Some(-1), 20, 100), 1);
+        assert_eq!(bounded_limit(Some(0), 20, 100), 1);
+        assert_eq!(bounded_limit(Some(250), 20, 100), 100);
+    }
+
+    #[test]
+    fn validate_book_chapter_rejects_overflow_prone_values() {
+        assert!(validate_book_id(1).is_ok());
+        assert!(validate_book_id(0).is_err());
+        assert!(validate_book_id(i64::MAX).is_err());
+        assert!(validate_book_chapter(1, 1).is_ok());
+        assert!(validate_book_chapter(0, 1).is_err());
+        assert!(validate_book_chapter(1, 0).is_err());
+        assert!(validate_book_chapter(i64::MAX, 1).is_err());
+        assert!(validate_book_chapter(1, i64::MAX).is_err());
+    }
+
+    #[test]
+    fn validate_verse_range_rejects_impossible_or_reversed_ranges() {
+        assert!(validate_verse_range(1_001_001, 1_001_002).is_ok());
+        assert!(validate_verse_range(1_001_002, 1_001_001).is_err());
+        assert!(validate_verse_range(0, 1_001_001).is_err());
+        assert!(validate_verse_range(1_001_001, i64::MAX).is_err());
+    }
+
+    #[test]
+    fn validate_hex_color_rejects_non_hex_highlight_colors() {
+        assert_eq!(
+            validate_hex_color(" #fbbf24 ").expect("hex color"),
+            "#fbbf24"
+        );
+        assert!(validate_hex_color("#FBBF24").is_ok());
+        assert!(validate_hex_color("fbbf24").is_err());
+        assert!(validate_hex_color("#fbbf24cc").is_err());
+        assert!(validate_hex_color("var(--accent)").is_err());
+    }
+
+    #[test]
+    fn normalize_module_key_value_matches_lookup_contracts() {
+        assert_eq!(
+            normalize_module_key_value("verse", " 1001001 ").expect("verse key"),
+            "1001001"
+        );
+        assert_eq!(
+            normalize_module_key_value("verse_range", "1001001 - 1001003").expect("range key"),
+            "1001001-1001003"
+        );
+        assert_eq!(
+            normalize_module_key_value("strongs", " h7225 ").expect("strongs key"),
+            "H7225"
+        );
+        assert_eq!(
+            normalize_module_key_value("topic", " creation ").expect("topic key"),
+            "creation"
+        );
+        assert!(normalize_module_key_value("verse", "not-a-verse").is_err());
+        assert!(normalize_module_key_value("verse_range", "1001003-1001001").is_err());
+        assert!(normalize_module_key_value("strongs", "H7225 H1254").is_err());
+        assert!(normalize_module_key_value("topic", &"x".repeat(161)).is_err());
+    }
+
+    #[test]
+    fn normalize_strongs_codes_bounds_request_size() {
+        assert_eq!(
+            normalize_strongs_codes(vec![" H7225 ".to_string(), "".to_string()])
+                .expect("normalize codes"),
+            vec!["H7225".to_string()]
+        );
+        assert!(normalize_strongs_codes(vec!["G".repeat(33)]).is_err());
+        assert!(normalize_strongs_codes((0..65).map(|idx| format!("H{idx}")).collect()).is_err());
+    }
+
+    #[test]
+    fn normalize_testament_filter_rejects_unknown_values() {
+        assert_eq!(
+            normalize_testament_filter(Some(" OT ".to_string())).expect("normalize OT"),
+            Some("OT".to_string())
+        );
+        assert_eq!(
+            normalize_testament_filter(Some("   ".to_string())).expect("blank is all"),
+            None
+        );
+        assert!(normalize_testament_filter(Some("old".to_string())).is_err());
+    }
+
+    #[test]
+    fn normalize_app_settings_bounds_urls_models_and_reader_options() {
+        let mut settings = AppSettings {
+            google_api_key: Some("  goog-key  ".to_string()),
+            managed_gateway_url: Some(" https://gateway.example.com/api ".to_string()),
+            managed_gateway_token: Some(" gateway-token ".to_string()),
+            claude_model: Some(" sonnet ".to_string()),
+            openai_model: Some(" gpt-5 ".to_string()),
+            gemini_model: Some(" gemini-2.5-flash ".to_string()),
+            anthropic_model: Some(" claude-sonnet-4-6 ".to_string()),
+            ollama_host: Some(" http://localhost:11434/ ".to_string()),
+            retrieval_translation: Some(" kjv ".to_string()),
+            active_translations: Some(" kjv, BHS, kjv ".to_string()),
+            font_scale: Some(9.0),
+            reader_layout: Some("interleaved".to_string()),
+            reader_density: Some("compact".to_string()),
+            ..AppSettings::default()
+        };
+
+        normalize_app_settings(&mut settings).expect("settings should normalize");
+
+        assert_eq!(settings.google_api_key.as_deref(), Some("goog-key"));
+        assert_eq!(
+            settings.managed_gateway_url.as_deref(),
+            Some("https://gateway.example.com/api")
+        );
+        assert_eq!(
+            settings.managed_gateway_token.as_deref(),
+            Some("gateway-token")
+        );
+        assert_eq!(settings.openai_model.as_deref(), Some("gpt-5"));
+        assert_eq!(settings.retrieval_translation.as_deref(), Some("KJV"));
+        assert_eq!(settings.active_translations.as_deref(), Some("KJV,BHS"));
+        assert_eq!(settings.font_scale, Some(1.4));
+    }
+
+    #[test]
+    fn normalize_app_settings_rejects_bad_network_and_display_values() {
+        let mut bad_gateway = AppSettings {
+            managed_gateway_url: Some("file:///tmp/socket".to_string()),
+            ..AppSettings::default()
+        };
+        assert!(normalize_app_settings(&mut bad_gateway).is_err());
+
+        let mut bad_layout = AppSettings {
+            reader_layout: Some("stacked".to_string()),
+            ..AppSettings::default()
+        };
+        assert!(normalize_app_settings(&mut bad_layout).is_err());
+
+        let mut bad_translation = AppSettings {
+            retrieval_translation: Some("../KJV".to_string()),
+            ..AppSettings::default()
+        };
+        assert!(normalize_app_settings(&mut bad_translation).is_err());
+    }
+
+    #[test]
+    fn council_model_and_translation_overrides_are_bounded() {
+        assert_eq!(
+            normalize_model_id(" sonnet ", "Council model").expect("model"),
+            "sonnet"
+        );
+        assert!(normalize_model_id(&"x".repeat(129), "Council model").is_err());
+        assert_eq!(
+            normalize_translation_code_value(" kjv ", "Retrieval translation")
+                .expect("translation"),
+            "KJV"
+        );
+        assert!(normalize_translation_code_value("kjv/../../x", "Retrieval translation").is_err());
+    }
+
+    #[test]
+    fn legacy_provider_migration_does_not_delete_vault_entries_for_blank_rows() {
+        let migrated = provider_settings_for_legacy_migration(&AppSettings {
+            google_api_key: Some("   ".to_string()),
+            openai_api_key: Some("sk-test".to_string()),
+            anthropic_api_key: None,
+            managed_gateway_token: Some("".to_string()),
+            ..AppSettings::default()
+        });
+
+        assert_eq!(migrated.google_api_key, None);
+        assert_eq!(migrated.openai_api_key.as_deref(), Some("sk-test"));
+        assert_eq!(migrated.anthropic_api_key, None);
+        assert_eq!(migrated.managed_gateway_token, None);
+    }
+}
+
 /// Lazy-init container for the user.sqlite connection.
 pub struct UserDbState(pub Mutex<Option<rusqlite::Connection>>);
 
@@ -62,13 +570,26 @@ impl UserDbState {
 }
 
 fn user_db_path(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("could not resolve app data dir: {e}"))?;
+    let dir = user_data_dir(app)?;
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("could not create app data dir {}: {e}", dir.display()))?;
     Ok(dir.join("user.sqlite"))
+}
+
+fn user_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    if let Some(dir) = std::env::var_os(USER_DATA_DIR_ENV) {
+        if !dir.is_empty() {
+            let dir = PathBuf::from(dir);
+            if !dir.is_absolute() {
+                return Err(format!("{USER_DATA_DIR_ENV} must be an absolute path"));
+            }
+            return Ok(dir);
+        }
+    }
+
+    app.path()
+        .app_data_dir()
+        .map_err(|e| format!("could not resolve app data dir: {e}"))
 }
 
 fn with_user_db<T>(
@@ -124,8 +645,13 @@ fn get_chapter(
     book_id: i64,
     chapter: i64,
 ) -> Result<Vec<db::Verse>, String> {
+    validate_book_chapter(book_id, chapter)?;
+    let translation_code = translation_code.trim();
+    if translation_code.is_empty() {
+        return Err("translation code is required".to_string());
+    }
     let conn = open_corpus(&app)?;
-    db::get_chapter(&conn, &translation_code, book_id, chapter).map_err(|e| e.to_string())
+    db::get_chapter(&conn, translation_code, book_id, chapter).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -136,18 +662,15 @@ fn get_verse_range(
     end_verse_id: i64,
     limit: Option<i64>,
 ) -> Result<Vec<db::Verse>, String> {
-    if start_verse_id > end_verse_id {
-        return Err("start verse must be before end verse".to_string());
+    validate_verse_range(start_verse_id, end_verse_id)?;
+    let translation_code = translation_code.trim();
+    if translation_code.is_empty() {
+        return Err("translation code is required".to_string());
     }
     let conn = open_corpus(&app)?;
-    db::get_verse_range(
-        &conn,
-        &translation_code,
-        start_verse_id,
-        end_verse_id,
-        limit.unwrap_or(200),
-    )
-    .map_err(|e| e.to_string())
+    let limit = bounded_limit(limit, 200, 500);
+    db::get_verse_range(&conn, translation_code, start_verse_id, end_verse_id, limit)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -159,14 +682,29 @@ fn search(
     book_id: Option<i64>,
     testament: Option<String>,
 ) -> Result<Vec<db::SearchHit>, String> {
+    let query = query.trim();
+    if query.len() > 500 {
+        return Err("search query is too long".to_string());
+    }
+    if let Some(book_id) = book_id {
+        validate_book_id(book_id)?;
+    }
+    let testament = normalize_testament_filter(testament)?;
+    let translation_code = translation_code
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
     let conn = open_corpus(&app)?;
     db::search(
         &conn,
-        &query,
-        translation_code.as_deref(),
-        limit.unwrap_or(50),
-        book_id,
-        testament.as_deref(),
+        query,
+        translation_code,
+        bounded_limit(limit, 50, 200),
+        db::VerseSearchScope {
+            book_id,
+            testament: testament.as_deref(),
+            ..db::VerseSearchScope::default()
+        },
     )
     .map_err(|e| e.to_string())
 }
@@ -181,15 +719,18 @@ fn get_word_tokens(
     // Bound the indices: db::get_word_tokens derives a verse_id range with
     // `book_id * 1_000_000 + chapter * 1_000`, which overflows on extreme
     // values. The corpus has far fewer than these limits.
-    if !(1..=1000).contains(&book_id) || !(1..=1000).contains(&chapter) {
-        return Err("book_id and chapter must be within the corpus range".to_string());
+    validate_book_chapter(book_id, chapter)?;
+    let translation_code = translation_code.trim();
+    if translation_code.is_empty() {
+        return Err("translation code is required".to_string());
     }
     let conn = open_corpus(&app)?;
-    db::get_word_tokens(&conn, &translation_code, book_id, chapter).map_err(|e| e.to_string())
+    db::get_word_tokens(&conn, translation_code, book_id, chapter).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn get_strongs(app: AppHandle, codes: Vec<String>) -> Result<Vec<db::StrongsEntry>, String> {
+    let codes = normalize_strongs_codes(codes)?;
     let conn = open_corpus(&app)?;
     db::get_strongs(&conn, &codes).map_err(|e| e.to_string())
 }
@@ -200,8 +741,16 @@ fn get_strongs_occurrences(
     code: String,
     limit: Option<i64>,
 ) -> Result<Vec<db::StrongsOccurrence>, String> {
+    let code = code.trim();
+    if code.is_empty() {
+        return Ok(Vec::new());
+    }
+    if code.len() > 32 {
+        return Err("Strong's code is too long".to_string());
+    }
     let conn = open_corpus(&app)?;
-    db::get_strongs_occurrences(&conn, &code, limit.unwrap_or(80)).map_err(|e| e.to_string())
+    db::get_strongs_occurrences(&conn, code, bounded_limit(limit, 80, 500))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -211,12 +760,18 @@ fn get_cross_refs(
     text_translation: Option<String>,
     limit: Option<i64>,
 ) -> Result<Vec<db::CrossRef>, String> {
+    validate_verse_id(verse_id)?;
     let conn = open_corpus(&app)?;
+    let text_translation = text_translation
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("KJV");
     db::get_cross_refs(
         &conn,
         verse_id,
-        text_translation.as_deref().unwrap_or("KJV"),
-        limit.unwrap_or(20),
+        text_translation,
+        bounded_limit(limit, 20, 100),
     )
     .map_err(|e| e.to_string())
 }
@@ -229,17 +784,18 @@ fn get_app_settings(
     let mut settings = with_user_db(&app, &state, |conn| {
         user_db::get_app_settings(conn).map_err(|e| e.to_string())
     })?;
-    let had_legacy_provider_keys = settings.google_api_key.is_some()
-        || settings.openai_api_key.is_some()
-        || settings.anthropic_api_key.is_some()
-        || settings.managed_gateway_token.is_some();
-    credentials::read_provider_keys(&mut settings);
+    let had_legacy_provider_keys = has_legacy_provider_key_rows(&settings);
     if had_legacy_provider_keys {
-        credentials::save_provider_keys(&settings)?;
+        // Preserve legacy SQLite secrets before reading the vault; otherwise an
+        // existing vault entry could overwrite the DB value before migration.
+        let legacy_settings = provider_settings_for_legacy_migration(&settings);
+        credentials::save_provider_keys(&legacy_settings)?;
         with_user_db(&app, &state, |conn| {
             user_db::delete_secret_settings(conn).map_err(|e| e.to_string())
         })?;
     }
+    credentials::read_provider_keys(&mut settings)?;
+    normalize_app_settings(&mut settings)?;
     Ok(settings)
 }
 
@@ -247,8 +803,9 @@ fn get_app_settings(
 fn save_app_settings(
     app: AppHandle,
     state: tauri::State<'_, UserDbState>,
-    settings: user_db::AppSettings,
+    mut settings: user_db::AppSettings,
 ) -> Result<(), String> {
+    normalize_app_settings(&mut settings)?;
     credentials::save_provider_keys(&settings)?;
     with_user_db(&app, &state, |conn| {
         user_db::save_app_settings(conn, &settings).map_err(|e| e.to_string())
@@ -259,8 +816,9 @@ fn save_app_settings(
 async fn check_app_setup(
     app: AppHandle,
     state: tauri::State<'_, SidecarState>,
-    settings: user_db::AppSettings,
+    mut settings: user_db::AppSettings,
 ) -> Result<serde_json::Value, String> {
+    normalize_app_settings(&mut settings)?;
     let model = settings
         .claude_model
         .clone()
@@ -296,6 +854,7 @@ async fn check_ollama(host_override: Option<&str>) -> Result<serde_json::Value, 
         .to_string();
     let url = format!("{host}/api/tags");
     let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(2))
         .timeout(std::time::Duration::from_secs(5))
         .build()
         .map_err(|e| format!("ollama diagnostics client: {e}"))?;
@@ -469,6 +1028,10 @@ fn add_bookmark(
     end_verse_id: Option<i64>,
     label: Option<String>,
 ) -> Result<i64, String> {
+    validate_verse_id(verse_id)?;
+    if let Some(end) = end_verse_id {
+        validate_verse_range(verse_id, end)?;
+    }
     with_user_db(&app, &state, |conn| {
         user_db::add_bookmark(conn, verse_id, end_verse_id, label.as_deref())
             .map_err(|e| e.to_string())
@@ -494,8 +1057,13 @@ fn record_reading_location(
     chapter: i64,
     translation_codes: String,
 ) -> Result<(), String> {
+    validate_book_chapter(book_id, chapter)?;
+    let translation_codes = translation_codes.trim();
+    if translation_codes.is_empty() {
+        return Err("reading location requires at least one translation".to_string());
+    }
     with_user_db(&app, &state, |conn| {
-        user_db::record_reading_location(conn, book_id, chapter, &translation_codes)
+        user_db::record_reading_location(conn, book_id, chapter, translation_codes)
             .map_err(|e| e.to_string())
     })
 }
@@ -507,7 +1075,8 @@ fn list_reading_history(
     limit: Option<i64>,
 ) -> Result<Vec<user_db::ReadingHistoryItem>, String> {
     with_user_db(&app, &state, |conn| {
-        user_db::list_reading_history(conn, limit.unwrap_or(20)).map_err(|e| e.to_string())
+        user_db::list_reading_history(conn, bounded_limit(limit, 20, 100))
+            .map_err(|e| e.to_string())
     })
 }
 
@@ -531,15 +1100,31 @@ fn create_saved_search(
     testament: Option<String>,
     book_id: Option<i64>,
 ) -> Result<i64, String> {
-    if title.trim().is_empty() || query.trim().is_empty() {
+    let title = title.trim();
+    let query = query.trim();
+    if title.is_empty() || query.is_empty() {
         return Err("saved search title and query are required".to_string());
+    }
+    if title.len() > 160 || query.len() > 500 {
+        return Err("saved search title or query is too long".to_string());
+    }
+    let translation_code = translation_code
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let testament = testament
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+    let testament = normalize_testament_filter(testament)?;
+    if let Some(book_id) = book_id {
+        validate_book_id(book_id)?;
     }
     with_user_db(&app, &state, |conn| {
         user_db::create_saved_search(
             conn,
-            &title,
-            &query,
-            translation_code.as_deref(),
+            title,
+            query,
+            translation_code,
             testament.as_deref(),
             book_id,
         )
@@ -554,11 +1139,15 @@ fn update_saved_search_title(
     id: i64,
     title: String,
 ) -> Result<usize, String> {
-    if title.trim().is_empty() {
+    let title = title.trim();
+    if title.is_empty() {
         return Err("saved search title is required".to_string());
     }
+    if title.len() > 160 {
+        return Err("saved search title is too long".to_string());
+    }
     with_user_db(&app, &state, |conn| {
-        user_db::update_saved_search_title(conn, id, &title).map_err(|e| e.to_string())
+        user_db::update_saved_search_title(conn, id, title).map_err(|e| e.to_string())
     })
 }
 
@@ -595,12 +1184,21 @@ fn create_module(
     license: Option<String>,
     version: Option<String>,
 ) -> Result<i64, String> {
+    let slug = slug.trim();
+    let title = title.trim();
+    let kind = kind.trim();
+    if slug.is_empty() || title.is_empty() {
+        return Err("module requires slug and title".to_string());
+    }
+    if !MODULE_KINDS.contains(&kind) {
+        return Err(format!("unsupported module kind: {kind}"));
+    }
     with_user_db(&app, &state, |conn| {
         user_db::create_module(
             conn,
-            &slug,
-            &title,
-            &kind,
+            slug,
+            title,
+            kind,
             source.as_deref(),
             license.as_deref(),
             version.as_deref(),
@@ -632,6 +1230,21 @@ fn add_module_entry(
     body: String,
     metadata: Option<serde_json::Value>,
 ) -> Result<i64, String> {
+    let key_type = key_type.trim();
+    let key_value = key_value.trim();
+    let body = body.trim();
+    if !MODULE_KEY_TYPES.contains(&key_type) {
+        return Err(format!("unsupported key_type: {key_type}"));
+    }
+    if key_value.is_empty() || body.is_empty() {
+        return Err("module entry requires key_value and body".to_string());
+    }
+    let key_value = normalize_module_key_value(key_type, key_value)?;
+    let title = title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
     let metadata_json = metadata
         .as_ref()
         .map(serde_json::to_string)
@@ -641,10 +1254,10 @@ fn add_module_entry(
         user_db::add_module_entry(
             conn,
             module_id,
-            &key_type,
+            key_type,
             &key_value,
             title.as_deref(),
-            &body,
+            body,
             metadata_json.as_deref(),
         )
         .map_err(|e| e.to_string())
@@ -692,49 +1305,76 @@ fn import_module_jsonl(
                 idx + 1
             ));
         }
-        entries.push(entry);
+        let key_value = normalize_module_key_value(key_type, key_value)
+            .map_err(|e| format!("module entry line {}: {e}", idx + 1))?;
+        entries.push(ModuleImportEntry {
+            key_type: key_type.to_string(),
+            key_value,
+            title: entry
+                .title
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string),
+            body: body.to_string(),
+            metadata: entry.metadata,
+        });
     }
     if entries.is_empty() {
         return Err("module import requires at least one JSONL entry".to_string());
     }
     with_user_db(&app, &state, |conn| {
-        let module_id = user_db::create_module(
-            conn,
-            slug,
-            title,
-            kind,
-            manifest.source.as_deref(),
-            manifest.license.as_deref(),
-            manifest.version.as_deref(),
-        )
-        .map_err(|e| e.to_string())?;
-        conn.execute(
-            "DELETE FROM module_entries WHERE module_id = ?",
-            rusqlite::params![module_id],
-        )
-        .map_err(|e| e.to_string())?;
-        for entry in &entries {
-            let metadata_json = entry
-                .metadata
-                .as_ref()
-                .map(serde_json::to_string)
-                .transpose()
-                .map_err(|e| e.to_string())?;
-            user_db::add_module_entry(
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| e.to_string())?;
+        let result = (|| {
+            let module_id = user_db::create_module(
                 conn,
-                module_id,
-                &entry.key_type,
-                &entry.key_value,
-                entry.title.as_deref(),
-                &entry.body,
-                metadata_json.as_deref(),
+                slug,
+                title,
+                kind,
+                manifest.source.as_deref(),
+                manifest.license.as_deref(),
+                manifest.version.as_deref(),
             )
             .map_err(|e| e.to_string())?;
+            conn.execute(
+                "DELETE FROM module_entries WHERE module_id = ?",
+                rusqlite::params![module_id],
+            )
+            .map_err(|e| e.to_string())?;
+            for entry in &entries {
+                let metadata_json = entry
+                    .metadata
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()
+                    .map_err(|e| e.to_string())?;
+                user_db::add_module_entry(
+                    conn,
+                    module_id,
+                    &entry.key_type,
+                    &entry.key_value,
+                    entry.title.as_deref(),
+                    &entry.body,
+                    metadata_json.as_deref(),
+                )
+                .map_err(|e| e.to_string())?;
+            }
+            Ok(user_db::ModuleImportReport {
+                module_id,
+                entry_count: entries.len(),
+            })
+        })();
+        match result {
+            Ok(report) => {
+                conn.execute_batch("COMMIT").map_err(|e| e.to_string())?;
+                Ok(report)
+            }
+            Err(err) => {
+                let _ = conn.execute_batch("ROLLBACK");
+                Err(err)
+            }
         }
-        Ok(user_db::ModuleImportReport {
-            module_id,
-            entry_count: entries.len(),
-        })
     })
 }
 
@@ -744,6 +1384,7 @@ fn list_module_entries_for_verse(
     state: tauri::State<'_, UserDbState>,
     verse_id: i64,
 ) -> Result<Vec<user_db::ModuleEntry>, String> {
+    validate_verse_id(verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::list_module_entries_for_verse(conn, verse_id).map_err(|e| e.to_string())
     })
@@ -756,6 +1397,7 @@ fn list_module_entries_for_range(
     start_verse_id: i64,
     end_verse_id: i64,
 ) -> Result<Vec<user_db::ModuleEntry>, String> {
+    validate_verse_range(start_verse_id, end_verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::list_module_entries_for_range(conn, start_verse_id, end_verse_id)
             .map_err(|e| e.to_string())
@@ -768,6 +1410,7 @@ fn list_module_entries_for_strongs(
     state: tauri::State<'_, UserDbState>,
     codes: Vec<String>,
 ) -> Result<Vec<user_db::ModuleEntry>, String> {
+    let codes = normalize_strongs_codes(codes)?;
     with_user_db(&app, &state, |conn| {
         user_db::list_module_entries_for_strongs(conn, &codes).map_err(|e| e.to_string())
     })
@@ -789,11 +1432,15 @@ fn list_module_entries_for_topic(
     state: tauri::State<'_, UserDbState>,
     topic: String,
 ) -> Result<Vec<user_db::ModuleEntry>, String> {
-    if topic.trim().is_empty() {
+    let topic = topic.trim();
+    if topic.is_empty() {
         return Err("topic is required".to_string());
     }
+    if topic.len() > 160 {
+        return Err("topic is too long".to_string());
+    }
     with_user_db(&app, &state, |conn| {
-        user_db::list_module_entries_for_topic(conn, &topic).map_err(|e| e.to_string())
+        user_db::list_module_entries_for_topic(conn, topic).map_err(|e| e.to_string())
     })
 }
 
@@ -814,6 +1461,7 @@ fn import_user_data_json(
     payload: serde_json::Value,
     conflict_strategy: String,
 ) -> Result<user_db::UserDataImportReport, String> {
+    let conflict_strategy = conflict_strategy.trim().to_string();
     with_user_db(&app, &state, |conn| {
         user_db::import_user_data(conn, &payload, &conflict_strategy)
     })
@@ -848,6 +1496,18 @@ fn write_workspace_markdown(
         "bible-ai-workspace-{safe_title}-{stamp}.md",
         stamp = unix_stamp()
     ));
+    std::fs::write(&path, markdown)
+        .map_err(|e| format!("could not write {}: {e}", path.display()))?;
+    Ok(path.display().to_string())
+}
+
+#[tauri::command]
+fn write_workspace_markdown_to_path(path: String, markdown: String) -> Result<String, String> {
+    if markdown.trim().is_empty() {
+        return Err("workspace Markdown is empty".to_string());
+    }
+    let path = PathBuf::from(path.trim());
+    validate_markdown_export_path(&path)?;
     std::fs::write(&path, markdown)
         .map_err(|e| format!("could not write {}: {e}", path.display()))?;
     Ok(path.display().to_string())
@@ -939,6 +1599,13 @@ fn restore_user_sqlite(
         ));
     }
     let target = user_db_path(&app)?;
+    validate_user_sqlite_source(&source)?;
+    if target.exists() && same_file(&source, &target)? {
+        return Err(
+            "restore source is already the active user.sqlite; choose a separate backup file"
+                .to_string(),
+        );
+    }
     close_user_db(&state)?;
 
     let safety_backup = if target.exists() {
@@ -959,15 +1626,29 @@ fn restore_user_sqlite(
         None
     };
 
-    std::fs::copy(&source, &target).map_err(|e| {
-        format!(
-            "could not restore {} to {}: {e}",
-            source.display(),
-            target.display()
-        )
-    })?;
-    let conn = user_db::open(&target)
-        .map_err(|e| format!("restored sqlite did not open ({}): {e}", target.display()))?;
+    let restored = std::fs::copy(&source, &target)
+        .map_err(|e| {
+            format!(
+                "could not restore {} to {}: {e}",
+                source.display(),
+                target.display()
+            )
+        })
+        .and_then(|_| {
+            user_db::open(&target)
+                .map_err(|e| format!("restored sqlite did not open ({}): {e}", target.display()))
+        });
+    let conn = match restored {
+        Ok(conn) => conn,
+        Err(err) => {
+            return Err(restore_safety_backup(
+                &state,
+                &target,
+                safety_backup.as_deref(),
+                err,
+            ));
+        }
+    };
     let mut guard = state
         .0
         .lock()
@@ -978,26 +1659,212 @@ fn restore_user_sqlite(
         .unwrap_or_else(|| "No previous user.sqlite existed".to_string()))
 }
 
+fn validate_user_sqlite_source(source: &Path) -> Result<(), String> {
+    let conn =
+        rusqlite::Connection::open_with_flags(source, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|e| format!("restore source did not open ({}): {e}", source.display()))?;
+    let quick_check: String = conn
+        .query_row("PRAGMA quick_check", [], |r| r.get(0))
+        .map_err(|e| {
+            format!(
+                "restore source integrity check failed ({}): {e}",
+                source.display()
+            )
+        })?;
+    if quick_check != "ok" {
+        return Err(format!(
+            "restore source failed SQLite integrity check ({}): {quick_check}",
+            source.display()
+        ));
+    }
+    let has_settings_table: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'app_settings'",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(|e| {
+            format!(
+                "restore source schema check failed ({}): {e}",
+                source.display()
+            )
+        })?;
+    if has_settings_table == 0 {
+        return Err(format!(
+            "restore source is not a Bible AI user database ({}): missing app_settings table",
+            source.display()
+        ));
+    }
+    let schema_version: i64 = conn
+        .pragma_query_value(None, "user_version", |r| r.get(0))
+        .map_err(|e| format!("restore source schema version check failed: {e}"))?;
+    if schema_version > user_db::USER_SCHEMA_VERSION {
+        return Err(format!(
+            "restore source schema version {schema_version} is newer than app schema {}",
+            user_db::USER_SCHEMA_VERSION
+        ));
+    }
+    Ok(())
+}
+
+fn restore_safety_backup(
+    state: &UserDbState,
+    target: &Path,
+    safety_backup: Option<&Path>,
+    restore_error: String,
+) -> String {
+    let Some(safety_backup) = safety_backup else {
+        let _ = std::fs::remove_file(target);
+        return restore_error;
+    };
+    let rollback_result = std::fs::copy(safety_backup, target)
+        .map_err(|e| format!("could not restore previous user.sqlite from safety backup: {e}"))
+        .and_then(|_| {
+            user_db::open(target)
+                .map_err(|e| format!("previous user.sqlite did not reopen after rollback: {e}"))
+        });
+    match rollback_result {
+        Ok(conn) => match state.0.lock() {
+            Ok(mut guard) => {
+                *guard = Some(conn);
+                format!(
+                    "{restore_error}; previous user.sqlite restored from {}",
+                    safety_backup.display()
+                )
+            }
+            Err(e) => format!(
+                "{restore_error}; previous user.sqlite restored from {}, but the DB mutex is poisoned: {e}",
+                safety_backup.display()
+            ),
+        },
+        Err(rollback_error) => format!("{restore_error}; rollback failed: {rollback_error}"),
+    }
+}
+
+fn same_file(left: &Path, right: &Path) -> Result<bool, String> {
+    let left = left
+        .canonicalize()
+        .map_err(|e| format!("could not resolve {}: {e}", left.display()))?;
+    let right = right
+        .canonicalize()
+        .map_err(|e| format!("could not resolve {}: {e}", right.display()))?;
+    Ok(left == right)
+}
+
+#[cfg(test)]
+mod sqlite_restore_tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_sqlite_path(label: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "bible-ai-{label}-{}-{stamp}.sqlite",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn validate_user_sqlite_source_accepts_bible_ai_backup() {
+        let path = temp_sqlite_path("valid-restore-source");
+        {
+            let conn = rusqlite::Connection::open(&path).expect("create sqlite file");
+            conn.execute_batch(&format!(
+                "CREATE TABLE app_settings (
+                  key TEXT PRIMARY KEY,
+                  value TEXT NOT NULL,
+                  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                PRAGMA user_version = {};",
+                user_db::USER_SCHEMA_VERSION
+            ))
+            .expect("create minimal user schema");
+        }
+
+        let result = validate_user_sqlite_source(&path);
+        let _ = std::fs::remove_file(&path);
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[test]
+    fn validate_user_sqlite_source_rejects_non_user_database() {
+        let path = temp_sqlite_path("invalid-restore-source");
+        {
+            let conn = rusqlite::Connection::open(&path).expect("create sqlite file");
+            conn.execute_batch("CREATE TABLE other_app (id INTEGER PRIMARY KEY);")
+                .expect("create unrelated schema");
+        }
+
+        let result = validate_user_sqlite_source(&path);
+        let _ = std::fs::remove_file(&path);
+        assert!(result.is_err());
+    }
+}
+
 fn backup_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("could not resolve app data dir: {e}"))?
-        .join("backups");
+    let dir = user_data_dir(app)?.join("backups");
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("could not create backup dir {}: {e}", dir.display()))?;
     Ok(dir)
 }
 
 fn export_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("could not resolve app data dir: {e}"))?
-        .join("exports");
+    let dir = user_data_dir(app)?.join("exports");
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("could not create export dir {}: {e}", dir.display()))?;
     Ok(dir)
+}
+
+fn validate_markdown_export_path(path: &Path) -> Result<(), String> {
+    if !path.is_absolute() {
+        return Err("workspace Markdown export path must be absolute".to_string());
+    }
+    if path.file_name().is_none() {
+        return Err("workspace Markdown export path must include a file name".to_string());
+    }
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase);
+    if !matches!(extension.as_deref(), Some("md" | "markdown")) {
+        return Err("workspace Markdown export path must end in .md or .markdown".to_string());
+    }
+    let parent = path
+        .parent()
+        .ok_or_else(|| "workspace Markdown export path must include a directory".to_string())?;
+    if !parent.is_dir() {
+        return Err(format!(
+            "workspace Markdown export directory does not exist: {}",
+            parent.display()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod export_path_tests {
+    use super::validate_markdown_export_path;
+    use std::path::Path;
+
+    #[test]
+    fn markdown_export_path_rejects_relative_paths() {
+        assert!(validate_markdown_export_path(Path::new("workspace.md")).is_err());
+    }
+
+    #[test]
+    fn markdown_export_path_rejects_non_markdown_files() {
+        let path = std::env::temp_dir().join("bible-ai-workspace-export.txt");
+        assert!(validate_markdown_export_path(&path).is_err());
+    }
+
+    #[test]
+    fn markdown_export_path_accepts_markdown_files_in_existing_dirs() {
+        let path = std::env::temp_dir().join("bible-ai-workspace-export.md");
+        assert!(validate_markdown_export_path(&path).is_ok());
+    }
 }
 
 fn sanitize_filename(value: &str) -> String {
@@ -1029,10 +1896,10 @@ fn close_user_db(state: &UserDbState) -> Result<(), String> {
     Ok(())
 }
 
-fn unix_stamp() -> u64 {
+fn unix_stamp() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
+        .map(|d| d.as_nanos())
         .unwrap_or(0)
 }
 
@@ -1170,23 +2037,57 @@ async fn ask_council(
     start_verse_id: Option<i64>,
     end_verse_id: Option<i64>,
 ) -> Result<serde_json::Value, String> {
-    let settings = with_user_db(&app, &user_state, |conn| {
+    let question = question.trim().to_string();
+    if question.is_empty() {
+        return Err("Council question is required".to_string());
+    }
+    if question.len() > 2_000 {
+        return Err("Council question is too long".to_string());
+    }
+    let mut settings = with_user_db(&app, &user_state, |conn| {
         user_db::get_app_settings(conn).map_err(|e| e.to_string())
-    })
-    .unwrap_or_default();
+    })?;
+    credentials::read_provider_keys(&mut settings)?;
+    normalize_app_settings(&mut settings)?;
 
     let translation = retrieval_translation
         .or_else(|| settings.retrieval_translation.clone())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "KJV".to_string());
+    let translation = normalize_translation_code_value(&translation, "Retrieval translation")?;
     let selected_model = model
         .or_else(|| settings.claude_model.clone())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "sonnet".to_string());
+    let selected_model = normalize_model_id(&selected_model, "Council model")?;
+    let strategy = retrieval_strategy
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "hybrid".to_string());
+    if !matches!(strategy.as_str(), "semantic" | "keyword" | "hybrid") {
+        return Err("unsupported retrieval strategy".to_string());
+    }
+    let testament = normalize_testament_filter(testament)?;
+    if let Some(book_id) = book_id {
+        validate_book_id(book_id)?;
+    }
+    if let Some(start) = start_verse_id {
+        validate_verse_id(start)?;
+    }
+    if let Some(end) = end_verse_id {
+        validate_verse_id(end)?;
+    }
+    if let (Some(start), Some(end)) = (start_verse_id, end_verse_id) {
+        validate_verse_range(start, end)?;
+    }
     // Clamp to a sane range: the raw value flows into Vec::with_capacity and
     // `limit * 3` arithmetic, so a negative (wraps huge via `as usize`) or
     // very large value would panic or exhaust memory.
     let limit = evidence_limit.unwrap_or(60).clamp(1, 200) as usize;
     let retrieval_options = RetrievalOptions {
-        strategy: retrieval_strategy.unwrap_or_else(|| "hybrid".to_string()),
+        strategy,
         include_cross_refs: include_cross_refs.unwrap_or(true),
         translation_code: translation.clone(),
         book_id,
@@ -1264,8 +2165,13 @@ async fn explain_passage(
     end_verse_id: Option<i64>,
 ) -> Result<serde_json::Value, String> {
     let end = end_verse_id.unwrap_or(start_verse_id);
+    validate_verse_range(start_verse_id, end)?;
+    let translation_code = translation_code.trim();
+    if translation_code.is_empty() {
+        return Err("translation code is required".to_string());
+    }
     let conn = open_corpus(&app)?;
-    let verses = db::get_verse_range(&conn, &translation_code, start_verse_id, end, 200)
+    let verses = db::get_verse_range(&conn, translation_code, start_verse_id, end, 200)
         .map_err(|e| e.to_string())?;
     let passage: Vec<serde_json::Value> = verses
         .into_iter()
@@ -1273,6 +2179,7 @@ async fn explain_passage(
             serde_json::json!({
                 "verse_id": v.verse_id,
                 "translation_code": translation_code,
+                "book_name": v.book_name,
                 "chapter": v.chapter,
                 "verse": v.verse,
                 "text": v.text,
@@ -1298,7 +2205,7 @@ fn list_council_sessions(
     limit: Option<i64>,
 ) -> Result<Vec<user_db::SessionSummary>, String> {
     with_user_db(&app, &state, |conn| {
-        user_db::list_sessions(conn, limit.unwrap_or(30)).map_err(|e| e.to_string())
+        user_db::list_sessions(conn, bounded_limit(limit, 30, 100)).map_err(|e| e.to_string())
     })
 }
 
@@ -1537,15 +2444,19 @@ fn search_resources(
     topic_id: Option<i64>,
     limit: Option<i64>,
 ) -> Result<Vec<user_db::ResourceEntry>, String> {
+    let query = query.trim();
+    if query.len() > 500 {
+        return Err("resource search query is too long".to_string());
+    }
     with_user_db(&app, &state, |conn| {
         user_db::search_resources(
             conn,
-            &query,
+            query,
             source_id,
             collection_kind.as_deref(),
             license.as_deref(),
             topic_id,
-            limit.unwrap_or(30),
+            bounded_limit(limit, 30, 100),
         )
         .map_err(|e| e.to_string())
     })
@@ -1638,6 +2549,7 @@ fn list_highlights_for_chapter(
     book_id: i64,
     chapter: i64,
 ) -> Result<Vec<user_db::Highlight>, String> {
+    validate_book_chapter(book_id, chapter)?;
     with_user_db(&app, &state, |conn| {
         user_db::list_highlights_for_chapter(conn, book_id, chapter).map_err(|e| e.to_string())
     })
@@ -1650,8 +2562,10 @@ fn upsert_highlight(
     verse_id: i64,
     color: String,
 ) -> Result<(), String> {
+    validate_verse_id(verse_id)?;
+    let color = validate_hex_color(&color)?;
     with_user_db(&app, &state, |conn| {
-        user_db::upsert_highlight(conn, verse_id, &color).map_err(|e| e.to_string())
+        user_db::upsert_highlight(conn, verse_id, color).map_err(|e| e.to_string())
     })
 }
 
@@ -1661,6 +2575,7 @@ fn delete_highlight(
     state: tauri::State<'_, UserDbState>,
     verse_id: i64,
 ) -> Result<usize, String> {
+    validate_verse_id(verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::delete_highlight(conn, verse_id).map_err(|e| e.to_string())
     })
@@ -1673,6 +2588,7 @@ fn list_range_highlights_for_chapter(
     book_id: i64,
     chapter: i64,
 ) -> Result<Vec<user_db::RangeHighlight>, String> {
+    validate_book_chapter(book_id, chapter)?;
     with_user_db(&app, &state, |conn| {
         user_db::list_range_highlights_for_chapter(conn, book_id, chapter)
             .map_err(|e| e.to_string())
@@ -1687,8 +2603,10 @@ fn upsert_range_highlight(
     end_verse_id: i64,
     color: String,
 ) -> Result<(), String> {
+    validate_verse_range(start_verse_id, end_verse_id)?;
+    let color = validate_hex_color(&color)?;
     with_user_db(&app, &state, |conn| {
-        user_db::upsert_range_highlight(conn, start_verse_id, end_verse_id, &color)
+        user_db::upsert_range_highlight(conn, start_verse_id, end_verse_id, color)
             .map_err(|e| e.to_string())
     })
 }
@@ -1700,6 +2618,7 @@ fn delete_range_highlight(
     start_verse_id: i64,
     end_verse_id: i64,
 ) -> Result<usize, String> {
+    validate_verse_range(start_verse_id, end_verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::delete_range_highlight(conn, start_verse_id, end_verse_id)
             .map_err(|e| e.to_string())
@@ -1714,6 +2633,7 @@ fn get_note(
     state: tauri::State<'_, UserDbState>,
     verse_id: i64,
 ) -> Result<Option<user_db::Note>, String> {
+    validate_verse_id(verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::get_note(conn, verse_id).map_err(|e| e.to_string())
     })
@@ -1726,6 +2646,7 @@ fn upsert_note(
     verse_id: i64,
     body: String,
 ) -> Result<(), String> {
+    validate_verse_id(verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::upsert_note(conn, verse_id, &body).map_err(|e| e.to_string())
     })
@@ -1737,6 +2658,7 @@ fn delete_note(
     state: tauri::State<'_, UserDbState>,
     verse_id: i64,
 ) -> Result<usize, String> {
+    validate_verse_id(verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::delete_note(conn, verse_id).map_err(|e| e.to_string())
     })
@@ -1749,6 +2671,7 @@ fn list_notes_for_chapter(
     book_id: i64,
     chapter: i64,
 ) -> Result<Vec<user_db::Note>, String> {
+    validate_book_chapter(book_id, chapter)?;
     with_user_db(&app, &state, |conn| {
         user_db::list_notes_for_chapter(conn, book_id, chapter).map_err(|e| e.to_string())
     })
@@ -1761,6 +2684,7 @@ fn get_range_note(
     start_verse_id: i64,
     end_verse_id: i64,
 ) -> Result<Option<user_db::RangeNote>, String> {
+    validate_verse_range(start_verse_id, end_verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::get_range_note(conn, start_verse_id, end_verse_id).map_err(|e| e.to_string())
     })
@@ -1774,6 +2698,7 @@ fn upsert_range_note(
     end_verse_id: i64,
     body: String,
 ) -> Result<(), String> {
+    validate_verse_range(start_verse_id, end_verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::upsert_range_note(conn, start_verse_id, end_verse_id, &body)
             .map_err(|e| e.to_string())
@@ -1787,6 +2712,7 @@ fn delete_range_note(
     start_verse_id: i64,
     end_verse_id: i64,
 ) -> Result<usize, String> {
+    validate_verse_range(start_verse_id, end_verse_id)?;
     with_user_db(&app, &state, |conn| {
         user_db::delete_range_note(conn, start_verse_id, end_verse_id).map_err(|e| e.to_string())
     })
@@ -1799,6 +2725,7 @@ fn list_range_notes_for_chapter(
     book_id: i64,
     chapter: i64,
 ) -> Result<Vec<user_db::RangeNote>, String> {
+    validate_book_chapter(book_id, chapter)?;
     with_user_db(&app, &state, |conn| {
         user_db::list_range_notes_for_chapter(conn, book_id, chapter).map_err(|e| e.to_string())
     })
@@ -1819,7 +2746,9 @@ async fn retrieve_evidence(
 ) -> Result<(Vec<serde_json::Value>, String), String> {
     let translation = &options.translation_code;
     let limit = options.evidence_limit;
-    let use_semantic = options.strategy == "semantic" || options.strategy == "hybrid";
+    let mock_council = std::env::var("BIBLE_AI_MOCK_COUNCIL").ok().as_deref() == Some("1");
+    let use_semantic =
+        !mock_council && (options.strategy == "semantic" || options.strategy == "hybrid");
     let use_fts = options.strategy == "keyword" || options.strategy == "hybrid";
     let explicit_rows = explicit_reference_rows(app, question, translation, options)?;
     let had_explicit_refs = !explicit_rows.is_empty();
@@ -1834,6 +2763,12 @@ async fn retrieve_evidence(
             .map_err(|e| e.to_string())?;
         row > 0
     };
+    let scope = db::VerseSearchScope {
+        book_id: options.book_id,
+        testament: options.testament.as_deref(),
+        start_verse_id: options.start_verse_id,
+        end_verse_id: options.end_verse_id,
+    };
 
     // Semantic pass (if possible).
     let semantic_rows: Vec<serde_json::Value> = if use_semantic && has_embeddings {
@@ -1843,8 +2778,9 @@ async fn retrieve_evidence(
                 // Request a bit more than `limit` so the merge can fall back
                 // to FTS fills while still returning the top-ranked evidence.
                 let sem_limit = (limit * 3) / 4 + 1;
-                let hits = db::semantic_search(&conn, &q_emb, translation, EMBED_MODEL, sem_limit)
-                    .map_err(|e| e.to_string())?;
+                let hits =
+                    db::semantic_search(&conn, &q_emb, translation, EMBED_MODEL, sem_limit, scope)
+                        .map_err(|e| e.to_string())?;
                 hits.into_iter()
                     .filter(|h| semantic_hit_matches(h, options))
                     .map(|h| {
@@ -1882,15 +2818,8 @@ async fn retrieve_evidence(
         .collect();
     let fts_rows: Vec<serde_json::Value> = if use_fts && !fts_query.is_empty() {
         let conn = open_corpus(app)?;
-        let hits = db::search(
-            &conn,
-            &fts_query,
-            Some(translation),
-            limit as i64,
-            options.book_id,
-            options.testament.as_deref(),
-        )
-        .map_err(|e| e.to_string())?;
+        let hits = db::search(&conn, &fts_query, Some(translation), limit as i64, scope)
+            .map_err(|e| e.to_string())?;
         hits.into_iter()
             .filter(|h| search_hit_matches(h, options))
             .map(|h| {
@@ -1922,7 +2851,7 @@ async fn retrieve_evidence(
     // council sees passages the direct match might have missed.
     let mut seen: std::collections::HashSet<i64> = std::collections::HashSet::new();
     let mut merged: Vec<serde_json::Value> = Vec::with_capacity(limit);
-    let core_target = (limit * 3) / 4; // leave a quarter for cross-refs
+    let core_target = core_evidence_target(limit); // leave roughly a quarter for cross-refs
 
     for row in &explicit_rows {
         if let Some(vid) = row.get("verse_id").and_then(|v| v.as_i64()) {
@@ -2037,21 +2966,26 @@ fn explicit_reference_rows(
     let mut rows = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for range in ranges {
+        if !reference_range_matches_options(&range, options) {
+            continue;
+        }
         if rows.len() >= options.evidence_limit {
             break;
         }
+        let Some((start_verse_id, end_verse_id)) = clipped_reference_range_ids(&range, options)
+        else {
+            continue;
+        };
         let remaining = (options.evidence_limit - rows.len()) as i64;
-        let verses = db::get_verse_range(
-            &conn,
-            translation,
-            range.start_verse_id,
-            range.end_verse_id,
-            remaining,
-        )
-        .map_err(|e| e.to_string())?;
+        let verses =
+            db::get_verse_range(&conn, translation, start_verse_id, end_verse_id, remaining)
+                .map_err(|e| e.to_string())?;
         for verse in verses {
             if rows.len() >= options.evidence_limit {
                 break;
+            }
+            if !verse_in_requested_range(verse.verse_id, options) {
+                continue;
             }
             if !seen.insert(verse.verse_id) {
                 continue;
@@ -2070,6 +3004,55 @@ fn explicit_reference_rows(
         }
     }
     Ok(rows)
+}
+
+fn core_evidence_target(limit: usize) -> usize {
+    if limit == 0 {
+        0
+    } else {
+        ((limit * 3) / 4).clamp(1, limit)
+    }
+}
+
+fn clipped_reference_range_ids(
+    range: &ReferenceRange,
+    options: &RetrievalOptions,
+) -> Option<(i64, i64)> {
+    let start = options
+        .start_verse_id
+        .map_or(range.start_verse_id, |requested| {
+            range.start_verse_id.max(requested)
+        });
+    let end = options
+        .end_verse_id
+        .map_or(range.end_verse_id, |requested| {
+            range.end_verse_id.min(requested)
+        });
+    (start <= end).then_some((start, end))
+}
+
+fn reference_range_matches_options(range: &ReferenceRange, options: &RetrievalOptions) -> bool {
+    if let Some(book_id) = options.book_id {
+        if range.book.id != book_id {
+            return false;
+        }
+    }
+    if let Some(testament) = options.testament.as_deref() {
+        if !book_matches_testament(range.book.id, testament) {
+            return false;
+        }
+    }
+    if let Some(start) = options.start_verse_id {
+        if range.end_verse_id < start {
+            return false;
+        }
+    }
+    if let Some(end) = options.end_verse_id {
+        if range.start_verse_id > end {
+            return false;
+        }
+    }
+    true
 }
 
 #[derive(Clone)]
@@ -2104,6 +3087,10 @@ fn extract_reference_ranges(question: &str, books: &[db::Book]) -> Vec<Reference
                 offset = end;
                 continue;
             }
+            if is_bare_john_inside_numbered_john(&normalized, start, &alias, &book.name) {
+                offset = end;
+                continue;
+            }
             if let Some((chapter, verse, end_chapter, end_verse)) =
                 parse_reference_numbers(&normalized[end..], book.chapter_count)
             {
@@ -2126,6 +3113,29 @@ fn extract_reference_ranges(question: &str, books: &[db::Book]) -> Vec<Reference
     }
     ranges.sort_by_key(|range| range.start_verse_id);
     ranges
+}
+
+fn is_bare_john_inside_numbered_john(
+    normalized: &str,
+    start: usize,
+    alias: &str,
+    book_name: &str,
+) -> bool {
+    if book_name != "John" || alias != "john" {
+        return false;
+    }
+    let prefix = normalized[..start].trim_end();
+    let Some(marker) = prefix.chars().next_back() else {
+        return false;
+    };
+    if !matches!(marker, '1' | '2' | '3') {
+        return false;
+    }
+    let marker_start = prefix.len() - marker.len_utf8();
+    prefix[..marker_start]
+        .chars()
+        .next_back()
+        .is_none_or(|ch| !ch.is_alphanumeric())
 }
 
 fn normalize_reference_text(value: &str) -> String {
@@ -2160,7 +3170,7 @@ fn short_book_alias(name: &str) -> Option<String> {
     }
 }
 
-/// (chapter, end_chapter, verse, end_verse) parsed from a reference string;
+/// (chapter, verse, end_chapter, end_verse) parsed from a reference string;
 /// the trailing fields are `None` when the reference omits that part.
 type ReferenceNumbers = (i64, Option<i64>, Option<i64>, Option<i64>);
 
@@ -2175,6 +3185,9 @@ fn parse_reference_numbers(value: &str, max_chapter: i64) -> Option<ReferenceNum
         return Some((chapter, None, None, None));
     }
     let (verse, next) = consume_i64(&rest[1..])?;
+    if !valid_reference_verse(verse) {
+        return None;
+    }
     rest = next.trim_start();
     if !rest.starts_with('-') {
         return Some((chapter, Some(verse), None, None));
@@ -2182,11 +3195,24 @@ fn parse_reference_numbers(value: &str, max_chapter: i64) -> Option<ReferenceNum
     let (first, next) = consume_i64(&rest[1..])?;
     let next = next.trim_start();
     if let Some(stripped) = next.strip_prefix(':') {
+        if first < chapter || first > max_chapter {
+            return None;
+        }
         let (end_verse, _) = consume_i64(stripped)?;
+        if !valid_reference_verse(end_verse) || (first == chapter && end_verse < verse) {
+            return None;
+        }
         Some((chapter, Some(verse), Some(first), Some(end_verse)))
     } else {
+        if !valid_reference_verse(first) || first < verse {
+            return None;
+        }
         Some((chapter, Some(verse), Some(chapter), Some(first)))
     }
+}
+
+fn valid_reference_verse(verse: i64) -> bool {
+    (1..=999).contains(&verse)
 }
 
 fn consume_i64(value: &str) -> Option<(i64, &str)> {
@@ -2257,12 +3283,149 @@ fn book_matches_testament(book_id: i64, testament: &str) -> bool {
     }
 }
 
+#[cfg(test)]
+mod retrieval_filter_tests {
+    use super::{
+        clipped_reference_range_ids, core_evidence_target, db, extract_reference_ranges,
+        parse_reference_numbers, reference_range_matches_options, ReferenceRange, RetrievalOptions,
+    };
+
+    fn test_book(id: i64, name: &str, testament: &str) -> db::Book {
+        db::Book {
+            id,
+            osis_code: name.replace(' ', "").to_uppercase(),
+            name: name.to_string(),
+            testament: testament.to_string(),
+            chapter_count: 50,
+        }
+    }
+
+    fn options(
+        book_id: Option<i64>,
+        testament: Option<&str>,
+        start_verse_id: Option<i64>,
+        end_verse_id: Option<i64>,
+    ) -> RetrievalOptions {
+        RetrievalOptions {
+            strategy: "hybrid".to_string(),
+            include_cross_refs: true,
+            translation_code: "KJV".to_string(),
+            book_id,
+            testament: testament.map(str::to_string),
+            start_verse_id,
+            end_verse_id,
+            evidence_limit: 10,
+        }
+    }
+
+    #[test]
+    fn explicit_reference_filter_respects_book_and_testament() {
+        let acts = ReferenceRange {
+            book: test_book(44, "Acts", "NT"),
+            start_verse_id: 44_002_038,
+            end_verse_id: 44_002_038,
+        };
+
+        assert!(reference_range_matches_options(
+            &acts,
+            &options(None, None, None, None)
+        ));
+        assert!(reference_range_matches_options(
+            &acts,
+            &options(Some(44), Some("NT"), None, None)
+        ));
+        assert!(!reference_range_matches_options(
+            &acts,
+            &options(Some(1), None, None, None)
+        ));
+        assert!(!reference_range_matches_options(
+            &acts,
+            &options(None, Some("OT"), None, None)
+        ));
+    }
+
+    #[test]
+    fn explicit_reference_filter_respects_requested_verse_window() {
+        let genesis = ReferenceRange {
+            book: test_book(1, "Genesis", "OT"),
+            start_verse_id: 1_001_001,
+            end_verse_id: 1_001_003,
+        };
+
+        assert!(reference_range_matches_options(
+            &genesis,
+            &options(None, None, Some(1_001_002), Some(1_001_002))
+        ));
+        assert!(!reference_range_matches_options(
+            &genesis,
+            &options(None, None, Some(1_001_004), None)
+        ));
+        assert!(!reference_range_matches_options(
+            &genesis,
+            &options(None, None, None, Some(1_001_000))
+        ));
+    }
+
+    #[test]
+    fn explicit_reference_ranges_are_clipped_before_querying() {
+        let genesis = ReferenceRange {
+            book: test_book(1, "Genesis", "OT"),
+            start_verse_id: 1_001_001,
+            end_verse_id: 1_001_003,
+        };
+
+        assert_eq!(
+            clipped_reference_range_ids(
+                &genesis,
+                &options(None, None, Some(1_001_002), Some(1_001_002)),
+            ),
+            Some((1_001_002, 1_001_002))
+        );
+        assert_eq!(
+            clipped_reference_range_ids(&genesis, &options(None, None, Some(1_001_004), None)),
+            None
+        );
+    }
+
+    #[test]
+    fn numbered_john_references_do_not_also_match_gospel_john() {
+        let books = vec![
+            test_book(43, "John", "NT"),
+            test_book(62, "1 John", "NT"),
+            test_book(63, "2 John", "NT"),
+            test_book(64, "3 John", "NT"),
+        ];
+
+        let ranges = extract_reference_ranges("Read 1 John 1:1 and 2 John 1:1", &books);
+        let ids = ranges.iter().map(|range| range.book.id).collect::<Vec<_>>();
+
+        assert_eq!(ids, vec![62, 63]);
+    }
+
+    #[test]
+    fn reference_parser_rejects_invalid_verse_bounds() {
+        assert_eq!(
+            parse_reference_numbers(" 1:1-2", 21),
+            Some((1, Some(1), Some(1), Some(2)))
+        );
+        assert!(parse_reference_numbers(" 1:0-2", 21).is_none());
+        assert!(parse_reference_numbers(" 1:1-0", 21).is_none());
+        assert!(parse_reference_numbers(" 2:3-2", 21).is_none());
+        assert!(parse_reference_numbers(" 1:1-22:1", 21).is_none());
+    }
+
+    #[test]
+    fn core_evidence_target_never_rounds_to_zero_for_tiny_limits() {
+        assert_eq!(core_evidence_target(1), 1);
+        assert_eq!(core_evidence_target(2), 1);
+        assert_eq!(core_evidence_target(60), 45);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
         .manage(SidecarState::new())
         .manage(UserDbState::new())
         .invoke_handler(tauri::generate_handler![
@@ -2310,6 +3473,7 @@ pub fn run() {
             import_user_data_json,
             write_user_data_backup,
             write_workspace_markdown,
+            write_workspace_markdown_to_path,
             write_workspace_html,
             write_workspace_pdf,
             write_theology_pdf,

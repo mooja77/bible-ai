@@ -24,6 +24,7 @@ pub struct Translation {
 #[derive(Serialize, Clone)]
 pub struct Verse {
     pub verse_id: i64,
+    pub book_name: String,
     pub chapter: i64,
     pub verse: i64,
     pub text: String,
@@ -40,6 +41,14 @@ pub struct SearchHit {
     pub verse: i64,
     pub text: String,
     pub snippet: String,
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct VerseSearchScope<'a> {
+    pub book_id: Option<i64>,
+    pub testament: Option<&'a str>,
+    pub start_verse_id: Option<i64>,
+    pub end_verse_id: Option<i64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -159,9 +168,10 @@ pub fn get_chapter(
     chapter: i64,
 ) -> SqlResult<Vec<Verse>> {
     let mut stmt = conn.prepare(
-        "SELECT v.id, v.chapter, v.verse, t.text
+        "SELECT v.id, b.name, v.chapter, v.verse, t.text
          FROM verses v
          JOIN translation_text t ON t.verse_id = v.id
+         JOIN books b ON b.id = v.book_id
          WHERE t.translation_code = ?1 AND v.book_id = ?2 AND v.chapter = ?3
          ORDER BY v.verse",
     )?;
@@ -170,9 +180,10 @@ pub fn get_chapter(
         |row| {
             Ok(Verse {
                 verse_id: row.get(0)?,
-                chapter: row.get(1)?,
-                verse: row.get(2)?,
-                text: row.get(3)?,
+                book_name: row.get(1)?,
+                chapter: row.get(2)?,
+                verse: row.get(3)?,
+                text: row.get(4)?,
             })
         },
     )?;
@@ -187,9 +198,10 @@ pub fn get_verse_range(
     limit: i64,
 ) -> SqlResult<Vec<Verse>> {
     let mut stmt = conn.prepare(
-        "SELECT v.id, v.chapter, v.verse, t.text
+        "SELECT v.id, b.name, v.chapter, v.verse, t.text
          FROM verses v
          JOIN translation_text t ON t.verse_id = v.id
+         JOIN books b ON b.id = v.book_id
          WHERE t.translation_code = ?1 AND v.id >= ?2 AND v.id <= ?3
          ORDER BY v.id
          LIMIT ?4",
@@ -199,9 +211,10 @@ pub fn get_verse_range(
         |row| {
             Ok(Verse {
                 verse_id: row.get(0)?,
-                chapter: row.get(1)?,
-                verse: row.get(2)?,
-                text: row.get(3)?,
+                book_name: row.get(1)?,
+                chapter: row.get(2)?,
+                verse: row.get(3)?,
+                text: row.get(4)?,
             })
         },
     )?;
@@ -209,25 +222,166 @@ pub fn get_verse_range(
 }
 
 /// Conservative cleanup of a user search string so FTS5's MATCH parser does not
-/// choke on stray punctuation. Keeps letters, digits, apostrophes and hyphens;
-/// everything else becomes a space. Empty output means "no searchable tokens".
+/// choke on stray punctuation. Each alphanumeric token is quoted, while an
+/// existing OR between tokens is preserved for Council retrieval queries.
+/// Empty output means "no searchable tokens".
 fn sanitise_fts_query(q: &str) -> String {
-    q.split_whitespace()
-        .filter_map(|w| {
-            let cleaned: String = w
-                .chars()
-                .filter(|c| c.is_alphanumeric() || matches!(c, '\'' | '-'))
-                .collect();
-            // Require a real token: a bareword of only `'`/`-` is an FTS5
-            // operator fragment and makes MATCH raise a syntax error.
-            if cleaned.chars().any(char::is_alphanumeric) {
-                Some(cleaned)
-            } else {
-                None
+    let mut output = Vec::new();
+    let mut pending_or = false;
+
+    for raw in q.split_whitespace() {
+        if raw.eq_ignore_ascii_case("OR") && !output.is_empty() {
+            pending_or = true;
+            continue;
+        }
+        for token in raw.split(|c: char| !c.is_alphanumeric()) {
+            if token.chars().count() < 2 {
+                continue;
             }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+            if pending_or && !matches!(output.last().map(String::as_str), Some("OR")) {
+                output.push("OR".to_string());
+            }
+            pending_or = false;
+            output.push(format!("\"{}\"", token.replace('"', "\"\"")));
+        }
+    }
+
+    output.join(" ")
+}
+
+#[cfg(test)]
+mod fts_query_tests {
+    use super::{sanitise_fts_query, search, semantic_search, VerseSearchScope};
+    use rusqlite::Connection;
+
+    #[test]
+    fn sanitise_fts_query_quotes_punctuation_fragments() {
+        assert_eq!(
+            sanitise_fts_query("king's God-man"),
+            "\"king\" \"God\" \"man\""
+        );
+    }
+
+    #[test]
+    fn sanitise_fts_query_preserves_or_between_terms() {
+        assert_eq!(
+            sanitise_fts_query("faith OR works"),
+            "\"faith\" OR \"works\""
+        );
+    }
+
+    #[test]
+    fn sanitised_fts_query_handles_apostrophes_and_hyphens() {
+        let conn = Connection::open_in_memory().expect("create sqlite");
+        conn.execute_batch(
+            "CREATE VIRTUAL TABLE docs USING fts5(text);
+             INSERT INTO docs(text) VALUES ('the king and the God man');",
+        )
+        .expect("seed fts");
+        let query = sanitise_fts_query("king's God-man");
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM docs WHERE docs MATCH ?",
+                [query],
+                |row| row.get(0),
+            )
+            .expect("run fts query");
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn search_applies_verse_window_before_limit() {
+        let conn = Connection::open_in_memory().expect("create sqlite");
+        conn.execute_batch(
+            "CREATE TABLE books(id INTEGER PRIMARY KEY, osis_code TEXT, name TEXT, testament TEXT, chapter_count INTEGER);
+             CREATE TABLE verses(id INTEGER PRIMARY KEY, book_id INTEGER, chapter INTEGER, verse INTEGER);
+             CREATE VIRTUAL TABLE translation_text_fts USING fts5(verse_id UNINDEXED, translation_code UNINDEXED, text);
+             INSERT INTO books(id, osis_code, name, testament, chapter_count) VALUES
+               (1, 'GEN', 'Genesis', 'OT', 50),
+               (43, 'JHN', 'John', 'NT', 21);
+             INSERT INTO verses(id, book_id, chapter, verse) VALUES
+               (1001001, 1, 1, 1),
+               (43003016, 43, 3, 16);
+             INSERT INTO translation_text_fts(verse_id, translation_code, text) VALUES
+               (1001001, 'KJV', 'love love love'),
+               (43003016, 'KJV', 'love');",
+        )
+        .expect("seed search schema");
+
+        let hits = search(
+            &conn,
+            "love",
+            Some("KJV"),
+            1,
+            VerseSearchScope {
+                start_verse_id: Some(43_003_016),
+                end_verse_id: Some(43_003_016),
+                ..VerseSearchScope::default()
+            },
+        )
+        .expect("search with verse window");
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].verse_id, 43_003_016);
+    }
+
+    #[test]
+    fn semantic_search_applies_verse_window_before_limit() {
+        let conn = Connection::open_in_memory().expect("create sqlite");
+        conn.execute_batch(
+            "CREATE TABLE books(id INTEGER PRIMARY KEY, osis_code TEXT, name TEXT, testament TEXT, chapter_count INTEGER);
+             CREATE TABLE verses(id INTEGER PRIMARY KEY, book_id INTEGER, chapter INTEGER, verse INTEGER);
+             CREATE TABLE translation_text(verse_id INTEGER, translation_code TEXT, text TEXT);
+             CREATE TABLE verse_embeddings(verse_id INTEGER, translation_code TEXT, model TEXT, dim INTEGER, embedding BLOB);
+             INSERT INTO books(id, osis_code, name, testament, chapter_count) VALUES
+               (1, 'GEN', 'Genesis', 'OT', 50),
+               (43, 'JHN', 'John', 'NT', 21);
+             INSERT INTO verses(id, book_id, chapter, verse) VALUES
+               (1001001, 1, 1, 1),
+               (43003016, 43, 3, 16);
+             INSERT INTO translation_text(verse_id, translation_code, text) VALUES
+               (1001001, 'KJV', 'outside'),
+               (43003016, 'KJV', 'inside');",
+        )
+        .expect("seed semantic schema");
+        let outside = [1.0f32, 0.0]
+            .into_iter()
+            .flat_map(f32::to_le_bytes)
+            .collect::<Vec<_>>();
+        let inside = [0.5f32, 0.5]
+            .into_iter()
+            .flat_map(f32::to_le_bytes)
+            .collect::<Vec<_>>();
+        conn.execute(
+            "INSERT INTO verse_embeddings(verse_id, translation_code, model, dim, embedding)
+             VALUES (1001001, 'KJV', 'test-model', 2, ?1)",
+            rusqlite::params![outside],
+        )
+        .expect("insert outside embedding");
+        conn.execute(
+            "INSERT INTO verse_embeddings(verse_id, translation_code, model, dim, embedding)
+             VALUES (43003016, 'KJV', 'test-model', 2, ?1)",
+            rusqlite::params![inside],
+        )
+        .expect("insert inside embedding");
+
+        let hits = semantic_search(
+            &conn,
+            &[1.0, 0.0],
+            "KJV",
+            "test-model",
+            1,
+            VerseSearchScope {
+                start_verse_id: Some(43_003_016),
+                end_verse_id: Some(43_003_016),
+                ..VerseSearchScope::default()
+            },
+        )
+        .expect("semantic search with verse window");
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].verse_id, 43_003_016);
+    }
 }
 
 pub fn search(
@@ -235,8 +389,7 @@ pub fn search(
     query: &str,
     translation_code: Option<&str>,
     limit: i64,
-    book_id: Option<i64>,
-    testament: Option<&str>,
+    scope: VerseSearchScope<'_>,
 ) -> SqlResult<Vec<SearchHit>> {
     let cleaned = sanitise_fts_query(query);
     if cleaned.is_empty() {
@@ -257,13 +410,21 @@ pub fn search(
         sql.push_str(" AND fts.translation_code = ?");
         params.push(Value::Text(code.to_string()));
     }
-    if let Some(id) = book_id {
+    if let Some(id) = scope.book_id {
         sql.push_str(" AND v.book_id = ?");
         params.push(Value::Integer(id));
     }
-    if let Some(t) = testament.filter(|t| matches!(*t, "OT" | "NT" | "DC")) {
+    if let Some(t) = scope.testament.filter(|t| matches!(*t, "OT" | "NT" | "DC")) {
         sql.push_str(" AND b.testament = ?");
         params.push(Value::Text(t.to_string()));
+    }
+    if let Some(start) = scope.start_verse_id {
+        sql.push_str(" AND fts.verse_id >= ?");
+        params.push(Value::Integer(start));
+    }
+    if let Some(end) = scope.end_verse_id {
+        sql.push_str(" AND fts.verse_id <= ?");
+        params.push(Value::Integer(end));
     }
     sql.push_str(" ORDER BY rank LIMIT ?");
     params.push(Value::Integer(limit));
@@ -463,8 +624,9 @@ pub fn semantic_search(
     translation_code: &str,
     model: &str,
     limit: usize,
+    scope: VerseSearchScope<'_>,
 ) -> SqlResult<Vec<SemanticHit>> {
-    let mut stmt = conn.prepare(
+    let mut sql = String::from(
         "SELECT e.verse_id, e.embedding, v.book_id, b.name, b.osis_code,
                 v.chapter, v.verse, t.text
          FROM verse_embeddings e
@@ -472,9 +634,30 @@ pub fn semantic_search(
          JOIN books b ON b.id = v.book_id
          JOIN translation_text t
            ON t.verse_id = e.verse_id AND t.translation_code = e.translation_code
-         WHERE e.translation_code = ?1 AND e.model = ?2",
-    )?;
-    let rows = stmt.query_map(rusqlite::params![translation_code, model], |row| {
+         WHERE e.translation_code = ? AND e.model = ?",
+    );
+    let mut params = vec![
+        Value::Text(translation_code.to_string()),
+        Value::Text(model.to_string()),
+    ];
+    if let Some(id) = scope.book_id {
+        sql.push_str(" AND v.book_id = ?");
+        params.push(Value::Integer(id));
+    }
+    if let Some(t) = scope.testament.filter(|t| matches!(*t, "OT" | "NT" | "DC")) {
+        sql.push_str(" AND b.testament = ?");
+        params.push(Value::Text(t.to_string()));
+    }
+    if let Some(start) = scope.start_verse_id {
+        sql.push_str(" AND e.verse_id >= ?");
+        params.push(Value::Integer(start));
+    }
+    if let Some(end) = scope.end_verse_id {
+        sql.push_str(" AND e.verse_id <= ?");
+        params.push(Value::Integer(end));
+    }
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
         let verse_id: i64 = row.get(0)?;
         let blob: Vec<u8> = row.get(1)?;
         let book_id: i64 = row.get(2)?;
