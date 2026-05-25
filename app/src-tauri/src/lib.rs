@@ -339,6 +339,11 @@ fn normalize_app_settings(settings: &mut user_db::AppSettings) -> Result<(), Str
         "Reader density",
         &["comfortable", "compact"],
     )?;
+    normalize_enum_setting(
+        &mut settings.search_strategy,
+        "Search strategy",
+        &["keyword", "semantic", "hybrid"],
+    )?;
     settings.font_scale = settings
         .font_scale
         .and_then(|value| value.is_finite().then(|| value.clamp(0.8, 1.4)));
@@ -481,11 +486,13 @@ mod command_input_tests {
             font_scale: Some(9.0),
             reader_layout: Some("interleaved".to_string()),
             reader_density: Some("compact".to_string()),
+            search_strategy: Some("hybrid".to_string()),
             ..AppSettings::default()
         };
 
         normalize_app_settings(&mut settings).expect("settings should normalize");
 
+        assert_eq!(settings.search_strategy.as_deref(), Some("hybrid"));
         assert_eq!(settings.google_api_key.as_deref(), Some("goog-key"));
         assert_eq!(
             settings.managed_gateway_url.as_deref(),
@@ -514,6 +521,12 @@ mod command_input_tests {
             ..AppSettings::default()
         };
         assert!(normalize_app_settings(&mut bad_layout).is_err());
+
+        let mut bad_strategy = AppSettings {
+            search_strategy: Some("fulltext".to_string()),
+            ..AppSettings::default()
+        };
+        assert!(normalize_app_settings(&mut bad_strategy).is_err());
 
         let mut bad_translation = AppSettings {
             retrieval_translation: Some("../KJV".to_string()),
