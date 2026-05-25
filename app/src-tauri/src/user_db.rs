@@ -8367,7 +8367,6 @@ pub struct RangeNote {
     pub updated_at: String,
 }
 
-#[allow(dead_code)]
 #[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct NoteMatch {
     pub kind: String,  // "verse" | "range"
@@ -8379,7 +8378,6 @@ pub struct NoteMatch {
 
 /// Build a case-insensitive substring LIKE pattern, escaping SQLite LIKE
 /// metacharacters so they match literally (paired with `ESCAPE '\'`).
-#[allow(dead_code)]
 fn like_pattern(token: &str) -> String {
     let mut out = String::with_capacity(token.len() + 2);
     out.push('%');
@@ -8395,7 +8393,6 @@ fn like_pattern(token: &str) -> String {
 
 /// Find notes whose body contains every token (case-insensitive substring),
 /// most-recently-edited first. Spans both note tables.
-#[allow(dead_code)]
 pub fn search_notes(conn: &Connection, tokens: &[String], limit: i64) -> SqlResult<Vec<NoteMatch>> {
     if tokens.is_empty() {
         return Ok(Vec::new());

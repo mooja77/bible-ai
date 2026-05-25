@@ -2843,6 +2843,115 @@ fn delete_range_highlight(
 
 // ---------- Notes ----------
 
+#[derive(serde::Serialize)]
+pub struct NoteHit {
+    pub kind: String, // "verse" | "range"
+    pub verse_id: i64,
+    pub end_verse_id: Option<i64>,
+    pub citation: String,
+    pub book_id: i64,
+    pub chapter: i64,
+    pub verse: i64,
+    pub body: String,
+    pub updated_at: String,
+}
+
+/// "Genesis 1:1" / "Genesis 1:1-5" (same chapter) / "Genesis 1:31-2:1" (cross-chapter).
+/// `end` is (end_chapter, end_verse) for range notes; same-book is assumed.
+fn format_note_citation(book: &str, chapter: i64, verse: i64, end: Option<(i64, i64)>) -> String {
+    match end {
+        None => format!("{book} {chapter}:{verse}"),
+        Some((ec, ev)) if ec == chapter => format!("{book} {chapter}:{verse}-{ev}"),
+        Some((ec, ev)) => format!("{book} {chapter}:{verse}-{ec}:{ev}"),
+    }
+}
+
+#[tauri::command]
+fn search_notes(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    query: String,
+    limit: Option<i64>,
+) -> Result<Vec<NoteHit>, String> {
+    let query = query.trim();
+    if query.len() > 500 {
+        return Err("search query is too long".to_string());
+    }
+    let tokens: Vec<String> = query.split_whitespace().map(str::to_string).collect();
+    let limit = bounded_limit(limit, 50, 200);
+    if tokens.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let matches: Vec<user_db::NoteMatch> = with_user_db(&app, &state, |conn| {
+        user_db::search_notes(conn, &tokens, limit).map_err(|e| e.to_string())
+    })?;
+    if matches.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut ids: Vec<i64> = Vec::new();
+    for m in &matches {
+        ids.push(m.verse_id);
+        if let Some(e) = m.end_verse_id {
+            ids.push(e);
+        }
+    }
+    ids.sort_unstable();
+    ids.dedup();
+
+    let mut refs: std::collections::HashMap<i64, (i64, String, i64, i64)> =
+        std::collections::HashMap::new();
+    {
+        let conn = open_corpus(&app)?;
+        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT v.id, v.book_id, b.name, v.chapter, v.verse
+             FROM verses v JOIN books b ON b.id = v.book_id
+             WHERE v.id IN ({placeholders})"
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(ids.iter()), |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, i64>(4)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (id, book_id, name, chapter, verse) = row.map_err(|e| e.to_string())?;
+            refs.insert(id, (book_id, name, chapter, verse));
+        }
+    }
+
+    let mut hits: Vec<NoteHit> = Vec::new();
+    for m in matches {
+        let Some((book_id, book_name, chapter, verse)) = refs.get(&m.verse_id).cloned() else {
+            continue;
+        };
+        let end = m
+            .end_verse_id
+            .and_then(|e| refs.get(&e).map(|(_, _, ec, ev)| (*ec, *ev)));
+        let citation = format_note_citation(&book_name, chapter, verse, end);
+        hits.push(NoteHit {
+            kind: m.kind,
+            verse_id: m.verse_id,
+            end_verse_id: m.end_verse_id,
+            citation,
+            book_id,
+            chapter,
+            verse,
+            body: m.body,
+            updated_at: m.updated_at,
+        });
+    }
+    Ok(hits)
+}
+
 #[tauri::command]
 fn get_note(
     app: AppHandle,
@@ -3792,8 +3901,27 @@ pub fn run() {
             get_range_note,
             upsert_range_note,
             delete_range_note,
-            list_range_notes_for_chapter
+            list_range_notes_for_chapter,
+            search_notes
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod note_citation_tests {
+    use super::format_note_citation;
+
+    #[test]
+    fn formats_single_and_ranges() {
+        assert_eq!(format_note_citation("Genesis", 1, 1, None), "Genesis 1:1");
+        assert_eq!(
+            format_note_citation("Genesis", 1, 1, Some((1, 5))),
+            "Genesis 1:1-5"
+        );
+        assert_eq!(
+            format_note_citation("Genesis", 1, 31, Some((2, 1))),
+            "Genesis 1:31-2:1"
+        );
+    }
 }
