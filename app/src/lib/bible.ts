@@ -43,7 +43,7 @@ export interface SearchHit {
   /** "keyword" | "meaning" | "both" */
   match_kind: "keyword" | "meaning" | "both";
   /** Cosine similarity 0..1, present for meaning/both. */
-  semantic_score?: number;
+  semantic_score?: number | null;
 }
 
 export interface SearchResponse {

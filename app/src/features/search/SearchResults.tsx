@@ -13,9 +13,19 @@ interface Props {
   loading: boolean;
   onSelect: (hit: SearchHit) => void;
   onSaveSearch?: () => void;
+  degraded?: boolean;
+  degradedReason?: string | null;
 }
 
-export function SearchResults({ query, results, loading, onSelect, onSaveSearch }: Props) {
+export function SearchResults({
+  query,
+  results,
+  loading,
+  onSelect,
+  onSaveSearch,
+  degraded = false,
+  degradedReason,
+}: Props) {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
   const [theologyTopicId, setTheologyTopicId] = useState<number | null>(null);
@@ -200,6 +210,15 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
         )}
       </header>
 
+      {degraded && (
+        <div
+          data-testid="search-degraded-notice"
+          className="soft-card border-amber-500/40 bg-amber-500/10 px-3 py-2 mb-3 text-xs text-amber-200"
+        >
+          {degradedReason ?? "Meaning search unavailable — showing keyword results."}
+        </div>
+      )}
+
       {!loading && results.length === 0 ? (
         <div className="soft-card px-4 py-5 text-sm text-neutral-500">
           No matches. Try a shorter phrase, another translation, or a broader testament/book filter.
@@ -229,12 +248,25 @@ export function SearchResults({ query, results, loading, onSelect, onSaveSearch 
                       <span>
                         {hit.book_name} {hit.chapter}:{hit.verse}
                       </span>
+                      {(hit.match_kind === "meaning" || hit.match_kind === "both") && (
+                        <span
+                          data-testid="match-kind-badge"
+                          className="meta-pill text-emerald-300 border-emerald-500/40"
+                          title={
+                            hit.semantic_score != null
+                              ? `Meaning match (${Math.round(hit.semantic_score * 100)}%)`
+                              : "Meaning match"
+                          }
+                        >
+                          {hit.match_kind === "both" ? "keyword + meaning" : "meaning"}
+                        </span>
+                      )}
                     </div>
                     <p
                       className="text-neutral-200 text-sm leading-relaxed"
                       style={{ fontFamily: "var(--font-serif)" }}
                     >
-                      <SnippetText value={hit.snippet} />
+                      {hit.snippet ? <SnippetText value={hit.snippet} /> : hit.text}
                     </p>
                   </button>
                   <AddToWorkspaceMenu
