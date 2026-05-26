@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   deleteHighlight,
   deleteNote,
@@ -19,6 +19,12 @@ import {
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
 
 type Tab = "refs" | "highlight" | "note";
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: "refs", label: "Cross-refs" },
+  { value: "highlight", label: "Highlight" },
+  { value: "note", label: "Note" },
+];
 
 interface Props {
   verseId: number;
@@ -71,6 +77,21 @@ export function VersePanel({
   const activeVerseId = useRef(verseId);
   const explainRequestId = useRef(0);
   const citation = `${bookName} ${chapter}:${verse}`;
+
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const handleTabKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const current = TABS.findIndex((t) => t.value === tab);
+    let next = current;
+    if (event.key === "ArrowRight") next = (current + 1) % TABS.length;
+    else if (event.key === "ArrowLeft") next = (current - 1 + TABS.length) % TABS.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = TABS.length - 1;
+    else return;
+    event.preventDefault();
+    setTab(TABS[next].value);
+    tabRefs.current[next]?.focus();
+  };
 
   useEffect(() => {
     activeVerseId.current = verseId;
@@ -179,9 +200,20 @@ export function VersePanel({
       </header>
 
       <div className="flex flex-wrap gap-1 mb-3 border-b border-neutral-800">
-        <TabButton label="Cross-refs" active={tab === "refs"} onClick={() => setTab("refs")} />
-        <TabButton label="Highlight" active={tab === "highlight"} onClick={() => setTab("highlight")} />
-        <TabButton label="Note" active={tab === "note"} onClick={() => setTab("note")} />
+        <div role="tablist" aria-label="Verse details" className="flex gap-1" onKeyDown={handleTabKeyDown}>
+          {TABS.map((t, index) => (
+            <TabButton
+              key={t.value}
+              ref={(el) => {
+                tabRefs.current[index] = el;
+              }}
+              label={t.label}
+              value={t.value}
+              active={tab === t.value}
+              onClick={() => setTab(t.value)}
+            />
+          ))}
+        </div>
         {onAskCouncilAboutVerse && (
           <button
             type="button"
@@ -257,15 +289,19 @@ export function VersePanel({
         <p className="mb-3 text-xs text-neutral-500">{theologyLinkStatus}</p>
       )}
 
-      {tab === "refs" && <CrossRefsTab verseId={verseId} onJumpToVerse={onJumpToVerse} />}
-      {tab === "highlight" && (
-        <HighlightTab
-          verseId={verseId}
-          current={highlightColor}
-          onChanged={onMutated}
-        />
-      )}
-      {tab === "note" && <NoteTab verseId={verseId} onChanged={onMutated} />}
+      <div
+        role="tabpanel"
+        id="verse-details-panel"
+        aria-labelledby={`verse-tab-${tab}`}
+        tabIndex={0}
+        className="outline-none"
+      >
+        {tab === "refs" && <CrossRefsTab verseId={verseId} onJumpToVerse={onJumpToVerse} />}
+        {tab === "highlight" && (
+          <HighlightTab verseId={verseId} current={highlightColor} onChanged={onMutated} />
+        )}
+        {tab === "note" && <NoteTab verseId={verseId} onChanged={onMutated} />}
+      </div>
       {moduleEntries.length > 0 && (
         <section className="mt-4 border-t border-neutral-800 pt-3">
           <h4 className="text-sm tracking-wider text-neutral-400 mb-2">
@@ -332,18 +368,19 @@ export function VersePanel({
   );
 }
 
-function TabButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
+const TabButton = forwardRef<
+  HTMLButtonElement,
+  { label: string; value: Tab; active: boolean; onClick: () => void }
+>(function TabButton({ label, value, active, onClick }, ref) {
   return (
     <button
+      ref={ref}
       type="button"
+      role="tab"
+      id={`verse-tab-${value}`}
+      aria-selected={active}
+      aria-controls="verse-details-panel"
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className={
         "px-3 py-1.5 text-xs border-b-2 transition-colors " +
@@ -355,7 +392,7 @@ function TabButton({
       {label}
     </button>
   );
-}
+});
 
 type CrossRefStrength = "strong" | "medium" | "weak";
 
