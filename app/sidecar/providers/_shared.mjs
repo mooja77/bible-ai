@@ -432,6 +432,66 @@ function normalisePositiveInteger(value) {
   return Number.isSafeInteger(number) && number > 0 ? number : 0;
 }
 
+/**
+ * Classify a provider error message (already redacted) into a category + an
+ * actionable hint. Priority-ordered (auth → quota → network → server → parse)
+ * so e.g. a 429 maps to quota even though it is also an HTTP status. Never
+ * throws; falls back to "unknown". Matching is case-insensitive; hints use the
+ * provider's display name as given.
+ */
+export function classifyProviderError(message, providerName) {
+  const provider = providerName || "The provider";
+  const m = String(message ?? "").toLowerCase();
+  const has = (...needles) => needles.some((n) => m.includes(n));
+
+  if (
+    has("401", "403", "unauthorized", "invalid api key", "api key not valid",
+      "permission denied", "invalid_api_key")
+  ) {
+    return { category: "auth", hint: `Check or add the ${provider} API key in Settings.` };
+  }
+  if (
+    has("429", "quota", "rate limit", "too many requests", "insufficient_quota",
+      "exceeded", "billing")
+  ) {
+    return {
+      category: "quota",
+      hint: `${provider} hit a rate limit or quota — wait a minute, or check your plan/billing.`,
+    };
+  }
+  if (
+    has("econnrefused", "enotfound", "fetch failed", "network", "timeout", "timed out",
+      "etimedout", "socket hang up", "ollama serve", "not reachable")
+  ) {
+    const hint = m.includes("ollama")
+      ? "Start Ollama (run `ollama serve`) and make sure the model is pulled."
+      : `Couldn't reach ${provider} — check your internet connection.`;
+    return { category: "network", hint };
+  }
+  if (
+    has("500", "502", "503", "504", "server error", "service unavailable",
+      "bad gateway", "gateway timeout")
+  ) {
+    return {
+      category: "server",
+      hint: `${provider} had a temporary server error — try again shortly.`,
+    };
+  }
+  if (
+    has("no json", "not an object", "positions array", "no text", "no message content",
+      "no text content", "unreadable", "could not parse")
+  ) {
+    return {
+      category: "parse",
+      hint: `${provider} returned a response the Council couldn't read — try again.`,
+    };
+  }
+  return {
+    category: "unknown",
+    hint: `${provider} failed — try again, or check its key in Settings.`,
+  };
+}
+
 export function parseResponse(text, sourceLabel) {
   const jsonText = extractJson(text);
   if (!jsonText) {

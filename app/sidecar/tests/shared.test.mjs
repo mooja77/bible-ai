@@ -15,6 +15,7 @@ import {
   buildVoicePrompt,
   buildSynthesisPrompt,
   redactSecrets,
+  classifyProviderError,
 } from "../providers/_shared.mjs";
 
 /** A minimal but structurally valid CouncilResult-ish object. */
@@ -442,4 +443,53 @@ test("buildSynthesisPrompt: includes one labelled block per voice", () => {
   assert.match(prompt, /## Voice: Gemini/);
   assert.match(prompt, /## Voice: OpenAI/);
   assert.match(prompt, /2 independent voices/);
+});
+
+// ---------------------------------------------------------------------------
+// classifyProviderError
+// ---------------------------------------------------------------------------
+
+test("classifyProviderError: 401 → auth, hint names the provider + key", () => {
+  const { category, hint } = classifyProviderError(
+    "Anthropic 401 Unauthorized: invalid x-api-key",
+    "Anthropic",
+  );
+  assert.equal(category, "auth");
+  assert.match(hint, /Anthropic/);
+  assert.match(hint, /api key/i);
+});
+
+test("classifyProviderError: 429 → quota", () => {
+  assert.equal(
+    classifyProviderError("OpenAI 429 Too Many Requests: rate limit", "OpenAI").category,
+    "quota",
+  );
+});
+
+test("classifyProviderError: ollama not running → network with ollama hint", () => {
+  const { category, hint } = classifyProviderError(
+    "ollama request failed (is `ollama serve` running?): ECONNREFUSED",
+    "Ollama",
+  );
+  assert.equal(category, "network");
+  assert.match(hint, /ollama serve/i);
+});
+
+test("classifyProviderError: 503 → server", () => {
+  assert.equal(
+    classifyProviderError("Managed Gateway 503 Service Unavailable: down", "Managed Gateway")
+      .category,
+    "server",
+  );
+});
+
+test("classifyProviderError: no JSON → parse", () => {
+  assert.equal(
+    classifyProviderError("OpenAI: no JSON found in response. Raw: hello", "OpenAI").category,
+    "parse",
+  );
+});
+
+test("classifyProviderError: unrecognized → unknown", () => {
+  assert.equal(classifyProviderError("something weird happened", "Gemini").category, "unknown");
 });
