@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-
-type Mode = "reader" | "council" | "theology" | "resources" | "workspaces" | "settings" | "tags";
+import type { Mode } from "../../lib/mode";
 
 export type TourStep = {
   id: string;

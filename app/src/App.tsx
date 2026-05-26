@@ -66,6 +66,7 @@ import { ErrorState } from "./components/StateViews";
 import { TagFilterBar, ItemTagRow } from "./features/tags/TagControls";
 import { TagBrowser } from "./features/tags/TagBrowser";
 import { GuidedTour, TOUR_STEPS } from "./features/onboarding/GuidedTour";
+import type { Mode } from "./lib/mode";
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
@@ -84,7 +85,6 @@ const safeLocalStorageSet = (key: string, value: string) => {
   }
 };
 
-type Mode = "reader" | "council" | "theology" | "resources" | "workspaces" | "settings" | "tags";
 type SearchTestamentFilter = "all" | "OT" | "NT" | "DC";
 type ReaderLayout = "columns" | "interleaved";
 type ReaderDensity = "comfortable" | "compact";
