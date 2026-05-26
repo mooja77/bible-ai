@@ -123,6 +123,56 @@ describe("Reader interactions", () => {
     await closeBtn.click();
   });
 
+  it("tags a bookmark and filters the sidebar by the tag", async () => {
+    const reader = await $("button=Reader");
+    await reader.waitForClickable({ timeout: 10_000 });
+    await reader.click();
+
+    const jumpInput = await $('input[aria-label="Jump to reference"]');
+    await jumpInput.waitForDisplayed({ timeout: 5_000 });
+    await jumpInput.setValue("Genesis 1:1");
+    await $("button=Go").click();
+
+    await clickVerseAction('button[aria-label="Verse 1 actions"]');
+
+    const label = `Tagged bookmark ${Date.now()}`;
+    const bookmarkLabel = await $('input[aria-label="Bookmark label"]');
+    await bookmarkLabel.waitForDisplayed({ timeout: 5_000 });
+    await bookmarkLabel.setValue(label);
+    const bookmark = await $("button=Bookmark");
+    await bookmark.waitForClickable({ timeout: 5_000 });
+    await bookmark.click();
+
+    const shortcut = await $(`button=${label}`);
+    await shortcut.waitForDisplayed({ timeout: 10_000 });
+
+    // Close the verse panel so the sidebar shortcut is the clear target.
+    await $('button[aria-label="Close verse panel"]').click();
+
+    // Open the bookmark's tag input, add a tag.
+    const tagName = `topic${Date.now()}`;
+    const li = await (await $(`button=${label}`)).parentElement();
+    await li.$('[data-testid="bookmark-add-tag"]').click();
+    const tagInput = await li.$('[data-testid="bookmark-tag-input"]');
+    await tagInput.waitForDisplayed({ timeout: 5_000 });
+    await tagInput.setValue(tagName);
+    await browser.keys("Enter");
+
+    // The chip renders on the bookmark (re-query: the list re-rendered after refresh).
+    const chip = await $(`[data-testid="bookmark-tag-chip"]*=${tagName}`);
+    await chip.waitForDisplayed({ timeout: 10_000 });
+
+    // Filtering by the tag keeps this bookmark visible.
+    const filterChip = await $(`[data-testid="bookmark-tag-filter"]`).then((bar) =>
+      bar.$(`button=${tagName}`),
+    );
+    await filterChip.click();
+    await expect(await $(`button=${label}`)).toBeDisplayed();
+
+    // Clear the filter to leave clean state for later tests.
+    await (await $('[data-testid="bookmark-tag-filter"]')).$("button=Clear").click();
+  });
+
   it("explains a verse from the verse panel", async () => {
     const reader = await $("button=Reader");
     await reader.waitForClickable({ timeout: 10_000 });
