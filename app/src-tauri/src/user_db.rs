@@ -40,6 +40,9 @@ const USER_TABLES: &[&str] = &[
     "bookmarks",
     "reading_history",
     "saved_searches",
+    // tags before item_tags; item_tags references tags + bookmarks + study_items, so it is imported last.
+    "tags",
+    "item_tags",
 ];
 const APP_SETTING_KEYS: &[&str] = &[
     "managed_gateway_url",
@@ -7299,6 +7302,8 @@ fn import_user_data_inner(
     let mut resource_entry_id_map = std::collections::HashMap::<i64, i64>::new();
     let mut module_id_map = std::collections::HashMap::<i64, i64>::new();
     let mut study_item_id_map = std::collections::HashMap::<i64, i64>::new();
+    let mut tag_id_map = std::collections::HashMap::<i64, i64>::new();
+    let mut bookmark_id_map = std::collections::HashMap::<i64, i64>::new();
 
     for table in USER_TABLES {
         let Some(rows_value) = tables.get(*table) else {
@@ -7328,6 +7333,72 @@ fn import_user_data_inner(
                     report.skipped += 1;
                     continue;
                 }
+            }
+            if *table == "tags" {
+                let old_id = row.get("id").and_then(serde_json::Value::as_i64);
+                let name = row
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::trim)
+                    .unwrap_or_default();
+                if name.is_empty() {
+                    report.skipped += 1;
+                    continue;
+                }
+                let tag = create_tag(conn, name).map_err(|e| e.to_string())?;
+                if let Some(old) = old_id {
+                    tag_id_map.insert(old, tag.id);
+                }
+                report.imported += 1;
+                continue;
+            }
+            if *table == "item_tags" {
+                let Some(old_tag) = row.get("tag_id").and_then(serde_json::Value::as_i64) else {
+                    report.skipped += 1;
+                    continue;
+                };
+                let Some(&new_tag) = tag_id_map.get(&old_tag) else {
+                    report.skipped += 1;
+                    continue;
+                };
+                let item_type = row
+                    .get("item_type")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string();
+                let Some(old_item) = row.get("item_id").and_then(serde_json::Value::as_i64) else {
+                    report.skipped += 1;
+                    continue;
+                };
+                let new_item = match item_type.as_str() {
+                    "bookmark" => match bookmark_id_map.get(&old_item) {
+                        Some(&n) => n,
+                        None => {
+                            report.skipped += 1;
+                            continue;
+                        }
+                    },
+                    // notes are keyed by verse_id (stable corpus id — not remapped).
+                    "note" => old_item,
+                    // range_note / study_item are not yet taggable; when they are, add their
+                    // id-maps here (study_item_id_map exists; range_note needs a new map).
+                    _ => {
+                        report.skipped += 1;
+                        continue;
+                    }
+                };
+                let affected = conn
+                    .execute(
+                        "INSERT OR IGNORE INTO item_tags (tag_id, item_type, item_id) VALUES (?, ?, ?)",
+                        params![new_tag, item_type, new_item],
+                    )
+                    .map_err(|e| format!("import item_tags: {e}"))?;
+                if affected > 0 {
+                    report.imported += 1;
+                } else {
+                    report.skipped += 1;
+                }
+                continue;
             }
             let old_id = row.get("id").and_then(serde_json::Value::as_i64);
             let mut row = row.clone();
@@ -7368,6 +7439,16 @@ fn import_user_data_inner(
                 report.replaced += affected;
             } else {
                 report.imported += affected;
+            }
+
+            if *table == "bookmarks" {
+                if let Some(old_id) = old_id {
+                    if let Some(resolved) =
+                        resolve_imported_bookmark_id(conn, &row).map_err(|e| e.to_string())?
+                    {
+                        bookmark_id_map.insert(old_id, resolved);
+                    }
+                }
             }
 
             if conflict_strategy == "duplicate" && affected > 0 {
@@ -8061,6 +8142,23 @@ fn prepare_duplicate_row(
         _ => {}
     }
     Ok(())
+}
+
+fn resolve_imported_bookmark_id(
+    conn: &Connection,
+    row: &serde_json::Map<String, serde_json::Value>,
+) -> SqlResult<Option<i64>> {
+    let Some(verse_id) = row.get("verse_id").and_then(serde_json::Value::as_i64) else {
+        return Ok(None);
+    };
+    let end_verse_id = row.get("end_verse_id").and_then(serde_json::Value::as_i64);
+    conn.query_row(
+        "SELECT id FROM bookmarks
+         WHERE verse_id = ?1 AND ((?2 IS NULL AND end_verse_id IS NULL) OR end_verse_id = ?2)",
+        params![verse_id, end_verse_id],
+        |r| r.get(0),
+    )
+    .optional()
 }
 
 fn remap_workspace_item_link_payload(
