@@ -22,6 +22,7 @@ import {
   buildSynthesisPrompt,
   parseResponse,
   redactSecrets,
+  classifyProviderError,
 } from "./providers/_shared.mjs";
 
 const log = (...args) => console.error("[council]", ...args);
@@ -39,14 +40,19 @@ async function runOneVoice(provider, { question, evidence, env, model }) {
       duration_ms: Date.now() - started,
     };
   } catch (err) {
+    const displayName =
+      provider.displayName?.({ env, model }) ?? provider.display_name;
     const error = redactSecrets(err?.message ?? String(err), env);
     log(`voice ${provider.name} failed:`, error);
+    const { category, hint } = classifyProviderError(error, displayName);
     return {
       provider: provider.name,
-      display_name: provider.displayName?.({ env, model }) ?? provider.display_name,
+      display_name: displayName,
       status: "error",
       result: null,
       error,
+      error_category: category,
+      error_hint: hint,
       duration_ms: Date.now() - started,
     };
   }
@@ -397,9 +403,13 @@ export async function runCouncil({ question, evidence, model, settings }) {
 
   const ok = voices.filter((v) => v.status === "ok" && v.result);
   if (ok.length === 0) {
-    throw new Error(
-      "council: all voices failed — first error: " + (voices[0]?.error ?? "unknown"),
+    const lines = voices.map(
+      (v) =>
+        `• ${v.display_name}: ${v.error_category ?? "unknown"} — ${
+          v.error_hint ?? v.error ?? "failed"
+        }`,
     );
+    throw new Error("Every Council voice failed:\n" + lines.join("\n"));
   }
 
   let synthesis;
