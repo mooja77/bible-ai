@@ -64,6 +64,7 @@ import { ResourcesPanel } from "./features/resources/ResourcesPanel";
 import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
 import { ErrorState } from "./components/StateViews";
 import { TagFilterBar, ItemTagRow } from "./features/tags/TagControls";
+import { TagBrowser } from "./features/tags/TagBrowser";
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
@@ -82,7 +83,7 @@ const safeLocalStorageSet = (key: string, value: string) => {
   }
 };
 
-type Mode = "reader" | "council" | "theology" | "resources" | "workspaces" | "settings";
+type Mode = "reader" | "council" | "theology" | "resources" | "workspaces" | "settings" | "tags";
 type SearchTestamentFilter = "all" | "OT" | "NT" | "DC";
 type ReaderLayout = "columns" | "interleaved";
 type ReaderDensity = "comfortable" | "compact";
@@ -1045,6 +1046,11 @@ function App() {
               label="Workspaces"
             />
             <ModeButton
+              active={mode === "tags"}
+              onClick={() => selectMode("tags")}
+              label="Tags"
+            />
+            <ModeButton
               active={mode === "settings"}
               onClick={() => selectMode("settings")}
               label="Settings"
@@ -1479,6 +1485,8 @@ function App() {
               setMode("council");
             }}
           />
+        ) : mode === "tags" ? (
+          <TagBrowser onJumpToVerse={(verseId) => jumpToVerse(verseId, activeTranslations[0] ?? "KJV")} />
         ) : mode === "council" ? (
           <CouncilPanel
             onJumpToVerse={jumpToVerse}
