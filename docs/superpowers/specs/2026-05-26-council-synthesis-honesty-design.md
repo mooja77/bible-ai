@@ -1,7 +1,7 @@
 # Council Synthesis Honesty (Fallback Labeling) — Design
 
 - **Date:** 2026-05-26
-- **Status:** Approved (design); ready for implementation plan
+- **Status:** Implemented (branch `council-synthesis-honesty`)
 - **Theme:** B — Council AI trust/UX, sub-project 2
 - **Owner:** John Moore
 
