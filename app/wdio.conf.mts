@@ -133,6 +133,7 @@ export const config: WebdriverIO.Config = {
       "./tests/e2e/notes-search.spec.ts",
       "./tests/e2e/crossref-weight.spec.ts",
       "./tests/e2e/council-follow-up.spec.ts",
+      "./tests/e2e/tags-browse.spec.ts",
       "./tests/e2e/release-readiness.spec.ts",
     ],
   ],
