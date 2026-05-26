@@ -1,7 +1,7 @@
 # VersePanel Tabs → ARIA Tablist — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `versepanel-tablist-a11y`)
+- **Status:** Implemented (branch `versepanel-tablist-a11y`)
 - **Theme:** C — Accessibility & polish, sub-project 3
 - **Owner:** John Moore
 
