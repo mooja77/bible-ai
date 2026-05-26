@@ -1,7 +1,7 @@
 # Decompose God-Components F2 — Extract NavigationShortcuts from App.tsx — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `decompose-nav-shortcuts`)
+- **Status:** Implemented (branch `decompose-nav-shortcuts`)
 - **Theme:** F — Decompose god-components, sub-project 2
 - **Owner:** John Moore
 
