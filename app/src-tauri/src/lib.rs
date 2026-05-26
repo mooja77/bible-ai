@@ -1265,6 +1265,85 @@ fn delete_bookmark(
     })
 }
 
+const TAGGABLE_ITEM_TYPES: &[&str] = &["bookmark", "note", "range_note", "study_item"];
+
+fn validate_item_type(item_type: &str) -> Result<(), String> {
+    if TAGGABLE_ITEM_TYPES.contains(&item_type) {
+        Ok(())
+    } else {
+        Err(format!("unknown item_type: {item_type}"))
+    }
+}
+
+#[tauri::command]
+fn list_tags(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+) -> Result<Vec<user_db::Tag>, String> {
+    with_user_db(&app, &state, |conn| user_db::list_tags(conn).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
+fn create_tag(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    name: String,
+) -> Result<user_db::Tag, String> {
+    if name.trim().is_empty() {
+        return Err("tag name must not be empty".into());
+    }
+    with_user_db(&app, &state, |conn| user_db::create_tag(conn, &name).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
+fn delete_tag(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    id: i64,
+) -> Result<usize, String> {
+    with_user_db(&app, &state, |conn| user_db::delete_tag(conn, id).map_err(|e| e.to_string()))
+}
+
+#[tauri::command]
+fn tag_item(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    tag_id: i64,
+    item_type: String,
+    item_id: i64,
+) -> Result<usize, String> {
+    validate_item_type(&item_type)?;
+    with_user_db(&app, &state, |conn| {
+        user_db::tag_item(conn, tag_id, &item_type, item_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn untag_item(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    tag_id: i64,
+    item_type: String,
+    item_id: i64,
+) -> Result<usize, String> {
+    validate_item_type(&item_type)?;
+    with_user_db(&app, &state, |conn| {
+        user_db::untag_item(conn, tag_id, &item_type, item_id).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_item_tags(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    item_type: String,
+) -> Result<Vec<user_db::ItemTag>, String> {
+    validate_item_type(&item_type)?;
+    with_user_db(&app, &state, |conn| {
+        user_db::list_item_tags(conn, &item_type).map_err(|e| e.to_string())
+    })
+}
+
 #[tauri::command]
 fn record_reading_location(
     app: AppHandle,
@@ -3831,6 +3910,12 @@ pub fn run() {
             list_bookmarks,
             add_bookmark,
             delete_bookmark,
+            list_tags,
+            create_tag,
+            delete_tag,
+            tag_item,
+            untag_item,
+            list_item_tags,
             record_reading_location,
             list_reading_history,
             list_saved_searches,
