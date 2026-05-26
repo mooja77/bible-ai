@@ -43,6 +43,57 @@ describe("Reader interactions", () => {
     await panelHeader.waitForDisplayed({ reverse: true, timeout: 3_000 });
   });
 
+  it("navigates VersePanel tabs with arrow keys (ARIA tablist)", async () => {
+    const reader = await $("button=Reader");
+    await reader.waitForClickable({ timeout: 10_000 });
+    await reader.click();
+
+    const jumpInput = await $('input[aria-label="Jump to reference"]');
+    await jumpInput.waitForDisplayed({ timeout: 5_000 });
+    await jumpInput.setValue("Genesis 1:1");
+    await $("button=Go").click();
+    const verseHeading = await $("h1*=Genesis");
+    await verseHeading.waitForDisplayed({ timeout: 10_000 });
+
+    await clickVerseAction('button[aria-label*="Verse"][aria-label*="actions"]');
+    const panelHeader = await $("h3*=Verse");
+    await panelHeader.waitForDisplayed({ timeout: 5_000 });
+
+    // Tabs form an ARIA tablist; Cross-refs is selected by default.
+    const tablist = await $('[role="tablist"]');
+    await expect(tablist).toBeDisplayed();
+    const refsTab = await $("#verse-tab-refs");
+    const highlightTab = await $("#verse-tab-highlight");
+    await expect(refsTab).toHaveAttribute("aria-selected", "true");
+
+    // ArrowRight from the focused active tab moves selection + focus to Highlight.
+    await browser.execute(() => document.getElementById("verse-tab-refs")?.focus());
+    await browser.keys("ArrowRight");
+    await expect(highlightTab).toHaveAttribute("aria-selected", "true");
+    await expect(refsTab).toHaveAttribute("aria-selected", "false");
+    const panel = await $("#verse-details-panel");
+    await expect(panel).toHaveAttribute("aria-labelledby", "verse-tab-highlight");
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(() => document.activeElement?.id ?? null)) === "verse-tab-highlight",
+      { timeout: 5_000, timeoutMsg: "ArrowRight did not move focus to the Highlight tab" },
+    );
+
+    // Home returns to the first tab.
+    await browser.keys("Home");
+    await expect(refsTab).toHaveAttribute("aria-selected", "true");
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(() => document.activeElement?.id ?? null)) === "verse-tab-refs",
+      { timeout: 5_000, timeoutMsg: "Home did not move focus to the Cross-refs tab" },
+    );
+
+    // Close the panel.
+    const closeBtn = await $('button[aria-label="Close verse panel"]');
+    await closeBtn.click();
+    await panelHeader.waitForDisplayed({ reverse: true, timeout: 3_000 });
+  });
+
   it("bookmarks a verse and shows it in shortcuts", async () => {
     const reader = await $("button=Reader");
     await reader.waitForClickable({ timeout: 10_000 });
