@@ -1,7 +1,7 @@
 # Council Follow-up Question Chaining — Design
 
 - **Date:** 2026-05-26
-- **Status:** Approved (design); ready for implementation plan
+- **Status:** Implemented (branch `council-follow-up-chaining`)
 - **Theme:** B — Council AI trust/UX, sub-project 4
 - **Owner:** John Moore
 
