@@ -1,7 +1,7 @@
 # Study Organization E2 — Tag Verse Notes — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `study-tags-notes`)
+- **Status:** Implemented (branch `study-tags-notes`)
 - **Theme:** E — Study organization, sub-project 2
 - **Owner:** John Moore
 
