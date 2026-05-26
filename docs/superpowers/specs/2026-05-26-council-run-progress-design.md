@@ -1,7 +1,7 @@
 # Council Run Progress (Consulting Indicator) — Design
 
 - **Date:** 2026-05-26
-- **Status:** Approved (design); ready for implementation plan
+- **Status:** Implemented (branch `council-run-progress`)
 - **Theme:** B — Council AI trust/UX, sub-project 5 (final)
 - **Owner:** John Moore
 
