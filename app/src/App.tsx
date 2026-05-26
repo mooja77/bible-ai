@@ -932,6 +932,18 @@ function App() {
 
   return (
     <div className="app-shell h-full flex">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-amber-400 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-950"
+        onClick={(event) => {
+          event.preventDefault();
+          const main = document.getElementById("main-content");
+          main?.focus();
+          main?.scrollIntoView();
+        }}
+      >
+        Skip to main content
+      </a>
       <aside className="app-sidebar w-80 border-r border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-800 space-y-3">
           <div className="flex items-start justify-between gap-3">
@@ -1288,7 +1300,11 @@ function App() {
         )}
       </aside>
 
-      <main className="flex-1 overflow-auto bg-neutral-950/20">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 overflow-auto bg-neutral-950/20 outline-none"
+      >
         {warning && (
           <div className="m-4 flex items-start justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             <span>{warning}</span>
