@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { runCouncil, resolveSynthesisMode } from "../council.mjs";
+import { runCouncil, resolveSynthesisMode, withTimeout } from "../council.mjs";
 
 const EVIDENCE = [
   {
@@ -123,4 +123,15 @@ test("resolveSynthesisMode: multiple voices but synthesis threw → synthesis_fa
 
 test("resolveSynthesisMode: multiple voices, synthesis ok → consensus", () => {
   assert.equal(resolveSynthesisMode({ okCount: 3, synthesisFailed: false }), "consensus");
+});
+
+test("withTimeout: resolves with the value when the promise is fast", async () => {
+  assert.equal(await withTimeout(Promise.resolve("ok"), 1000, "X"), "ok");
+});
+
+test("withTimeout: rejects with a timeout error when the promise is too slow", async () => {
+  await assert.rejects(
+    () => withTimeout(new Promise(() => {}), 10, "OpenAI"),
+    /timed out after/,
+  );
 });

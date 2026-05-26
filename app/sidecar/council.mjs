@@ -27,21 +27,47 @@ import {
 
 const log = (...args) => console.error("[council]", ...args);
 
+/**
+ * Race a promise against a wall-clock timeout. On timeout, rejects with a
+ * labeled Error. Does NOT cancel the underlying work (the loser keeps running
+ * in the background and its result is discarded). The `.finally` clears the
+ * timer so it can't keep the event loop alive after the race settles.
+ */
+export function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)),
+      ms,
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+const DEFAULT_VOICE_TIMEOUT_MS = 300_000; // 5 min — generous for slow models, bounds the retry pathology.
+function voiceTimeoutMs(env = process.env) {
+  const parsed = Number(env.BIBLE_AI_VOICE_TIMEOUT_MS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_VOICE_TIMEOUT_MS;
+}
+
 async function runOneVoice(provider, { question, evidence, env, model }) {
   const started = Date.now();
+  const displayName = provider.displayName?.({ env, model }) ?? provider.display_name;
   try {
-    const result = await provider.analyze({ question, evidence, env, model });
+    const result = await withTimeout(
+      provider.analyze({ question, evidence, env, model }),
+      voiceTimeoutMs(env),
+      displayName,
+    );
     return {
       provider: provider.name,
-      display_name: provider.displayName?.({ env, model }) ?? provider.display_name,
+      display_name: displayName,
       status: "ok",
       result,
       error: null,
       duration_ms: Date.now() - started,
     };
   } catch (err) {
-    const displayName =
-      provider.displayName?.({ env, model }) ?? provider.display_name;
     const error = redactSecrets(err?.message ?? String(err), env);
     log(`voice ${provider.name} failed:`, error);
     const { category, hint } = classifyProviderError(error, displayName);
