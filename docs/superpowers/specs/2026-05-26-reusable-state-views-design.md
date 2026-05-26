@@ -1,7 +1,7 @@
 # Reusable Loading / Empty / Error State Components — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `reusable-state-views`)
+- **Status:** Implemented (branch `reusable-state-views`)
 - **Theme:** C — Accessibility & polish, sub-project 4
 - **Owner:** John Moore
 
