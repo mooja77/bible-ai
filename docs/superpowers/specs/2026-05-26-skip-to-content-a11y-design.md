@@ -1,7 +1,7 @@
 # Skip-to-Content Link — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `skip-to-content-a11y`)
+- **Status:** Implemented (branch `skip-to-content-a11y`)
 - **Theme:** C — Accessibility & polish, sub-project 2
 - **Owner:** John Moore
 
