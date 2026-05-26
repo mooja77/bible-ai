@@ -228,6 +228,8 @@ export interface CouncilResponse {
   evidence_count?: number;
   retrieval_options?: CouncilRetrievalOptions;
   retrieved_evidence?: RetrievedEvidence[];
+  synthesis_mode?: "consensus" | "single_voice" | "synthesis_failed";
+  synthesis_voice?: string;
 }
 
 export interface RetrievedEvidence {

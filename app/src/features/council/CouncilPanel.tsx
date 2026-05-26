@@ -1586,6 +1586,24 @@ function appendJudgmentMarkdown(lines: string[], judgment?: CouncilJudgment | nu
   }
 }
 
+function SynthesisModeBanner({ response }: { response: CouncilResponse }) {
+  const mode = response.synthesis_mode;
+  if (mode !== "single_voice" && mode !== "synthesis_failed") return null;
+  const voice = response.synthesis_voice ?? "one voice";
+  const message =
+    mode === "single_voice"
+      ? `Only one Council voice was available, so this is ${voice}'s analysis — not a multi-voice consensus.`
+      : `The synthesis step failed, so this shows ${voice}'s analysis instead of a combined consensus.`;
+  return (
+    <div
+      data-testid="synthesis-mode-banner"
+      className="soft-card border-amber-500/40 bg-amber-500/10 px-3 py-2 mb-3 text-xs text-amber-200"
+    >
+      {message}
+    </div>
+  );
+}
+
 function CouncilResultView({
   result,
   heading,
@@ -1608,6 +1626,7 @@ function CouncilResultView({
           <h2 className="text-sm tracking-wider text-neutral-400">{heading}</h2>
           <ConfidenceBadge confidence={result.confidence} />
         </div>
+        {response && <SynthesisModeBanner response={response} />}
         {response && (
           <CouncilWinnerSummary response={response} onJumpToVerse={onJumpToVerse} />
         )}
