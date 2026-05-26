@@ -9,6 +9,7 @@ import {
 } from "../../lib/bible";
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
 import { useEscapeToClose } from "../../lib/useEscapeToClose";
+import { LoadingState, EmptyState } from "../../components/StateViews";
 
 interface Props {
   codes: string[];
@@ -103,11 +104,9 @@ export function StrongsPopup({ codes, surface, morph, onJumpToVerse, onClose }: 
       </header>
       <div className="px-4 py-3 space-y-3">
         {entries === null ? (
-          <p className="text-neutral-500 italic text-sm">Loading…</p>
+          <LoadingState />
         ) : entries.length === 0 ? (
-          <p className="text-neutral-500 italic text-sm">
-            No Strong's entries found for codes: {codes.join(", ") || "(none)"}
-          </p>
+          <EmptyState message={`No Strong's entries found for codes: ${codes.join(", ") || "(none)"}`} />
         ) : (
           entries.map((e) => (
             <article key={e.code} className="border-b border-neutral-800 pb-3 last:border-0">

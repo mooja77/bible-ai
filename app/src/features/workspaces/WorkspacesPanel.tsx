@@ -27,6 +27,7 @@ import {
 } from "../../lib/bible";
 import { renderWorkspaceHtml } from "./workspaceHtml";
 import { renderWorkspaceMarkdown } from "./workspaceMarkdown";
+import { ErrorState } from "../../components/StateViews";
 
 interface Props {
   onJumpToVerse: (verseId: number, translationCode: string) => void;
@@ -338,7 +339,7 @@ export function WorkspacesPanel({
           aria-label="Filter workspaces"
         />
 
-        {error && <p className="text-sm text-red-300 mb-3">{error}</p>}
+        {error && <ErrorState message={error} title={null} className="mb-3" />}
 
         {filteredWorkspaces.length === 0 ? (
           <p className="text-xs text-neutral-500">

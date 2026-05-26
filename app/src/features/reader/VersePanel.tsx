@@ -17,6 +17,7 @@ import {
   type TheologyTopic,
 } from "../../lib/bible";
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
+import { LoadingState, EmptyState } from "../../components/StateViews";
 
 type Tab = "refs" | "highlight" | "note";
 
@@ -444,9 +445,9 @@ function CrossRefsTab({
   }, [verseId]);
 
   if (error) return <p className="text-red-400 text-sm">{error}</p>;
-  if (refs === null) return <p className="text-neutral-500 italic text-sm">Loading…</p>;
+  if (refs === null) return <LoadingState />;
   if (refs.length === 0)
-    return <p className="text-neutral-500 italic text-sm">No cross-references.</p>;
+    return <EmptyState message="No cross-references." />;
 
   return (
     <ul className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-2">

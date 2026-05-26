@@ -31,6 +31,7 @@ import {
 } from "../../lib/bible";
 import { CouncilHistory } from "./CouncilHistory";
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
+import { ErrorState } from "../../components/StateViews";
 import {
   buildConfidenceFactors,
   buildPositionEvidenceGroups,
@@ -288,12 +289,7 @@ export function CouncilPanel({
         onChanged={refreshSessions}
       />
 
-      {error && (
-        <div className="border border-red-900/60 bg-red-950/40 rounded p-3 text-sm text-red-300">
-          <p className="font-semibold mb-1">Error</p>
-          <pre className="whitespace-pre-wrap">{error}</pre>
-        </div>
-      )}
+      {error && <ErrorState message={error} />}
 
       {response && (
         <>
@@ -747,11 +743,7 @@ function CouncilJudgmentPanel({
         </div>
       </div>
 
-      {saveError && (
-        <div className="border border-red-900/60 bg-red-950/40 rounded p-3 text-sm text-red-300">
-          {saveError}
-        </div>
-      )}
+      {saveError && <ErrorState message={saveError} title={null} />}
 
       <div className="grid md:grid-cols-2 gap-3">
         <LabeledTextarea

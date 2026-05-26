@@ -55,6 +55,7 @@ import { SettingsPanel } from "./features/settings/SettingsPanel";
 import { TheologyPanel } from "./features/theology/TheologyPanel";
 import { ResourcesPanel } from "./features/resources/ResourcesPanel";
 import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
+import { ErrorState } from "./components/StateViews";
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
@@ -1318,10 +1319,7 @@ function App() {
           </div>
         )}
         {error ? (
-          <div className="p-6 text-red-400 text-sm">
-            <p className="font-semibold mb-1">Error</p>
-            <pre className="whitespace-pre-wrap">{error}</pre>
-          </div>
+          <ErrorState message={error} className="m-4" />
         ) : searchActive ? (
           searchScope === "notes" ? (
             <NoteSearchResults
