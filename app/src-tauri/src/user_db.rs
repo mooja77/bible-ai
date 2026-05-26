@@ -1224,7 +1224,11 @@ pub fn list_tags_with_counts(conn: &Connection) -> SqlResult<Vec<TagCount>> {
          ORDER BY t.name COLLATE NOCASE",
     )?;
     let rows = stmt.query_map([], |r| {
-        Ok(TagCount { id: r.get(0)?, name: r.get(1)?, count: r.get(2)? })
+        Ok(TagCount {
+            id: r.get(0)?,
+            name: r.get(1)?,
+            count: r.get(2)?,
+        })
     })?;
     rows.collect()
 }
@@ -6415,8 +6419,22 @@ mod tests {
         tag_item(&conn, shared.id, "bookmark", bm).expect("tag bm");
         tag_item(&conn, shared.id, "note", 1_001_002).expect("tag note");
         let counts = list_tags_with_counts(&conn).expect("counts");
-        assert_eq!(counts.iter().find(|c| c.name == "shared").expect("shared").count, 2);
-        assert_eq!(counts.iter().find(|c| c.name == "empty").expect("empty").count, 0);
+        assert_eq!(
+            counts
+                .iter()
+                .find(|c| c.name == "shared")
+                .expect("shared")
+                .count,
+            2
+        );
+        assert_eq!(
+            counts
+                .iter()
+                .find(|c| c.name == "empty")
+                .expect("empty")
+                .count,
+            0
+        );
     }
 
     #[test]
@@ -6433,10 +6451,16 @@ mod tests {
         tag_item(&conn, t.id, "note", 1_001_002).expect("tag note");
         let items = list_tagged_items(&conn, t.id).expect("items");
         assert_eq!(items.len(), 2);
-        let b = items.iter().find(|i| i.item_type == "bookmark").expect("bm item");
+        let b = items
+            .iter()
+            .find(|i| i.item_type == "bookmark")
+            .expect("bm item");
         assert_eq!(b.verse_id, 1_001_001);
         assert_eq!(b.text.as_deref(), Some("my bm"));
-        let n = items.iter().find(|i| i.item_type == "note").expect("note item");
+        let n = items
+            .iter()
+            .find(|i| i.item_type == "note")
+            .expect("note item");
         assert_eq!(n.verse_id, 1_001_002);
         assert_eq!(n.text.as_deref(), Some("my note"));
         assert!(list_tagged_items(&conn, 99_999).expect("empty").is_empty());
