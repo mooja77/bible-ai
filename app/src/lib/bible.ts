@@ -500,6 +500,28 @@ export const addBookmark = (
 export const deleteBookmark = (id: number) =>
   invoke<number>("delete_bookmark", { id });
 
+export interface Tag {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export interface ItemTag {
+  item_id: number;
+  tag_id: number;
+  name: string;
+}
+
+export const listTags = () => invoke<Tag[]>("list_tags");
+export const createTag = (name: string) => invoke<Tag>("create_tag", { name });
+export const deleteTag = (id: number) => invoke<number>("delete_tag", { id });
+export const tagItem = (tagId: number, itemType: string, itemId: number) =>
+  invoke<number>("tag_item", { tagId, itemType, itemId });
+export const untagItem = (tagId: number, itemType: string, itemId: number) =>
+  invoke<number>("untag_item", { tagId, itemType, itemId });
+export const listItemTags = (itemType: string) =>
+  invoke<ItemTag[]>("list_item_tags", { itemType });
+
 export const recordReadingLocation = (
   bookId: number,
   chapter: number,
