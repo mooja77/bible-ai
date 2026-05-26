@@ -10,7 +10,7 @@ use rusqlite::{
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-pub const USER_SCHEMA_VERSION: i64 = 13;
+pub const USER_SCHEMA_VERSION: i64 = 14;
 const EXPORT_VERSION: i64 = 1;
 const USER_TABLES: &[&str] = &[
     "app_settings",
@@ -365,6 +365,22 @@ CREATE TABLE IF NOT EXISTS module_entries (
 
 CREATE INDEX IF NOT EXISTS idx_module_entries_key
   ON module_entries(key_type, key_value);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS item_tags (
+  tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  item_type TEXT NOT NULL CHECK (item_type IN ('bookmark', 'note', 'range_note', 'study_item')),
+  item_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (tag_id, item_type, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_item_tags_item ON item_tags(item_type, item_id);
 "#;
 
 pub fn open(path: &Path) -> SqlResult<Connection> {
@@ -1082,7 +1098,102 @@ pub fn add_bookmark(
 }
 
 pub fn delete_bookmark(conn: &Connection, id: i64) -> SqlResult<usize> {
+    conn.execute(
+        "DELETE FROM item_tags WHERE item_type = 'bookmark' AND item_id = ?",
+        params![id],
+    )?;
     conn.execute("DELETE FROM bookmarks WHERE id = ?", params![id])
+}
+
+// ---------- Tags ----------
+
+#[derive(Serialize, Clone)]
+pub struct Tag {
+    pub id: i64,
+    pub name: String,
+    pub created_at: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct ItemTag {
+    pub item_id: i64,
+    pub tag_id: i64,
+    pub name: String,
+}
+
+/// Find-or-create a tag by (case-insensitive) name. Returns the existing or new row.
+pub fn create_tag(conn: &Connection, name: &str) -> SqlResult<Tag> {
+    let name = name.trim();
+    if name.is_empty() {
+        // Mirror the existing blank-field rejection convention used by insert_session.
+        return Err(rusqlite::Error::InvalidQuery);
+    }
+    conn.execute(
+        "INSERT INTO tags (name) VALUES (?) ON CONFLICT(name) DO NOTHING",
+        params![name],
+    )?;
+    conn.query_row(
+        "SELECT id, name, created_at FROM tags WHERE name = ?",
+        params![name],
+        |r| {
+            Ok(Tag {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                created_at: r.get(2)?,
+            })
+        },
+    )
+}
+
+pub fn list_tags(conn: &Connection) -> SqlResult<Vec<Tag>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, created_at FROM tags ORDER BY name COLLATE NOCASE",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok(Tag {
+            id: r.get(0)?,
+            name: r.get(1)?,
+            created_at: r.get(2)?,
+        })
+    })?;
+    rows.collect()
+}
+
+pub fn delete_tag(conn: &Connection, id: i64) -> SqlResult<usize> {
+    // ON DELETE CASCADE removes the item_tags links.
+    conn.execute("DELETE FROM tags WHERE id = ?", params![id])
+}
+
+pub fn tag_item(conn: &Connection, tag_id: i64, item_type: &str, item_id: i64) -> SqlResult<usize> {
+    conn.execute(
+        "INSERT INTO item_tags (tag_id, item_type, item_id) VALUES (?, ?, ?)
+         ON CONFLICT DO NOTHING",
+        params![tag_id, item_type, item_id],
+    )
+}
+
+pub fn untag_item(conn: &Connection, tag_id: i64, item_type: &str, item_id: i64) -> SqlResult<usize> {
+    conn.execute(
+        "DELETE FROM item_tags WHERE tag_id = ? AND item_type = ? AND item_id = ?",
+        params![tag_id, item_type, item_id],
+    )
+}
+
+pub fn list_item_tags(conn: &Connection, item_type: &str) -> SqlResult<Vec<ItemTag>> {
+    let mut stmt = conn.prepare(
+        "SELECT it.item_id, t.id, t.name
+         FROM item_tags it JOIN tags t ON t.id = it.tag_id
+         WHERE it.item_type = ?
+         ORDER BY it.item_id, t.name COLLATE NOCASE",
+    )?;
+    let rows = stmt.query_map(params![item_type], |r| {
+        Ok(ItemTag {
+            item_id: r.get(0)?,
+            tag_id: r.get(1)?,
+            name: r.get(2)?,
+        })
+    })?;
+    rows.collect()
 }
 
 pub fn record_reading_location(
@@ -6183,6 +6294,53 @@ mod tests {
         assert_eq!(like_pattern("a_b"), "%a\\_b%");
         assert_eq!(like_pattern("50%"), "%50\\%%");
         assert_eq!(like_pattern("grace"), "%grace%");
+    }
+
+    #[test]
+    fn create_tag_is_find_or_create_case_insensitive() {
+        let conn = test_conn();
+        let a = create_tag(&conn, "Grace").expect("create");
+        let b = create_tag(&conn, "  grace ").expect("find-or-create (trimmed, case-insensitive)");
+        assert_eq!(a.id, b.id);
+        assert_eq!(list_tags(&conn).expect("list").len(), 1);
+        assert!(create_tag(&conn, "   ").is_err());
+    }
+
+    #[test]
+    fn tag_item_is_idempotent_and_listed_grouped() {
+        let conn = test_conn();
+        let id = add_bookmark(&conn, 1_001_001, None, Some("b")).expect("bookmark");
+        let t = create_tag(&conn, "alpha").expect("tag");
+        assert_eq!(tag_item(&conn, t.id, "bookmark", id).expect("tag_item"), 1);
+        assert_eq!(tag_item(&conn, t.id, "bookmark", id).expect("idempotent"), 0);
+        let links = list_item_tags(&conn, "bookmark").expect("list");
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].item_id, id);
+        assert_eq!(links[0].name, "alpha");
+        assert_eq!(untag_item(&conn, t.id, "bookmark", id).expect("untag"), 1);
+        assert!(list_item_tags(&conn, "bookmark").expect("list2").is_empty());
+    }
+
+    #[test]
+    fn delete_tag_cascades_links() {
+        let conn = test_conn();
+        let id = add_bookmark(&conn, 1_001_001, None, Some("b")).expect("bookmark");
+        let t = create_tag(&conn, "beta").expect("tag");
+        tag_item(&conn, t.id, "bookmark", id).expect("tag_item");
+        delete_tag(&conn, t.id).expect("delete_tag");
+        assert!(list_item_tags(&conn, "bookmark").expect("list").is_empty());
+    }
+
+    #[test]
+    fn delete_bookmark_clears_its_item_tags() {
+        let conn = test_conn();
+        let id = add_bookmark(&conn, 1_001_001, None, Some("b")).expect("bookmark");
+        let t = create_tag(&conn, "gamma").expect("tag");
+        tag_item(&conn, t.id, "bookmark", id).expect("tag_item");
+        delete_bookmark(&conn, id).expect("delete_bookmark");
+        assert!(list_item_tags(&conn, "bookmark").expect("list").is_empty());
+        // The tag itself remains in the vocabulary.
+        assert_eq!(list_tags(&conn).expect("tags").len(), 1);
     }
 }
 
