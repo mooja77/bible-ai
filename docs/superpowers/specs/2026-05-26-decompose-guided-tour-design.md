@@ -1,7 +1,7 @@
 # Decompose God-Components F1 — Extract GuidedTour from App.tsx — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `decompose-guided-tour`)
+- **Status:** Implemented (branch `decompose-guided-tour`)
 - **Theme:** F — Decompose god-components, sub-project 1
 - **Owner:** John Moore
 
