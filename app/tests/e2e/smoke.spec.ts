@@ -22,6 +22,45 @@ describe("Bible AI shell", () => {
     await expect(council).toBeDisplayed();
   });
 
+  it("provides a skip-to-content link as the first tab stop", async () => {
+    // It is the first focusable element in the shell (first in DOM = first tab stop).
+    const isFirstChild = await browser.execute(() => {
+      const shell = document.querySelector(".app-shell");
+      const first = shell?.firstElementChild as HTMLElement | null;
+      return first?.matches('a[href="#main-content"]') ?? false;
+    });
+    expect(isFirstChild).toBe(true);
+
+    const skip = await $('a[href="#main-content"]');
+    await expect(skip).toHaveText("Skip to main content");
+
+    // Hidden until focused: the bounding box grows once focused (sr-only -> not-sr-only).
+    const sizes = await browser.execute(() => {
+      const el = document.querySelector('a[href="#main-content"]') as HTMLElement;
+      el.blur();
+      const blurred = el.getBoundingClientRect();
+      el.focus();
+      const focused = el.getBoundingClientRect();
+      return { blurredW: blurred.width, focusedW: focused.width };
+    });
+    expect(sizes.focusedW).toBeGreaterThan(sizes.blurredW);
+
+    // Activating it (keyboard Enter on the focused link) moves focus to the main region.
+    await browser.execute(() => {
+      (document.querySelector('a[href="#main-content"]') as HTMLElement).focus();
+    });
+    await browser.keys("Enter");
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(() => document.activeElement?.id ?? null)) === "main-content",
+      { timeout: 5_000, timeoutMsg: "skip link did not move focus to #main-content" },
+    );
+
+    // Restore a clean state for subsequent tests.
+    const reader = await $("button=Reader");
+    await reader.click();
+  });
+
   it("opens the new user guide and steps through the main workflow", async () => {
     const startGuide = await $("button=Start guide");
     await startGuide.waitForClickable({ timeout: 10_000 });
