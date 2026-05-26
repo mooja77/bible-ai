@@ -33,7 +33,8 @@ export function ErrorState({
       className={`border border-red-900/60 bg-red-950/40 rounded p-3 text-sm text-red-300 ${className}`}
     >
       {title ? <p className="font-semibold mb-1">{title}</p> : null}
-      <pre className="whitespace-pre-wrap">{message}</pre>
+      {/* whitespace-pre-wrap preserves newlines in raw error strings, in the app font (not monospace) */}
+      <div className="whitespace-pre-wrap">{message}</div>
     </div>
   );
 }
