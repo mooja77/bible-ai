@@ -139,12 +139,14 @@ export function CouncilPanel({
     return () => window.clearInterval(timer);
   }, [loading]);
 
-  const onAsk = async () => {
+  const onAsk = async (overrideQuestion?: unknown) => {
     // Guard the function itself, not just the button: the Ctrl/⌘+Enter
     // shortcut also calls onAsk, and a second in-flight request would
     // queue behind the sidecar mutex and discard the first result.
     if (loading) return;
-    const q = question.trim();
+    // `onClick={onAsk}` passes a MouseEvent (non-string) → use the input's
+    // question; follow-up chaining passes an explicit string.
+    const q = (typeof overrideQuestion === "string" ? overrideQuestion : question).trim();
     if (!q) return;
     const requestId = ++councilViewRequestId.current;
     setError(null);
@@ -182,6 +184,11 @@ export function CouncilPanel({
     } finally {
       if (requestId === councilViewRequestId.current) setLoading(false);
     }
+  };
+
+  const onAskFollowUp = (text: string) => {
+    setQuestion(text); // reflect what's being asked in the input
+    void onAsk(text); // submit immediately with the explicit text
   };
 
   const onSelectSession = async (id: number) => {
@@ -376,6 +383,7 @@ export function CouncilPanel({
             response={response}
             judgment={judgment}
             onJudgmentChange={setJudgment}
+            onAskFollowUp={onAskFollowUp}
           />
           <CouncilSourceDrawer response={response} />
           <VoicesAuditTrail
@@ -535,11 +543,13 @@ function CouncilJudgmentPanel({
   response,
   judgment,
   onJudgmentChange,
+  onAskFollowUp,
 }: {
   sessionId: number | null;
   response: CouncilResponse;
   judgment: CouncilJudgment | null;
   onJudgmentChange: (judgment: CouncilJudgment | null) => void;
+  onAskFollowUp: (question: string) => void;
 }) {
   const [draft, setDraft] = useState<CouncilJudgment | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -774,13 +784,23 @@ function CouncilJudgmentPanel({
                     <p className="text-sm text-neutral-200">{item.question}</p>
                     <p className="text-xs text-neutral-500 mt-1">{item.source}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => addOpenQuestion(item.question)}
-                    className="btn-secondary px-2 py-1 text-xs shrink-0"
-                  >
-                    Add question
-                  </button>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onAskFollowUp(item.question)}
+                      data-testid="ask-follow-up"
+                      className="btn-primary px-2 py-1 text-xs"
+                    >
+                      Ask
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addOpenQuestion(item.question)}
+                      className="btn-secondary px-2 py-1 text-xs"
+                    >
+                      Add question
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
