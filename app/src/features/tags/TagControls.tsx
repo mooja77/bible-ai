@@ -45,28 +45,28 @@ export function TagFilterBar({
   );
 }
 
-export function BookmarkTagRow({
-  bookmarkId,
+export function ItemTagRow({
+  testIdPrefix,
   tags,
   allTags,
   onAttach,
   onDetach,
 }: {
-  bookmarkId: number;
+  testIdPrefix: string;
   tags: ItemTag[];
   allTags: Tag[];
-  onAttach: (bookmarkId: number, name: string) => void;
-  onDetach: (bookmarkId: number, tagId: number) => void;
+  onAttach: (name: string) => void;
+  onDetach: (tagId: number) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [value, setValue] = useState("");
-  const datalistId = `tag-options-${bookmarkId}`;
+  const datalistId = `tag-options-${testIdPrefix}`;
 
   const submit = () => {
     const name = value.trim();
     setValue("");
     setAdding(false);
-    if (name) onAttach(bookmarkId, name);
+    if (name) onAttach(name);
   };
 
   return (
@@ -74,13 +74,13 @@ export function BookmarkTagRow({
       {tags.map((t) => (
         <span
           key={t.tag_id}
-          data-testid="bookmark-tag-chip"
+          data-testid={`${testIdPrefix}-tag-chip`}
           className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-neutral-800 text-neutral-300"
         >
           {t.name}
           <button
             type="button"
-            onClick={() => onDetach(bookmarkId, t.tag_id)}
+            onClick={() => onDetach(t.tag_id)}
             aria-label={`Remove tag ${t.name}`}
             className="text-neutral-500 hover:text-red-400"
           >
@@ -107,7 +107,7 @@ export function BookmarkTagRow({
             onBlur={submit}
             placeholder="tag…"
             aria-label="Add tag"
-            data-testid="bookmark-tag-input"
+            data-testid={`${testIdPrefix}-tag-input`}
             className="settings-input h-5 w-20 text-[11px] px-1"
           />
           <datalist id={datalistId}>
@@ -120,8 +120,8 @@ export function BookmarkTagRow({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          aria-label="Add tag to bookmark"
-          data-testid="bookmark-add-tag"
+          aria-label="Add tag"
+          data-testid={`${testIdPrefix}-add-tag`}
           className="px-1 text-[11px] text-neutral-500 hover:text-amber-300"
         >
           + tag

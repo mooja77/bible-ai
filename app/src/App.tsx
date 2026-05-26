@@ -63,7 +63,7 @@ import { TheologyPanel } from "./features/theology/TheologyPanel";
 import { ResourcesPanel } from "./features/resources/ResourcesPanel";
 import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
 import { ErrorState } from "./components/StateViews";
-import { TagFilterBar, BookmarkTagRow } from "./features/tags/TagControls";
+import { TagFilterBar, ItemTagRow } from "./features/tags/TagControls";
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
@@ -1876,12 +1876,12 @@ function NavigationShortcuts({
                   >
                     {b.label ?? formatVerseId(b.verse_id, books)}
                   </button>
-                  <BookmarkTagRow
-                    bookmarkId={b.id}
+                  <ItemTagRow
+                    testIdPrefix="bookmark"
                     tags={bookmarkTags.filter((it) => it.item_id === b.id)}
                     allTags={tags}
-                    onAttach={onAttachBookmarkTag}
-                    onDetach={onDetachBookmarkTag}
+                    onAttach={(name) => onAttachBookmarkTag(b.id, name)}
+                    onDetach={(tagId) => onDetachBookmarkTag(b.id, tagId)}
                   />
                 </li>
               ))}
