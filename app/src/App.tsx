@@ -244,6 +244,8 @@ function App() {
   const [searchScope, setSearchScope] = useState<SearchScope>("scripture");
   const [noteResults, setNoteResults] = useState<NoteHit[]>([]);
   const [noteLoading, setNoteLoading] = useState(false);
+  const [noteTags, setNoteTags] = useState<ItemTag[]>([]);
+  const [noteTagFilter, setNoteTagFilter] = useState<number | null>(null);
 
   const [mode, setMode] = useState<Mode>("reader");
   const [settings, setSettings] = useState<AppSettings>({});
@@ -517,6 +519,8 @@ function App() {
     const trimmed = searchQuery.trim();
     if (searchScope !== "notes" || !trimmed) {
       setNoteResults([]);
+      setNoteTags([]);
+      setNoteTagFilter(null);
       setNoteLoading(false);
       return;
     }
@@ -533,6 +537,11 @@ function App() {
         .finally(() => {
           if (requestId === noteRequestId.current) setNoteLoading(false);
         });
+      listItemTags("note")
+        .then((links) => {
+          if (requestId === noteRequestId.current) setNoteTags(links);
+        })
+        .catch(() => {});
     }, 250);
     return () => {
       if (noteTimer.current) window.clearTimeout(noteTimer.current);
@@ -1367,6 +1376,9 @@ function App() {
               results={noteResults}
               loading={noteLoading}
               onSelect={onSelectNote}
+              noteTags={noteTags}
+              selectedTagId={noteTagFilter}
+              onSelectTag={setNoteTagFilter}
             />
           ) : (
             <SearchResults
