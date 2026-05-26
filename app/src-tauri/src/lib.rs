@@ -1351,6 +1351,88 @@ fn list_item_tags(
 }
 
 #[tauri::command]
+fn list_tags_with_counts(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+) -> Result<Vec<user_db::TagCount>, String> {
+    with_user_db(&app, &state, |conn| {
+        user_db::list_tags_with_counts(conn).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+fn list_tagged_items(
+    app: AppHandle,
+    state: tauri::State<'_, UserDbState>,
+    tag_id: i64,
+) -> Result<Vec<TaggedItem>, String> {
+    let raw: Vec<user_db::TaggedItemRaw> = with_user_db(&app, &state, |conn| {
+        user_db::list_tagged_items(conn, tag_id).map_err(|e| e.to_string())
+    })?;
+    if raw.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut ids: Vec<i64> = raw.iter().map(|r| r.verse_id).collect();
+    ids.sort_unstable();
+    ids.dedup();
+
+    let mut refs: std::collections::HashMap<i64, (String, i64, i64)> =
+        std::collections::HashMap::new();
+    {
+        let conn = open_corpus(&app)?;
+        let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT v.id, b.name, v.chapter, v.verse
+             FROM verses v JOIN books b ON b.id = v.book_id
+             WHERE v.id IN ({placeholders})"
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(ids.iter()), |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                    r.get::<_, i64>(3)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (id, name, chapter, verse) = row.map_err(|e| e.to_string())?;
+            refs.insert(id, (name, chapter, verse));
+        }
+    }
+
+    let mut out: Vec<TaggedItem> = Vec::new();
+    for r in raw {
+        let Some((name, chapter, verse)) = refs.get(&r.verse_id).cloned() else {
+            continue;
+        };
+        let citation = format_note_citation(&name, chapter, verse, None);
+        let preview = r
+            .text
+            .map(|t| {
+                let t = t.trim();
+                if t.chars().count() > 100 {
+                    let head: String = t.chars().take(100).collect();
+                    format!("{head}…")
+                } else {
+                    t.to_string()
+                }
+            })
+            .unwrap_or_default();
+        out.push(TaggedItem {
+            item_type: r.item_type,
+            verse_id: r.verse_id,
+            citation,
+            preview,
+        });
+    }
+    Ok(out)
+}
+
+#[tauri::command]
 fn record_reading_location(
     app: AppHandle,
     state: tauri::State<'_, UserDbState>,
@@ -2941,6 +3023,14 @@ pub struct NoteHit {
     pub updated_at: String,
 }
 
+#[derive(serde::Serialize)]
+struct TaggedItem {
+    item_type: String,
+    verse_id: i64,
+    citation: String,
+    preview: String,
+}
+
 /// "Genesis 1:1" / "Genesis 1:1-5" (same chapter) / "Genesis 1:31-2:1" (cross-chapter).
 /// `end` is (end_chapter, end_verse) for range notes; same-book is assumed.
 fn format_note_citation(book: &str, chapter: i64, verse: i64, end: Option<(i64, i64)>) -> String {
@@ -3922,6 +4012,8 @@ pub fn run() {
             tag_item,
             untag_item,
             list_item_tags,
+            list_tags_with_counts,
+            list_tagged_items,
             record_reading_location,
             list_reading_history,
             list_saved_searches,
