@@ -39,6 +39,13 @@ import {
   type WordToken,
   updateSavedSearchTitle,
   searchNotes,
+  type Tag,
+  type ItemTag,
+  listTags,
+  listItemTags,
+  createTag,
+  tagItem,
+  untagItem,
 } from "./lib/bible";
 import { BookList } from "./features/reader/BookList";
 import { ChapterGrid } from "./features/reader/ChapterGrid";
@@ -56,6 +63,7 @@ import { TheologyPanel } from "./features/theology/TheologyPanel";
 import { ResourcesPanel } from "./features/resources/ResourcesPanel";
 import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
 import { ErrorState } from "./components/StateViews";
+import { TagFilterBar, BookmarkTagRow } from "./features/tags/TagControls";
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
@@ -245,6 +253,9 @@ function App() {
   const [readerDensity, setReaderDensity] = useState<ReaderDensity>("comfortable");
   const [syncScroll, setSyncScroll] = useState(true);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [bookmarkTags, setBookmarkTags] = useState<ItemTag[]>([]);
+  const [bookmarkTagFilter, setBookmarkTagFilter] = useState<number | null>(null);
   const [readingHistory, setReadingHistory] = useState<ReadingHistoryItem[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [workspaceShortcuts, setWorkspaceShortcuts] = useState<StudyWorkspaceSummary[]>([]);
@@ -329,18 +340,41 @@ function App() {
 
   const refreshNavigationLists = useCallback(async () => {
     const requestId = ++navigationRequestId.current;
-    const [b, h, s, w] = await Promise.all([
+    const [b, h, s, w, tg, bt] = await Promise.all([
       listBookmarks().catch(() => [] as Bookmark[]),
       listReadingHistory(8).catch(() => [] as ReadingHistoryItem[]),
       listSavedSearches().catch(() => [] as SavedSearch[]),
       listStudyWorkspaces().catch(() => [] as StudyWorkspaceSummary[]),
+      listTags().catch(() => [] as Tag[]),
+      listItemTags("bookmark").catch(() => [] as ItemTag[]),
     ]);
     if (requestId !== navigationRequestId.current) return;
     setBookmarks(b);
     setReadingHistory(h);
     setSavedSearches(s);
     setWorkspaceShortcuts(w);
+    setTags(tg);
+    setBookmarkTags(bt);
   }, []);
+
+  const onAttachBookmarkTag = async (bookmarkId: number, name: string) => {
+    try {
+      const tag = await createTag(name);
+      await tagItem(tag.id, "bookmark", bookmarkId);
+      await refreshNavigationLists();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const onDetachBookmarkTag = async (bookmarkId: number, tagId: number) => {
+    try {
+      await untagItem(tagId, "bookmark", bookmarkId);
+      await refreshNavigationLists();
+    } catch (e) {
+      setError(String(e));
+    }
+  };
 
   useEffect(() => {
     void refreshNavigationLists();
@@ -1284,6 +1318,12 @@ function App() {
               setSearchQuery("");
               setMode("workspaces");
             }}
+            tags={tags}
+            bookmarkTags={bookmarkTags}
+            bookmarkTagFilter={bookmarkTagFilter}
+            onSetBookmarkTagFilter={setBookmarkTagFilter}
+            onAttachBookmarkTag={onAttachBookmarkTag}
+            onDetachBookmarkTag={onDetachBookmarkTag}
           />
         </div>
 
@@ -1760,6 +1800,12 @@ function NavigationShortcuts({
   onRenameSavedSearch,
   onDeleteSavedSearch,
   onOpenWorkspace,
+  tags,
+  bookmarkTags,
+  bookmarkTagFilter,
+  onSetBookmarkTagFilter,
+  onAttachBookmarkTag,
+  onDetachBookmarkTag,
 }: {
   books: Book[];
   bookmarks: Bookmark[];
@@ -1772,6 +1818,12 @@ function NavigationShortcuts({
   onRenameSavedSearch: (search: SavedSearch, title: string) => Promise<void> | void;
   onDeleteSavedSearch: (search: SavedSearch) => Promise<void> | void;
   onOpenWorkspace: (workspaceId: number) => void;
+  tags: Tag[];
+  bookmarkTags: ItemTag[];
+  bookmarkTagFilter: number | null;
+  onSetBookmarkTagFilter: (id: number | null) => void;
+  onAttachBookmarkTag: (bookmarkId: number, name: string) => void;
+  onDetachBookmarkTag: (bookmarkId: number, tagId: number) => void;
 }) {
   const [editingSavedSearchId, setEditingSavedSearchId] = useState<number | null>(null);
   const [editingSavedSearchTitle, setEditingSavedSearchTitle] = useState("");
@@ -1800,18 +1852,39 @@ function NavigationShortcuts({
       {bookmarks.length > 0 && (
         <section>
           <h3 className="text-xs tracking-wider text-neutral-500 mb-2">Bookmarks</h3>
+          <TagFilterBar
+            allTags={tags}
+            selectedTagId={bookmarkTagFilter}
+            onSelect={onSetBookmarkTagFilter}
+          />
           <ul className="space-y-1">
-            {bookmarks.slice(0, 8).map((b) => (
-              <li key={b.id}>
-                <button
-                  type="button"
-                  onClick={() => onJumpToVerse(b.verse_id, "KJV")}
-                  className="w-full text-left text-xs text-neutral-300 hover:text-amber-200 truncate"
-                >
-                  {b.label ?? formatVerseId(b.verse_id, books)}
-                </button>
-              </li>
-            ))}
+            {bookmarks
+              .filter(
+                (b) =>
+                  bookmarkTagFilter === null ||
+                  bookmarkTags.some(
+                    (it) => it.item_id === b.id && it.tag_id === bookmarkTagFilter,
+                  ),
+              )
+              .slice(0, 8)
+              .map((b) => (
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    onClick={() => onJumpToVerse(b.verse_id, "KJV")}
+                    className="w-full text-left text-xs text-neutral-300 hover:text-amber-200 truncate"
+                  >
+                    {b.label ?? formatVerseId(b.verse_id, books)}
+                  </button>
+                  <BookmarkTagRow
+                    bookmarkId={b.id}
+                    tags={bookmarkTags.filter((it) => it.item_id === b.id)}
+                    allTags={tags}
+                    onAttach={onAttachBookmarkTag}
+                    onDetach={onDetachBookmarkTag}
+                  />
+                </li>
+              ))}
           </ul>
         </section>
       )}
