@@ -522,6 +522,23 @@ export const untagItem = (tagId: number, itemType: string, itemId: number) =>
 export const listItemTags = (itemType: string) =>
   invoke<ItemTag[]>("list_item_tags", { itemType });
 
+export interface TagCount {
+  id: number;
+  name: string;
+  count: number;
+}
+
+export interface TaggedItem {
+  item_type: string;
+  verse_id: number;
+  citation: string;
+  preview: string;
+}
+
+export const listTagsWithCounts = () => invoke<TagCount[]>("list_tags_with_counts");
+export const listTaggedItems = (tagId: number) =>
+  invoke<TaggedItem[]>("list_tagged_items", { tagId });
+
 export const recordReadingLocation = (
   bookId: number,
   chapter: number,
