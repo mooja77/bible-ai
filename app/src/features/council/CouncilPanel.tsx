@@ -259,7 +259,11 @@ export function CouncilPanel({
             className="settings-input resize-y"
           />
         </label>
-        <CouncilVoicePreview settings={settings} />
+        {loading ? (
+          <CouncilRunningPanel settings={settings} elapsed={elapsed} />
+        ) : (
+          <CouncilVoicePreview settings={settings} />
+        )}
         <CouncilRetrievalControls
           books={books}
           translations={translations}
@@ -402,7 +406,7 @@ export function CouncilPanel({
   );
 }
 
-function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
+function getCouncilVoices(settings?: AppSettings) {
   const googleReady = hasSettingValue(settings?.google_api_key);
   const openAiReady = hasSettingValue(settings?.openai_api_key);
   const anthropicReady = hasSettingValue(settings?.anthropic_api_key);
@@ -442,6 +446,11 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
     },
   ];
   const noProvidersConfigured = !googleReady && !openAiReady && !anthropicReady && !gatewayReady;
+  return { voices, noProvidersConfigured };
+}
+
+function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
+  const { voices, noProvidersConfigured } = getCouncilVoices(settings);
   return (
     <div
       className="soft-card p-3"
@@ -482,6 +491,35 @@ function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CouncilRunningPanel({ settings, elapsed }: { settings?: AppSettings; elapsed: number }) {
+  const active = getCouncilVoices(settings).voices.filter((v) => v.active);
+  const rows = active.length > 0 ? active : [{ label: "Council", active: true }];
+  return (
+    <div className="soft-card p-3" data-testid="council-running-panel">
+      <div className="flex items-baseline justify-between gap-3 mb-2">
+        <h2 className="text-xs tracking-wider text-neutral-500">Consulting the Council</h2>
+        <span className="text-xs text-neutral-500">{elapsed}s</span>
+      </div>
+      <ul className="space-y-1">
+        {rows.map((v) => (
+          <li key={v.label} className="flex items-center gap-2 text-sm text-neutral-300">
+            <span
+              className="inline-block w-2 h-2 rounded-full bg-amber-400/80 animate-pulse"
+              aria-hidden="true"
+            />
+            <span>{v.label}</span>
+            <span className="text-xs text-neutral-500">consulting…</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-neutral-600 mt-2">
+        Voices run in parallel; large models can take a while. Each voice is capped, so a slow one
+        won't hold up the rest.
+      </p>
     </div>
   );
 }
