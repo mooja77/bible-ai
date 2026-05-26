@@ -202,6 +202,8 @@ export interface CouncilVoice {
   status: "ok" | "error" | "skipped";
   result: CouncilResult | null;
   error: string | null;
+  error_category?: string;
+  error_hint?: string;
   duration_ms: number;
 }
 

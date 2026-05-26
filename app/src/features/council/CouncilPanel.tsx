@@ -3053,6 +3053,11 @@ function VoiceRow({
             {isError ? "✗ error" : "✓ ok"}
           </span>
           <span className="text-neutral-100">{voice.display_name}</span>
+          {isError && voice.error_category && (
+            <span className="meta-pill text-xs text-red-300 border-red-500/40">
+              {voice.error_category}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-neutral-500">
@@ -3064,8 +3069,11 @@ function VoiceRow({
         </div>
       </button>
       {isError && (
-        <div className="px-3 py-2 border-t border-neutral-800 text-xs text-red-300">
-          {voice.error}
+        <div className="px-3 py-2 border-t border-neutral-800 text-xs">
+          {voice.error_hint && (
+            <p className="text-amber-200 mb-1">{voice.error_hint}</p>
+          )}
+          <p className="text-red-300">{voice.error}</p>
         </div>
       )}
       {expanded && voice.result && (
