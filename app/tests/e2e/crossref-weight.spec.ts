@@ -47,10 +47,6 @@ describe("Cross-reference strength indicator", () => {
     await strengthIndicator.waitForDisplayed({ timeout: 15_000 });
     await expect(strengthIndicator).toBeDisplayed();
 
-    // If Genesis 1:1 unexpectedly has no refs (fallback: try John 3:16).
-    // (In practice the waitForDisplayed above will throw before we reach here
-    //  if the indicator is absent, causing the test to fail with a clear message.)
-
     // Clean up: close the verse panel.
     const closeBtn = await $('button[aria-label="Close verse panel"]');
     await closeBtn.click();
