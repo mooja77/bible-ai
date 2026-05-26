@@ -1,7 +1,7 @@
 # Council History — Keyboard-Reveal Delete (Hover-Only Control Fix) — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `council-history-focus-a11y`)
+- **Status:** Implemented (branch `council-history-focus-a11y`)
 - **Theme:** C — Accessibility & polish, sub-project 5 (final; closes Theme C)
 - **Owner:** John Moore
 
