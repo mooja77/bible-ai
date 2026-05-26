@@ -572,6 +572,55 @@ describe("Reader interactions", () => {
     const close = await $('button[aria-label="Close Strong\'s lookup"]');
     await close.click();
   });
+
+  it("closes the Strong's lookup on Escape and restores focus", async () => {
+    const reader = await $("button=Reader");
+    await reader.waitForClickable({ timeout: 10_000 });
+    await reader.click();
+
+    const jumpInput = await $('input[aria-label="Jump to reference"]');
+    await jumpInput.waitForDisplayed({ timeout: 5_000 });
+    await jumpInput.setValue("Genesis 1:1");
+    await $("button=Go").click();
+    const layout = await $('select[aria-label="Reader layout"]');
+    await layout.selectByAttribute("value", "columns");
+
+    const wlcCheckbox = await $('[data-testid="translation-WLC"]');
+    await wlcCheckbox.waitForDisplayed({ timeout: 10_000 });
+    if (!(await wlcCheckbox.isSelected())) {
+      const wlcLabel = await wlcCheckbox.parentElement();
+      await wlcLabel.click();
+    }
+
+    const token = await $('[data-testid="word-token"]');
+    await token.waitForClickable({ timeout: 10_000 });
+    await token.click();
+
+    const popup = await $('[data-testid="strongs-popup"]');
+    await popup.waitForDisplayed({ timeout: 10_000 });
+
+    // Focus moves into the dialog on open.
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          () => document.activeElement?.getAttribute("data-testid") ?? null,
+        )) === "strongs-popup",
+      { timeout: 5_000, timeoutMsg: "focus did not move into the Strong's dialog on open" },
+    );
+
+    // Escape closes it.
+    await browser.keys("Escape");
+    await popup.waitForDisplayed({ reverse: true, timeout: 5_000 });
+
+    // Focus returns to the word token that opened it.
+    await browser.waitUntil(
+      async () =>
+        (await browser.execute(
+          () => document.activeElement?.getAttribute("data-testid") ?? null,
+        )) === "word-token",
+      { timeout: 5_000, timeoutMsg: "focus did not return to the word token after Escape" },
+    );
+  });
 });
 
 async function clickVerseAction(selector: string) {
