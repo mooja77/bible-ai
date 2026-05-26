@@ -1,7 +1,7 @@
 # Dismissable Overlay Keyboard Accessibility — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `overlay-keyboard-a11y`)
+- **Status:** Implemented (branch `overlay-keyboard-a11y`)
 - **Theme:** C — Accessibility & polish, sub-project 1
 - **Owner:** John Moore
 
