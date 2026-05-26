@@ -1121,6 +1121,21 @@ pub struct ItemTag {
     pub name: String,
 }
 
+#[derive(Serialize, Clone)]
+pub struct TagCount {
+    pub id: i64,
+    pub name: String,
+    pub count: i64,
+}
+
+#[derive(Serialize, Clone)]
+pub struct TaggedItemRaw {
+    pub item_type: String,
+    pub item_id: i64,
+    pub verse_id: i64,
+    pub text: Option<String>,
+}
+
 /// Find-or-create a tag by (case-insensitive) name. Returns the existing or new row.
 pub fn create_tag(conn: &Connection, name: &str) -> SqlResult<Tag> {
     let name = name.trim();
@@ -1195,6 +1210,42 @@ pub fn list_item_tags(conn: &Connection, item_type: &str) -> SqlResult<Vec<ItemT
             item_id: r.get(0)?,
             tag_id: r.get(1)?,
             name: r.get(2)?,
+        })
+    })?;
+    rows.collect()
+}
+
+pub fn list_tags_with_counts(conn: &Connection) -> SqlResult<Vec<TagCount>> {
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.name, COUNT(it.tag_id)
+         FROM tags t
+         LEFT JOIN item_tags it ON it.tag_id = t.id AND it.item_type IN ('bookmark', 'note')
+         GROUP BY t.id, t.name
+         ORDER BY t.name COLLATE NOCASE",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok(TagCount { id: r.get(0)?, name: r.get(1)?, count: r.get(2)? })
+    })?;
+    rows.collect()
+}
+
+pub fn list_tagged_items(conn: &Connection, tag_id: i64) -> SqlResult<Vec<TaggedItemRaw>> {
+    let mut stmt = conn.prepare(
+        "SELECT 'bookmark' AS item_type, b.id AS item_id, b.verse_id AS verse_id, b.label AS text
+         FROM item_tags it JOIN bookmarks b ON b.id = it.item_id
+         WHERE it.tag_id = ?1 AND it.item_type = 'bookmark'
+         UNION ALL
+         SELECT 'note' AS item_type, n.verse_id AS item_id, n.verse_id AS verse_id, n.body AS text
+         FROM item_tags it JOIN user_notes n ON n.verse_id = it.item_id
+         WHERE it.tag_id = ?1 AND it.item_type = 'note'
+         ORDER BY item_type, verse_id",
+    )?;
+    let rows = stmt.query_map(params![tag_id], |r| {
+        Ok(TaggedItemRaw {
+            item_type: r.get(0)?,
+            item_id: r.get(1)?,
+            verse_id: r.get(2)?,
+            text: r.get(3)?,
         })
     })?;
     rows.collect()
@@ -6348,6 +6399,47 @@ mod tests {
         assert!(list_item_tags(&conn, "bookmark").expect("list").is_empty());
         // The tag itself remains in the vocabulary.
         assert_eq!(list_tags(&conn).expect("tags").len(), 1);
+    }
+
+    #[test]
+    fn list_tags_with_counts_counts_browsable_items() {
+        let conn = test_conn();
+        let bm = add_bookmark(&conn, 1_001_001, None, Some("b")).expect("bm");
+        conn.execute(
+            "INSERT INTO user_notes (verse_id, body) VALUES (?, ?)",
+            params![1_001_002_i64, "note body"],
+        )
+        .expect("note");
+        let shared = create_tag(&conn, "shared").expect("t1");
+        create_tag(&conn, "empty").expect("t2");
+        tag_item(&conn, shared.id, "bookmark", bm).expect("tag bm");
+        tag_item(&conn, shared.id, "note", 1_001_002).expect("tag note");
+        let counts = list_tags_with_counts(&conn).expect("counts");
+        assert_eq!(counts.iter().find(|c| c.name == "shared").expect("shared").count, 2);
+        assert_eq!(counts.iter().find(|c| c.name == "empty").expect("empty").count, 0);
+    }
+
+    #[test]
+    fn list_tagged_items_unions_bookmarks_and_notes() {
+        let conn = test_conn();
+        let bm = add_bookmark(&conn, 1_001_001, None, Some("my bm")).expect("bm");
+        conn.execute(
+            "INSERT INTO user_notes (verse_id, body) VALUES (?, ?)",
+            params![1_001_002_i64, "my note"],
+        )
+        .expect("note");
+        let t = create_tag(&conn, "topic").expect("t");
+        tag_item(&conn, t.id, "bookmark", bm).expect("tag bm");
+        tag_item(&conn, t.id, "note", 1_001_002).expect("tag note");
+        let items = list_tagged_items(&conn, t.id).expect("items");
+        assert_eq!(items.len(), 2);
+        let b = items.iter().find(|i| i.item_type == "bookmark").expect("bm item");
+        assert_eq!(b.verse_id, 1_001_001);
+        assert_eq!(b.text.as_deref(), Some("my bm"));
+        let n = items.iter().find(|i| i.item_type == "note").expect("note item");
+        assert_eq!(n.verse_id, 1_001_002);
+        assert_eq!(n.text.as_deref(), Some("my note"));
+        assert!(list_tagged_items(&conn, 99_999).expect("empty").is_empty());
     }
 }
 
