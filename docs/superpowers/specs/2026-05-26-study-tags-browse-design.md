@@ -1,7 +1,7 @@
 # Study Organization E3 — Browse by Tag — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `study-tags-browse`)
+- **Status:** Implemented (branch `study-tags-browse`)
 - **Theme:** E — Study organization, sub-project 3
 - **Owner:** John Moore
 
