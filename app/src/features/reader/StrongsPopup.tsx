@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getStrongs,
   getStrongsOccurrences,
@@ -8,6 +8,7 @@ import {
   type StrongsOccurrence,
 } from "../../lib/bible";
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 
 interface Props {
   codes: string[];
@@ -21,6 +22,19 @@ export function StrongsPopup({ codes, surface, morph, onJumpToVerse, onClose }: 
   const [entries, setEntries] = useState<StrongsEntry[] | null>(null);
   const [occurrences, setOccurrences] = useState<StrongsOccurrence[]>([]);
   const [moduleEntries, setModuleEntries] = useState<ModuleEntry[]>([]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEscapeToClose(onClose);
+
+  // Non-modal dialog focus management: move focus into the popup on open so
+  // keyboard/screen-reader users land in it, and return focus to whatever
+  // opened it (the verse word) when it closes.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    containerRef.current?.focus();
+    return () => previouslyFocused?.focus();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,7 +72,14 @@ export function StrongsPopup({ codes, surface, morph, onJumpToVerse, onClose }: 
   }, [codes.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="surface-panel fixed bottom-4 right-4 z-50 w-[420px] max-h-[60vh] overflow-y-auto rounded-lg backdrop-blur">
+    <div
+      ref={containerRef}
+      role="dialog"
+      aria-label={`Strong's lookup: ${surface}`}
+      tabIndex={-1}
+      data-testid="strongs-popup"
+      className="surface-panel fixed bottom-4 right-4 z-50 w-[420px] max-h-[60vh] overflow-y-auto rounded-lg backdrop-blur outline-none"
+    >
       <header className="flex items-baseline justify-between px-4 py-3 border-b border-neutral-800">
         <div>
           <div
