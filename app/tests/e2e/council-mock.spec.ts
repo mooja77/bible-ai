@@ -222,6 +222,16 @@ describe("Council mock workflow", () => {
     const deleteButton = await $(
       `//button[@title="${question}"]/following-sibling::button[@aria-label="Delete session"]`,
     );
+
+    // Keyboard users reveal the delete affordance via focus-within, not just hover.
+    await browser.execute((title) => {
+      document.querySelector<HTMLElement>(`button[title="${title}"]`)?.focus();
+    }, question);
+    await browser.waitUntil(
+      async () => (await deleteButton.getCSSProperty("opacity")).value === "1",
+      { timeout: 5_000, timeoutMsg: "delete affordance not revealed on keyboard focus" },
+    );
+
     await scrollIntoView(restoredSessionRow);
     await restoredSessionRow.moveTo();
     await deleteButton.waitForClickable({ timeout: 10_000 });
