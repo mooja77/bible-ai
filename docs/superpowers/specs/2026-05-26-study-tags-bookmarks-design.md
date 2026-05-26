@@ -1,7 +1,7 @@
 # Study Organization E1 — Tag Foundation + Tag Bookmarks — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `study-tags-bookmarks`)
+- **Status:** Implemented (branch `study-tags-bookmarks`)
 - **Theme:** E — Study organization, sub-project 1 (foundation)
 - **Owner:** John Moore
 
