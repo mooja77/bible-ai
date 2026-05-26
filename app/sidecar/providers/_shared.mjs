@@ -452,7 +452,7 @@ export function classifyProviderError(message, providerName) {
   }
   if (
     has("429", "quota", "rate limit", "too many requests", "insufficient_quota",
-      "exceeded", "billing")
+      "billing")
   ) {
     return {
       category: "quota",
