@@ -1,7 +1,7 @@
 # Cross-Reference Weight Ranking — Design
 
 - **Date:** 2026-05-26
-- **Status:** Approved (design); ready for implementation plan
+- **Status:** Implemented (branch `crossref-weight`)
 - **Theme:** "Surface hidden features" enhancement pass, sub-project 3
 - **Owner:** John Moore
 
