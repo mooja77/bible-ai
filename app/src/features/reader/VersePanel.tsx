@@ -357,6 +357,29 @@ function TabButton({
   );
 }
 
+type CrossRefStrength = "strong" | "medium" | "weak";
+
+// Global thresholds from the corpus weight distribution (median 3, p90 ≈ 11);
+// negatives are contested → weak. Tunable in one place.
+function crossRefStrength(weight: number | null): CrossRefStrength {
+  if (weight == null || weight <= 3) return "weak";
+  if (weight >= 10) return "strong";
+  return "medium";
+}
+
+function crossRefStrengthLevel(weight: number | null): number {
+  const s = crossRefStrength(weight);
+  return s === "strong" ? 3 : s === "medium" ? 2 : 1;
+}
+
+function crossRefStrengthLabel(weight: number | null): string {
+  const s = crossRefStrength(weight);
+  const word = s.charAt(0).toUpperCase() + s.slice(1);
+  return weight == null
+    ? `${word} cross-reference`
+    : `${word} cross-reference — ${weight} vote${weight === 1 ? "" : "s"}`;
+}
+
 function CrossRefsTab({
   verseId,
   onJumpToVerse,
@@ -395,8 +418,27 @@ function CrossRefsTab({
           <button
             type="button"
             onClick={() => onJumpToVerse(r.to_verse_id, "KJV")}
+            title={crossRefStrengthLabel(r.weight)}
             className="w-full text-left text-sm hover:bg-neutral-900/60 rounded px-2 py-1 transition-colors"
           >
+            <span className="sr-only">{crossRefStrengthLabel(r.weight)}</span>
+            <span
+              aria-hidden="true"
+              data-testid="crossref-strength"
+              className="inline-flex items-center gap-0.5 mr-2 align-middle"
+            >
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className={
+                    "inline-block w-1 h-3 rounded-sm " +
+                    (i < crossRefStrengthLevel(r.weight)
+                      ? "bg-amber-400/70"
+                      : "bg-neutral-700")
+                  }
+                />
+              ))}
+            </span>
             <span className="font-mono text-xs text-amber-300 mr-2">
               {r.book_name} {r.chapter}:{r.verse}
             </span>
