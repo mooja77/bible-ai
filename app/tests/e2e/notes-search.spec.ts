@@ -58,6 +58,16 @@ describe("Note search", () => {
     const savedStatus = await $("span*=Saved");
     await savedStatus.waitForDisplayed({ timeout: 10_000 });
 
+    // Tag the note from the Note tab.
+    const tagName = `notetag${Date.now()}`;
+    await $('[data-testid="note-add-tag"]').click();
+    const noteTagInput = await $('[data-testid="note-tag-input"]');
+    await noteTagInput.waitForDisplayed({ timeout: 5_000 });
+    await noteTagInput.setValue(tagName);
+    await browser.keys("Enter");
+    const noteChip = await $(`[data-testid="note-tag-chip"]*=${tagName}`);
+    await noteChip.waitForDisplayed({ timeout: 10_000 });
+
     // Close the verse panel.
     const closeBtn = await $('button[aria-label="Close verse panel"]');
     await closeBtn.click();
@@ -91,6 +101,12 @@ describe("Note search", () => {
       containing: true,
       ignoreCase: true,
     });
+
+    // The note-search hit shows the tag, and filtering by it keeps the note visible.
+    await expect(await $('[data-testid="note-result-tag"]*=' + tagName)).toBeDisplayed();
+    // TagFilterBar's tag is a <button> (hit chips are <span>), so button=<tagName> targets the filter chip:
+    await (await $('button=' + tagName)).click();
+    await expect(await $('[data-testid="note-result"]')).toBeDisplayed();
 
     // Clear the search to restore a clean state.
     await $('[aria-label="Clear search"]').click();
