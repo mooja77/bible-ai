@@ -1146,9 +1146,8 @@ pub fn create_tag(conn: &Connection, name: &str) -> SqlResult<Tag> {
 }
 
 pub fn list_tags(conn: &Connection) -> SqlResult<Vec<Tag>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, name, created_at FROM tags ORDER BY name COLLATE NOCASE",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT id, name, created_at FROM tags ORDER BY name COLLATE NOCASE")?;
     let rows = stmt.query_map([], |r| {
         Ok(Tag {
             id: r.get(0)?,
@@ -1172,7 +1171,12 @@ pub fn tag_item(conn: &Connection, tag_id: i64, item_type: &str, item_id: i64) -
     )
 }
 
-pub fn untag_item(conn: &Connection, tag_id: i64, item_type: &str, item_id: i64) -> SqlResult<usize> {
+pub fn untag_item(
+    conn: &Connection,
+    tag_id: i64,
+    item_type: &str,
+    item_id: i64,
+) -> SqlResult<usize> {
     conn.execute(
         "DELETE FROM item_tags WHERE tag_id = ? AND item_type = ? AND item_id = ?",
         params![tag_id, item_type, item_id],
@@ -6312,7 +6316,10 @@ mod tests {
         let id = add_bookmark(&conn, 1_001_001, None, Some("b")).expect("bookmark");
         let t = create_tag(&conn, "alpha").expect("tag");
         assert_eq!(tag_item(&conn, t.id, "bookmark", id).expect("tag_item"), 1);
-        assert_eq!(tag_item(&conn, t.id, "bookmark", id).expect("idempotent"), 0);
+        assert_eq!(
+            tag_item(&conn, t.id, "bookmark", id).expect("idempotent"),
+            0
+        );
         let links = list_item_tags(&conn, "bookmark").expect("list");
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].item_id, id);

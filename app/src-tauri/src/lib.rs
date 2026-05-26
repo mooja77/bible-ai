@@ -1280,7 +1280,9 @@ fn list_tags(
     app: AppHandle,
     state: tauri::State<'_, UserDbState>,
 ) -> Result<Vec<user_db::Tag>, String> {
-    with_user_db(&app, &state, |conn| user_db::list_tags(conn).map_err(|e| e.to_string()))
+    with_user_db(&app, &state, |conn| {
+        user_db::list_tags(conn).map_err(|e| e.to_string())
+    })
 }
 
 #[tauri::command]
@@ -1292,7 +1294,9 @@ fn create_tag(
     if name.trim().is_empty() {
         return Err("tag name must not be empty".into());
     }
-    with_user_db(&app, &state, |conn| user_db::create_tag(conn, &name).map_err(|e| e.to_string()))
+    with_user_db(&app, &state, |conn| {
+        user_db::create_tag(conn, &name).map_err(|e| e.to_string())
+    })
 }
 
 #[tauri::command]
@@ -1301,7 +1305,9 @@ fn delete_tag(
     state: tauri::State<'_, UserDbState>,
     id: i64,
 ) -> Result<usize, String> {
-    with_user_db(&app, &state, |conn| user_db::delete_tag(conn, id).map_err(|e| e.to_string()))
+    with_user_db(&app, &state, |conn| {
+        user_db::delete_tag(conn, id).map_err(|e| e.to_string())
+    })
 }
 
 #[tauri::command]
