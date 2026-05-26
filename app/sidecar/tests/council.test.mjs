@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { runCouncil } from "../council.mjs";
+import { runCouncil, resolveSynthesisMode } from "../council.mjs";
 
 const EVIDENCE = [
   {
@@ -110,4 +110,17 @@ test("mock mode: the question is echoed into the research trail", async () => {
   const framed = out.synthesis.research_trail.find((e) => e.event_type === "question");
   assert.ok(framed, "a question event exists in the research trail");
   assert.match(framed.detail, /literal week/);
+});
+
+test("resolveSynthesisMode: one voice → single_voice (regardless of synthesisFailed)", () => {
+  assert.equal(resolveSynthesisMode({ okCount: 1, synthesisFailed: false }), "single_voice");
+  assert.equal(resolveSynthesisMode({ okCount: 1, synthesisFailed: true }), "single_voice");
+});
+
+test("resolveSynthesisMode: multiple voices but synthesis threw → synthesis_failed", () => {
+  assert.equal(resolveSynthesisMode({ okCount: 3, synthesisFailed: true }), "synthesis_failed");
+});
+
+test("resolveSynthesisMode: multiple voices, synthesis ok → consensus", () => {
+  assert.equal(resolveSynthesisMode({ okCount: 3, synthesisFailed: false }), "consensus");
 });

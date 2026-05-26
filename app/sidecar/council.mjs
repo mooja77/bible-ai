@@ -370,7 +370,21 @@ function mockCouncilResult({ question, evidence, model }) {
         available: true,
       },
     ],
+    synthesis_mode: "consensus",
   };
+}
+
+/**
+ * How the headline synthesis was produced:
+ *  - single_voice: only one voice succeeded (no synthesis performed)
+ *  - synthesis_failed: ≥2 voices succeeded but the synthesis call threw; we
+ *    fell back to the first voice's result
+ *  - consensus: a real multi-voice synthesis
+ */
+export function resolveSynthesisMode({ okCount, synthesisFailed }) {
+  if (okCount <= 1) return "single_voice";
+  if (synthesisFailed) return "synthesis_failed";
+  return "consensus";
 }
 
 export async function runCouncil({ question, evidence, model, settings }) {
@@ -413,6 +427,7 @@ export async function runCouncil({ question, evidence, model, settings }) {
   }
 
   let synthesis;
+  let synthesisFailed = false;
   if (ok.length === 1) {
     // Only one successful voice — no meaningful synthesis. Pass through.
     synthesis = ok[0].result;
@@ -425,13 +440,15 @@ export async function runCouncil({ question, evidence, model, settings }) {
         redactSecrets(err?.message ?? String(err), env),
       );
       synthesis = ok[0].result;
+      synthesisFailed = true;
     }
   }
   synthesis = ensurePositionEvidence(synthesis, evidence);
 
-  return {
-    synthesis,
-    voices,
-    manifest,
-  };
+  const synthesis_mode = resolveSynthesisMode({ okCount: ok.length, synthesisFailed });
+  const response = { synthesis, voices, manifest, synthesis_mode };
+  if (synthesis_mode !== "consensus") {
+    response.synthesis_voice = ok[0].display_name;
+  }
+  return response;
 }
