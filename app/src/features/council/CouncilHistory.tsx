@@ -67,7 +67,7 @@ function HistoryRow({
           onClick={onDelete}
           disabled={deleting}
           aria-label="Delete session"
-          className="opacity-0 group-hover:opacity-100 text-neutral-500 hover:text-red-400 text-sm px-1 transition-opacity"
+          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-neutral-500 hover:text-red-400 text-sm px-1 transition-opacity"
         >
           {deleting ? "…" : "×"}
         </button>
