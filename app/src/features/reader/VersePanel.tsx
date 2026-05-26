@@ -11,13 +11,21 @@ import {
   listTheologyTopics,
   upsertHighlight,
   upsertNote,
+  createTag,
+  tagItem,
+  untagItem,
+  listTags,
+  listItemTags,
   type ModuleEntry,
   type PassageExplanation,
   type CrossRef,
   type TheologyTopic,
+  type Tag,
+  type ItemTag,
 } from "../../lib/bible";
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
 import { LoadingState, EmptyState } from "../../components/StateViews";
+import { ItemTagRow } from "../tags/TagControls";
 
 type Tab = "refs" | "highlight" | "note";
 
@@ -570,6 +578,8 @@ function NoteTab({
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [savedTick, setSavedTick] = useState(0);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [noteTags, setNoteTags] = useState<ItemTag[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -590,6 +600,20 @@ function NoteTab({
     };
   }, [verseId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([listTags(), listItemTags("note")])
+      .then(([all, links]) => {
+        if (cancelled) return;
+        setAllTags(all);
+        setNoteTags(links.filter((it) => it.item_id === verseId));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [verseId]);
+
   const save = async () => {
     if (busy) return;
     setBusy(true);
@@ -605,6 +629,23 @@ function NoteTab({
     } finally {
       setBusy(false);
     }
+  };
+
+  const reloadNoteTags = async () => {
+    const [all, links] = await Promise.all([listTags(), listItemTags("note")]);
+    setAllTags(all);
+    setNoteTags(links.filter((it) => it.item_id === verseId));
+  };
+
+  const attachNoteTag = async (name: string) => {
+    const t = await createTag(name);
+    await tagItem(t.id, "note", verseId);
+    await reloadNoteTags();
+  };
+
+  const detachNoteTag = async (tagId: number) => {
+    await untagItem(tagId, "note", verseId);
+    await reloadNoteTags();
   };
 
   return (
@@ -635,6 +676,13 @@ function NoteTab({
           </button>
         )}
       </div>
+      <ItemTagRow
+        testIdPrefix="note"
+        tags={noteTags}
+        allTags={allTags}
+        onAttach={attachNoteTag}
+        onDetach={detachNoteTag}
+      />
     </div>
   );
 }
