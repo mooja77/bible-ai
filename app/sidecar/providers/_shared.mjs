@@ -459,9 +459,15 @@ export function classifyProviderError(message, providerName) {
       hint: `${provider} hit a rate limit or quota — wait a minute, or check your plan/billing.`,
     };
   }
+  if (has("timed out", "timeout", "etimedout")) {
+    return {
+      category: "timeout",
+      hint: `${provider} took too long and was skipped — it may be overloaded; try again.`,
+    };
+  }
   if (
-    has("econnrefused", "enotfound", "fetch failed", "network", "timeout", "timed out",
-      "etimedout", "socket hang up", "ollama serve", "not reachable")
+    has("econnrefused", "enotfound", "fetch failed", "network", "socket hang up",
+      "ollama serve", "not reachable")
   ) {
     const hint = m.includes("ollama")
       ? "Start Ollama (run `ollama serve`) and make sure the model is pulled."

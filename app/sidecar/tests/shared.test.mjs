@@ -493,3 +493,16 @@ test("classifyProviderError: no JSON → parse", () => {
 test("classifyProviderError: unrecognized → unknown", () => {
   assert.equal(classifyProviderError("something weird happened", "Gemini").category, "unknown");
 });
+
+test("classifyProviderError: timed out → timeout (not network)", () => {
+  const { category, hint } = classifyProviderError("OpenAI timed out after 300s", "OpenAI");
+  assert.equal(category, "timeout");
+  assert.match(hint, /OpenAI/);
+});
+
+test("classifyProviderError: ECONNREFUSED still → network", () => {
+  assert.equal(
+    classifyProviderError("Gemini: fetch failed ECONNREFUSED", "Gemini").category,
+    "network",
+  );
+});
