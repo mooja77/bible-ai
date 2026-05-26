@@ -186,6 +186,23 @@ describe("Council mock workflow", () => {
       { timeout: 10_000, timeoutMsg: "mock Council session was not persisted to history" },
     );
 
+    // Keyboard users reveal the delete affordance via focus-within, not just hover.
+    // Re-focus each poll: focusing the row's select button puts the .group <li> in
+    // :focus-within, which transitions the sibling delete button to opacity 1.
+    const keyboardRevealDelete = await $(
+      `//button[@title="${question}"]/following-sibling::button[@aria-label="Delete session"]`,
+    );
+    await browser.waitUntil(
+      async () => {
+        await browser.execute((title) => {
+          document.querySelector<HTMLElement>(`button[title="${title}"]`)?.focus();
+        }, question);
+        const opacity = (await keyboardRevealDelete.getCSSProperty("opacity")).value;
+        return parseFloat(String(opacity)) >= 0.99;
+      },
+      { timeout: 5_000, timeoutMsg: "delete affordance not revealed on keyboard focus" },
+    );
+
     const session = await $(`button*=${question}`);
     await session.click();
     await synthesis.waitForDisplayed({ timeout: 10_000 });
@@ -222,16 +239,6 @@ describe("Council mock workflow", () => {
     const deleteButton = await $(
       `//button[@title="${question}"]/following-sibling::button[@aria-label="Delete session"]`,
     );
-
-    // Keyboard users reveal the delete affordance via focus-within, not just hover.
-    await browser.execute((title) => {
-      document.querySelector<HTMLElement>(`button[title="${title}"]`)?.focus();
-    }, question);
-    await browser.waitUntil(
-      async () => (await deleteButton.getCSSProperty("opacity")).value === "1",
-      { timeout: 5_000, timeoutMsg: "delete affordance not revealed on keyboard focus" },
-    );
-
     await scrollIntoView(restoredSessionRow);
     await restoredSessionRow.moveTo();
     await deleteButton.waitForClickable({ timeout: 10_000 });
