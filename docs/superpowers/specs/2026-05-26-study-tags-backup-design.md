@@ -1,7 +1,7 @@
 # Study Organization — Tag Backup/Export Integration — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `study-tags-backup`)
+- **Status:** Implemented (branch `study-tags-backup`)
 - **Theme:** E — Study organization, sub-project 4 (closes E)
 - **Owner:** John Moore
 
