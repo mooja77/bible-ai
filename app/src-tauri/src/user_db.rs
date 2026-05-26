@@ -6468,6 +6468,216 @@ mod tests {
         assert_eq!(n.text.as_deref(), Some("my note"));
         assert!(list_tagged_items(&conn, 99_999).expect("empty").is_empty());
     }
+
+    #[test]
+    fn duplicate_import_remaps_tags_and_item_tags() {
+        let conn = test_conn();
+        // Pre-create a local tag "grace" so its id will differ from the imported id 10.
+        let local_grace = create_tag(&conn, "grace").expect("pre-create grace tag");
+        assert_ne!(local_grace.id, 10);
+
+        let payload = serde_json::json!({
+            "app": "Bible AI",
+            "export_version": EXPORT_VERSION,
+            "user_schema_version": USER_SCHEMA_VERSION,
+            "exported_at": "2026-05-26T00:00:00Z",
+            "tables": {
+                "user_notes": [
+                    {
+                        "verse_id": 1_001_002_i64,
+                        "body": "imported note",
+                        "created_at": "2026-05-26T00:00:00Z",
+                        "updated_at": "2026-05-26T00:00:00Z"
+                    }
+                ],
+                "bookmarks": [
+                    {
+                        "id": 5,
+                        "verse_id": 1_001_001_i64,
+                        "end_verse_id": null,
+                        "label": "imported bm",
+                        "created_at": "2026-05-26T00:00:00Z"
+                    }
+                ],
+                "tags": [
+                    {
+                        "id": 10,
+                        "name": "grace",
+                        "created_at": "2026-05-26T00:00:00Z"
+                    }
+                ],
+                "item_tags": [
+                    {
+                        "tag_id": 10,
+                        "item_type": "bookmark",
+                        "item_id": 5,
+                        "created_at": "2026-05-26T00:00:00Z"
+                    },
+                    {
+                        "tag_id": 10,
+                        "item_type": "note",
+                        "item_id": 1_001_002_i64,
+                        "created_at": "2026-05-26T00:00:00Z"
+                    }
+                ]
+            }
+        });
+
+        import_user_data(&conn, &payload, "duplicate").expect("duplicate import");
+
+        // Exactly one "grace" tag — the imported row merged into the pre-existing one.
+        let tags = list_tags(&conn).expect("list tags");
+        let grace_count = tags
+            .iter()
+            .filter(|t| t.name.eq_ignore_ascii_case("grace"))
+            .count();
+        assert_eq!(grace_count, 1, "expected exactly one grace tag");
+
+        let grace_id = tags
+            .iter()
+            .find(|t| t.name.eq_ignore_ascii_case("grace"))
+            .expect("grace tag")
+            .id;
+
+        let items = list_tagged_items(&conn, grace_id).expect("tagged items");
+        assert_eq!(items.len(), 2, "expected 2 tagged items");
+        let bm_item = items
+            .iter()
+            .find(|i| i.item_type == "bookmark")
+            .expect("bookmark item");
+        assert_eq!(bm_item.verse_id, 1_001_001);
+        let note_item = items
+            .iter()
+            .find(|i| i.item_type == "note")
+            .expect("note item");
+        assert_eq!(note_item.verse_id, 1_001_002);
+    }
+
+    #[test]
+    fn replace_import_links_tags_and_items() {
+        let conn = test_conn();
+
+        let payload = serde_json::json!({
+            "app": "Bible AI",
+            "export_version": EXPORT_VERSION,
+            "user_schema_version": USER_SCHEMA_VERSION,
+            "exported_at": "2026-05-26T00:00:00Z",
+            "tables": {
+                "user_notes": [
+                    {
+                        "verse_id": 1_001_002_i64,
+                        "body": "imported note",
+                        "created_at": "2026-05-26T00:00:00Z",
+                        "updated_at": "2026-05-26T00:00:00Z"
+                    }
+                ],
+                "bookmarks": [
+                    {
+                        "id": 5,
+                        "verse_id": 1_001_001_i64,
+                        "end_verse_id": null,
+                        "label": "imported bm",
+                        "created_at": "2026-05-26T00:00:00Z"
+                    }
+                ],
+                "tags": [
+                    {
+                        "id": 10,
+                        "name": "grace",
+                        "created_at": "2026-05-26T00:00:00Z"
+                    }
+                ],
+                "item_tags": [
+                    {
+                        "tag_id": 10,
+                        "item_type": "bookmark",
+                        "item_id": 5,
+                        "created_at": "2026-05-26T00:00:00Z"
+                    },
+                    {
+                        "tag_id": 10,
+                        "item_type": "note",
+                        "item_id": 1_001_002_i64,
+                        "created_at": "2026-05-26T00:00:00Z"
+                    }
+                ]
+            }
+        });
+
+        import_user_data(&conn, &payload, "replace_existing").expect("replace import");
+
+        let tags = list_tags(&conn).expect("list tags");
+        let grace_id = tags
+            .iter()
+            .find(|t| t.name.eq_ignore_ascii_case("grace"))
+            .expect("grace tag")
+            .id;
+
+        let items = list_tagged_items(&conn, grace_id).expect("tagged items");
+        assert_eq!(items.len(), 2, "expected bookmark + note links");
+        assert!(items
+            .iter()
+            .any(|i| i.item_type == "bookmark" && i.verse_id == 1_001_001));
+        assert!(items
+            .iter()
+            .any(|i| i.item_type == "note" && i.verse_id == 1_001_002));
+    }
+
+    #[test]
+    fn export_includes_tags_and_item_tags() {
+        let conn = test_conn();
+        let bm_id = add_bookmark(&conn, 1_001_001, None, Some("export bm")).expect("bm");
+        conn.execute(
+            "INSERT INTO user_notes (verse_id, body) VALUES (?, ?)",
+            params![1_001_002_i64, "export note"],
+        )
+        .expect("note");
+        let tag = create_tag(&conn, "export-tag").expect("tag");
+        tag_item(&conn, tag.id, "bookmark", bm_id).expect("tag bm");
+        tag_item(&conn, tag.id, "note", 1_001_002).expect("tag note");
+
+        let exported = export_user_data(&conn).expect("export");
+        // The export shape is: { "tables": { "tags": [...], "item_tags": [...], ... } }
+        let tables = exported
+            .get("tables")
+            .and_then(serde_json::Value::as_object)
+            .expect("tables object");
+        let tags_arr = tables
+            .get("tags")
+            .and_then(serde_json::Value::as_array)
+            .expect("tags array");
+        assert!(!tags_arr.is_empty(), "exported tags should be non-empty");
+        let item_tags_arr = tables
+            .get("item_tags")
+            .and_then(serde_json::Value::as_array)
+            .expect("item_tags array");
+        assert!(
+            !item_tags_arr.is_empty(),
+            "exported item_tags should be non-empty"
+        );
+    }
+
+    #[test]
+    fn import_without_tags_tables_is_ok() {
+        let conn = test_conn();
+        let payload = serde_json::json!({
+            "app": "Bible AI",
+            "export_version": EXPORT_VERSION,
+            "user_schema_version": USER_SCHEMA_VERSION,
+            "exported_at": "2026-05-26T00:00:00Z",
+            "tables": {
+                "user_notes": [
+                    {
+                        "verse_id": 1_002_001_i64,
+                        "body": "note without tags",
+                        "created_at": "2026-05-26T00:00:00Z",
+                        "updated_at": "2026-05-26T00:00:00Z"
+                    }
+                ]
+            }
+        });
+        import_user_data(&conn, &payload, "duplicate").expect("import without tags ok");
+    }
 }
 
 fn list_theology_topic_tree(conn: &Connection, root_id: i64) -> SqlResult<Vec<TheologyTopic>> {
