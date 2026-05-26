@@ -1,7 +1,7 @@
 # Council Per-Voice Timeouts — Design
 
 - **Date:** 2026-05-26
-- **Status:** Approved (design); ready for implementation plan
+- **Status:** Implemented (branch `council-voice-timeouts`)
 - **Theme:** B — Council AI trust/UX, sub-project 3
 - **Owner:** John Moore
 
