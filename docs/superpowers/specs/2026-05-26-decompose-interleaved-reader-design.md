@@ -1,7 +1,7 @@
 # Decompose God-Components F3 — Extract InterleavedReader from App.tsx — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `decompose-interleaved-reader`)
+- **Status:** Implemented (branch `decompose-interleaved-reader`)
 - **Theme:** F — Decompose god-components, sub-project 3
 - **Owner:** John Moore
 
