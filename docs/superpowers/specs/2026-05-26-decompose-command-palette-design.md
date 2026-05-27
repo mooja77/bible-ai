@@ -1,7 +1,7 @@
 # Decompose God-Components F4 — Extract CommandPalette from App.tsx — Design
 
 - **Date:** 2026-05-26
-- **Status:** Draft (branch `decompose-command-palette`)
+- **Status:** Implemented (branch `decompose-command-palette`)
 - **Theme:** F — Decompose god-components, sub-project 4
 - **Owner:** John Moore
 
