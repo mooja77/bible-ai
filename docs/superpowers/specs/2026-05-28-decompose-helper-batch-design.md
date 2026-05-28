@@ -1,7 +1,7 @@
 # Decompose God-Components F5 — Extract leaf-helper batch from App.tsx — Design
 
 - **Date:** 2026-05-28
-- **Status:** Draft (branch `decompose-helper-batch`)
+- **Status:** Implemented (branch `decompose-helper-batch`)
 - **Theme:** F — Decompose god-components, sub-project 5
 - **Owner:** John Moore
 
