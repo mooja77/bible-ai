@@ -73,24 +73,12 @@ import { ModeButton } from "./features/app-shell/ModeButton";
 import { ReaderPlaceholder } from "./features/reader/ReaderPlaceholder";
 import { formatVerseId, parseReference } from "./lib/verse";
 import { settingsHasConfiguredAi } from "./lib/settings";
+import { safeLocalStorageGet, safeLocalStorageSet } from "./lib/localStorage";
+import { useTheme } from "./lib/useTheme";
 import type { Mode } from "./lib/mode";
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
-const safeLocalStorageGet = (key: string) => {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-};
-const safeLocalStorageSet = (key: string, value: string) => {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    /* localStorage unavailable; keep the in-memory state only */
-  }
-};
 
 type SearchTestamentFilter = "all" | "OT" | "NT" | "DC";
 const TOUR_DISMISSED_KEY = "bible-ai-tour-dismissed-v1";
@@ -106,13 +94,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
-  const [theme, setTheme] = useState<"light" | "dark">(() =>
-    document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark",
-  );
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    safeLocalStorageSet("bibleai-theme", theme);
-  }, [theme]);
+  const { theme, setTheme } = useTheme();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
