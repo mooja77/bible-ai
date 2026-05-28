@@ -1,7 +1,7 @@
 # Decompose God-Components F7 — Extract useGuidedTour hook from App.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `extract-use-guided-tour`)
+- **Status:** Implemented (branch `extract-use-guided-tour`)
 - **Theme:** F — Decompose god-components, sub-project 7 (second `App()`-body hook)
 
 ## Problem
