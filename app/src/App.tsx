@@ -67,13 +67,13 @@ import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
 import { ErrorState } from "./components/StateViews";
 import { TagBrowser } from "./features/tags/TagBrowser";
 import { GuidedTour, TOUR_STEPS } from "./features/onboarding/GuidedTour";
+import { useGuidedTour } from "./features/onboarding/useGuidedTour";
 import { NavigationShortcuts } from "./features/app-shell/NavigationShortcuts";
 import { CommandPalette, type CommandItem } from "./features/app-shell/CommandPalette";
 import { ModeButton } from "./features/app-shell/ModeButton";
 import { ReaderPlaceholder } from "./features/reader/ReaderPlaceholder";
 import { formatVerseId, parseReference } from "./lib/verse";
 import { settingsHasConfiguredAi } from "./lib/settings";
-import { safeLocalStorageGet, safeLocalStorageSet } from "./lib/localStorage";
 import { useTheme } from "./lib/useTheme";
 import type { Mode } from "./lib/mode";
 
@@ -81,8 +81,6 @@ import type { Mode } from "./lib/mode";
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
 
 type SearchTestamentFilter = "all" | "OT" | "NT" | "DC";
-const TOUR_DISMISSED_KEY = "bible-ai-tour-dismissed-v1";
-const PROVIDER_SETUP_DISMISSED_KEY = "bible-ai-provider-setup-dismissed-v1";
 
 function App() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -144,10 +142,6 @@ function App() {
   const [workspaceFocusId, setWorkspaceFocusId] = useState<number | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
-  const [tourOpen, setTourOpen] = useState(false);
-  const [tourStepIndex, setTourStepIndex] = useState(0);
-  const [tourDismissed, setTourDismissed] = useState(true);
-  const [providerSetupDismissed, setProviderSetupDismissed] = useState(true);
 
   // Per-chapter user data (highlights + which verses have notes).
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -211,12 +205,6 @@ function App() {
         setError(String(e));
       }
     })();
-  }, []);
-
-  useEffect(() => {
-    const dismissed = safeLocalStorageGet(TOUR_DISMISSED_KEY) === "1";
-    setTourDismissed(dismissed);
-    setProviderSetupDismissed(safeLocalStorageGet(PROVIDER_SETUP_DISMISSED_KEY) === "1");
   }, []);
 
   const refreshNavigationLists = useCallback(async () => {
@@ -662,35 +650,6 @@ function App() {
     if (nextMode !== "reader") setSearchQuery("");
   };
 
-  const openTour = (stepIndex = 0) => {
-    const step = TOUR_STEPS[stepIndex] ?? TOUR_STEPS[0];
-    setTourStepIndex(stepIndex);
-    setTourOpen(true);
-    selectMode(step.mode);
-  };
-
-  const dismissTourPrompt = () => {
-    safeLocalStorageSet(TOUR_DISMISSED_KEY, "1");
-    setTourDismissed(true);
-  };
-
-  const dismissProviderSetupPrompt = () => {
-    safeLocalStorageSet(PROVIDER_SETUP_DISMISSED_KEY, "1");
-    setProviderSetupDismissed(true);
-  };
-
-  const closeTour = (dismiss = false) => {
-    setTourOpen(false);
-    if (dismiss) dismissTourPrompt();
-  };
-
-  const goToTourStep = (nextIndex: number) => {
-    const clamped = Math.max(0, Math.min(TOUR_STEPS.length - 1, nextIndex));
-    const step = TOUR_STEPS[clamped];
-    setTourStepIndex(clamped);
-    selectMode(step.mode);
-  };
-
   const updateSearchQuery = (nextQuery: string) => {
     setSearchQuery(nextQuery);
     if (nextQuery.trim()) setMode("reader");
@@ -698,13 +657,17 @@ function App() {
 
   const searchActive = searchQuery.trim().length > 0;
   const providerSetupComplete = settingsHasConfiguredAi(settings);
-  const showProviderSetupPrompt = !providerSetupComplete && !providerSetupDismissed;
-
-  useEffect(() => {
-    if (providerSetupComplete && !providerSetupDismissed) {
-      dismissProviderSetupPrompt();
-    }
-  }, [providerSetupComplete, providerSetupDismissed]);
+  const {
+    tourOpen,
+    tourStepIndex,
+    tourDismissed,
+    openTour,
+    closeTour,
+    goToTourStep,
+    dismissTourPrompt,
+    showProviderSetupPrompt,
+    dismissProviderSetupPrompt,
+  } = useGuidedTour({ selectMode, providerSetupComplete });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
