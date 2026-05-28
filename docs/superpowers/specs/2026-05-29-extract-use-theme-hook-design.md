@@ -1,7 +1,7 @@
 # Decompose God-Components F6 — Extract useTheme hook + localStorage helpers from App.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `extract-use-theme-hook`)
+- **Status:** Implemented (branch `extract-use-theme-hook`)
 - **Theme:** F — Decompose god-components, sub-project 6 (first `App()`-body hook)
 
 ## Problem
