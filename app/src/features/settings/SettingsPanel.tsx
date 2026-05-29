@@ -23,6 +23,7 @@ import {
   type Translation,
   type UserDataImportStrategy,
 } from "../../lib/bible";
+import { isValidHttpUrl } from "../../lib/settings";
 
 interface Props {
   settings: AppSettings;
@@ -159,6 +160,13 @@ export function SettingsPanel({
       moduleRefreshRequestId.current += 1;
     };
   }, []);
+
+  // Auto-clear the transient "Saved" confirmation so it does not linger.
+  useEffect(() => {
+    if (!saved) return;
+    const timer = window.setTimeout(() => setSaved(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
 
   const update = (key: keyof AppSettings, value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -412,6 +420,12 @@ export function SettingsPanel({
   const hasPersonalKey = hasGoogleKey || hasOpenAiKey || hasAnthropicKey;
   const hasGateway = hasSettingValue(draft.managed_gateway_url);
   const hasOllama = hasSettingValue(draft.ollama_host);
+  const gatewayUrlValue = draft.managed_gateway_url?.trim() ?? "";
+  const ollamaHostValue = draft.ollama_host?.trim() ?? "";
+  const gatewayTokenValue = draft.managed_gateway_token?.trim() ?? "";
+  const gatewayUrlInvalid = gatewayUrlValue.length > 0 && !isValidHttpUrl(gatewayUrlValue);
+  const ollamaHostInvalid = ollamaHostValue.length > 0 && !isValidHttpUrl(ollamaHostValue);
+  const gatewayTokenNeedsUrl = gatewayTokenValue.length > 0 && gatewayUrlValue.length === 0;
   const personalProviderCount = [hasAnthropicKey, hasGoogleKey, hasOpenAiKey]
     .filter(Boolean)
     .length;
@@ -581,6 +595,11 @@ export function SettingsPanel({
               className="settings-input"
               autoComplete="off"
             />
+            {gatewayUrlInvalid && (
+              <p data-testid="gateway-url-error" className="text-xs text-red-300">
+                Enter a valid http(s):// URL.
+              </p>
+            )}
           </Field>
           <Field label="Managed gateway token">
             <input
@@ -591,6 +610,11 @@ export function SettingsPanel({
               className="settings-input"
               autoComplete="off"
             />
+            {gatewayTokenNeedsUrl && (
+              <p data-testid="gateway-token-warning" className="text-xs text-amber-300">
+                Add the gateway URL above to use this token.
+              </p>
+            )}
           </Field>
           <Field label="Claude model">
             <select
@@ -639,6 +663,11 @@ export function SettingsPanel({
               placeholder="http://localhost:11434"
               className="settings-input"
             />
+            {ollamaHostInvalid && (
+              <p data-testid="ollama-host-error" className="text-xs text-red-300">
+                Enter a valid http(s):// URL.
+              </p>
+            )}
           </Field>
           <Field label="Retrieval translation">
             <select
