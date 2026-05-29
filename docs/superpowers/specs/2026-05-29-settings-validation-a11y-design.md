@@ -1,7 +1,7 @@
 # Onboarding & Settings D4 — Accessibility for the settings validation messages — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `settings-validation-a11y`)
+- **Status:** Implemented (branch `settings-validation-a11y`)
 - **Theme:** D — Onboarding & settings, sub-project 4 (closes the loop on D1)
 
 ## Problem
