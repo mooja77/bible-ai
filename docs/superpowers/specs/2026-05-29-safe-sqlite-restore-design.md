@@ -1,7 +1,7 @@
 # Onboarding & Settings D3 — Confirmation guard for the destructive SQLite restore — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `safe-sqlite-restore`)
+- **Status:** Implemented (branch `safe-sqlite-restore`)
 - **Theme:** D — Onboarding & settings, sub-project 3
 
 ## Problem
