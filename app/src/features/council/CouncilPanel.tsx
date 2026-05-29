@@ -29,15 +29,20 @@ import { AddToTheologyMenu } from "./AddToTheologyMenu";
 import { CouncilVoicePreview, CouncilRunningPanel } from "./CouncilVoicePanels";
 import { CouncilVoiceMatrix } from "./CouncilVoiceMatrix";
 import { CouncilPositionComparison } from "./CouncilPositionComparison";
-import { HighlightedText, buildEvidenceTermsByVerse, buildRetrievedCitationByVerse } from "./councilHighlight";
+import { CouncilRetrievalTrace } from "./CouncilRetrievalTrace";
+import { HighlightedText, buildEvidenceTermsByVerse } from "./councilHighlight";
 import { ErrorState } from "../../components/StateViews";
 import {
   buildConfidenceFactors,
   buildPositionEvidenceGroups,
-  buildRetrievalTraceRows,
   countVoiceMentions,
+  evidenceStatusClass,
+  evidenceStatusLabel,
+  evidenceStatusTooltip,
   formatPercent,
   labelsOverlap,
+  sourceDisplay,
+  sourceTooltip,
   type EvidenceDisplayRow,
 } from "./councilTransparency";
 
@@ -887,88 +892,6 @@ function EvidenceDisplayItem({
   );
 }
 
-function CouncilRetrievalTrace({
-  response,
-  onJumpToVerse,
-}: {
-  response: CouncilResponse;
-  onJumpToVerse: (verseId: number, translationCode: string) => void;
-}) {
-  const rows = buildRetrievalTraceRows(response);
-  const citationByVerse = buildRetrievedCitationByVerse(response);
-  if (rows.length === 0) return null;
-  return (
-    <section className="border-t border-neutral-800 pt-5" data-testid="council-retrieval-trace">
-      <h2 className="text-sm tracking-wider text-neutral-400 mb-2">
-        Retrieval Trace
-      </h2>
-      <p className="text-xs text-neutral-500 mb-3">
-        Retrieval finds candidate passages. The Council still decides whether each passage is
-        used, supporting, conflicting, or ignored.
-      </p>
-      <ul className="space-y-2 max-h-96 overflow-y-auto pr-2">
-        {rows.slice(0, 20).map((row) => (
-          <li key={`trace-${row.verse_id}-${row.source}`} className="border border-neutral-800 rounded px-3 py-2">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <button
-                type="button"
-                onClick={() => onJumpToVerse(row.verse_id, row.translation_code)}
-                className="font-mono text-xs text-amber-300 hover:text-amber-200"
-              >
-                {row.citation} ({row.translation_code})
-              </button>
-              <span
-                className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
-                title={sourceTooltip(row.source)}
-              >
-                {row.source_label}
-              </span>
-              <span
-                className={"text-[10px] px-1.5 py-0.5 rounded " + evidenceStatusClass(row.status)}
-                title={evidenceStatusTooltip(row.status)}
-              >
-                {row.status}
-              </span>
-            </div>
-            <RetrievalScoreBar row={row} />
-            {row.from_verse_id && (
-              <p className="text-[11px] text-neutral-600 mt-1">
-                Cross-reference from {citationByVerse.get(row.from_verse_id) ?? `verse id ${row.from_verse_id}`}
-              </p>
-            )}
-            <p
-              className="text-xs text-neutral-400 mt-1 leading-relaxed"
-              style={{ fontFamily: "var(--font-serif)" }}
-            >
-              <HighlightedText text={row.text} terms={row.matched_terms} />
-            </p>
-            {row.matched_terms.length > 0 && (
-              <p className="text-[11px] text-neutral-600 mt-1">
-                Matched terms: {row.matched_terms.join(", ")}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function RetrievalScoreBar({ row }: { row: EvidenceDisplayRow }) {
-  const semantic = Math.max(0, Math.min(1, row.semantic_score ?? 0));
-  const keyword = Math.max(0, Math.min(1, row.keyword_score ?? 0));
-  const crossRef = Math.max(0, Math.min(1, row.cross_reference_weight ?? 0));
-  const total = semantic + keyword + crossRef;
-  if (total <= 0) return null;
-  return (
-    <div className="h-1.5 w-full rounded bg-neutral-900 overflow-hidden flex" title="Retrieval contribution">
-      {keyword > 0 && <div className="bg-sky-500/70" style={{ width: `${(keyword / total) * 100}%` }} />}
-      {semantic > 0 && <div className="bg-emerald-500/70" style={{ width: `${(semantic / total) * 100}%` }} />}
-      {crossRef > 0 && <div className="bg-amber-500/70" style={{ width: `${(crossRef / total) * 100}%` }} />}
-    </div>
-  );
-}
-
 function CouncilConfidenceRationale({ response }: { response: CouncilResponse }) {
   const factors = buildConfidenceFactors(response);
   return (
@@ -1211,44 +1134,6 @@ function CouncilEvidenceAudit({
       </ul>
     </section>
   );
-}
-
-function evidenceStatusLabel(status: "used" | "supporting" | "conflicting" | "ignored") {
-  if (status === "used") return "used";
-  if (status === "supporting") return "supporting";
-  if (status === "conflicting") return "conflicting";
-  return "ignored";
-}
-
-function evidenceStatusClass(status: "used" | "supporting" | "conflicting" | "ignored") {
-  if (status === "used") return "bg-emerald-500/15 text-emerald-300";
-  if (status === "supporting") return "bg-sky-500/15 text-sky-300";
-  if (status === "conflicting") return "bg-amber-500/15 text-amber-300";
-  return "bg-neutral-800 text-neutral-500";
-}
-
-function evidenceStatusTooltip(status: "used" | "supporting" | "conflicting" | "ignored") {
-  if (status === "used") return "Used directly in a final Council position.";
-  if (status === "supporting") return "Supports at least one position but was not a primary citation.";
-  if (status === "conflicting") return "Complicates or limits at least one position.";
-  return "Retrieved as candidate evidence but not used in the final argument.";
-}
-
-function sourceDisplay(source: string) {
-  if (source === "explicit-reference") return "explicit reference";
-  if (source === "fts") return "keyword";
-  if (source === "cross-ref") return "cross-ref";
-  return source || "retrieved";
-}
-
-function sourceTooltip(source: string) {
-  if (source === "explicit-reference") return "Retrieved because the question named this passage directly.";
-  if (source === "fts") return "Retrieved by keyword/full-text search.";
-  if (source === "semantic") return "Retrieved by semantic similarity.";
-  if (source === "cross-ref") return "Retrieved from cross-reference links.";
-  if (source === "selected-range") return "Included from the selected passage range.";
-  if (source === "cited") return "Cited directly by a Council position.";
-  return "Retrieved candidate evidence.";
 }
 
 function VoiceRow({

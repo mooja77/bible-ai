@@ -498,6 +498,44 @@ export function countVoiceMentions(voices: CouncilVoice[], label: string) {
   ).length;
 }
 
+export function evidenceStatusLabel(status: "used" | "supporting" | "conflicting" | "ignored") {
+  if (status === "used") return "used";
+  if (status === "supporting") return "supporting";
+  if (status === "conflicting") return "conflicting";
+  return "ignored";
+}
+
+export function evidenceStatusClass(status: "used" | "supporting" | "conflicting" | "ignored") {
+  if (status === "used") return "bg-emerald-500/15 text-emerald-300";
+  if (status === "supporting") return "bg-sky-500/15 text-sky-300";
+  if (status === "conflicting") return "bg-amber-500/15 text-amber-300";
+  return "bg-neutral-800 text-neutral-500";
+}
+
+export function evidenceStatusTooltip(status: "used" | "supporting" | "conflicting" | "ignored") {
+  if (status === "used") return "Used directly in a final Council position.";
+  if (status === "supporting") return "Supports at least one position but was not a primary citation.";
+  if (status === "conflicting") return "Complicates or limits at least one position.";
+  return "Retrieved as candidate evidence but not used in the final argument.";
+}
+
+export function sourceDisplay(source: string) {
+  if (source === "explicit-reference") return "explicit reference";
+  if (source === "fts") return "keyword";
+  if (source === "cross-ref") return "cross-ref";
+  return source || "retrieved";
+}
+
+export function sourceTooltip(source: string) {
+  if (source === "explicit-reference") return "Retrieved because the question named this passage directly.";
+  if (source === "fts") return "Retrieved by keyword/full-text search.";
+  if (source === "semantic") return "Retrieved by semantic similarity.";
+  if (source === "cross-ref") return "Retrieved from cross-reference links.";
+  if (source === "selected-range") return "Included from the selected passage range.";
+  if (source === "cited") return "Cited directly by a Council position.";
+  return "Retrieved candidate evidence.";
+}
+
 export function labelsOverlap(a: string, b: string) {
   const first = normalizeLabel(a);
   const second = normalizeLabel(b);
