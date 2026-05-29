@@ -1,7 +1,7 @@
 # Decompose God-Components F18 — Extract CouncilSourceDrawer + CouncilEvidenceAudit — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-audit-sections`)
+- **Status:** Implemented (branch `decompose-council-audit-sections`). NOTE: `CouncilSourceDrawer` is 941–1032 (NOT 1066 — `VoicesAuditTrail` at 1034–1066 sits between it and `CouncilEvidenceAudit` and stays, since it embeds `VoiceRow`→`CouncilResultView`). `RetrievedEvidence` dropped from CouncilPanel's lib/bible import (only `CouncilEvidenceAudit` annotated it).
 - **Theme:** F — Decompose god-components, sub-project 18 (eleventh CouncilPanel slice)
 
 ## Problem
