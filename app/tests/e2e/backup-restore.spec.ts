@@ -71,6 +71,11 @@ describe("Backup and restore", () => {
     await restoreButton.waitForClickable({ timeout: 10_000 });
     await restoreButton.click();
 
+    // Restore is destructive and now requires an explicit confirmation step.
+    const confirmRestore = await $("button=Confirm restore");
+    await confirmRestore.waitForClickable({ timeout: 10_000 });
+    await confirmRestore.click();
+
     await browser.waitUntil(
       async () => {
         const body = await $("body");

@@ -111,6 +111,7 @@ export function SettingsPanel({
   const [importStrategy, setImportStrategy] =
     useState<UserDataImportStrategy>("skip_existing");
   const [sqliteRestorePath, setSqliteRestorePath] = useState("");
+  const [confirmingRestore, setConfirmingRestore] = useState(false);
   const [moduleStatus, setModuleStatus] = useState<string | null>(null);
   const [moduleBusy, setModuleBusy] = useState(false);
   const [installedModules, setInstalledModules] = useState<ModuleSummary[]>([]);
@@ -269,6 +270,7 @@ export function SettingsPanel({
 
   const restoreSqliteBackup = async () => {
     setBackupBusy(true);
+    setConfirmingRestore(false);
     setBackupStatus(null);
     try {
       const safetyPath = await restoreUserSqlite(sqliteRestorePath);
@@ -900,19 +902,46 @@ export function SettingsPanel({
             >
               Backup SQLite
             </button>
-            <button
-              type="button"
-              onClick={restoreSqliteBackup}
-              disabled={backupBusy || sqliteRestorePath.trim().length === 0}
-              className="px-3 py-1.5 rounded border border-red-900/70 hover:border-red-700 disabled:text-neutral-600 disabled:border-neutral-800 text-sm text-red-100"
-            >
-              Restore SQLite
-            </button>
+            {!confirmingRestore ? (
+              <button
+                type="button"
+                onClick={() => setConfirmingRestore(true)}
+                disabled={backupBusy || sqliteRestorePath.trim().length === 0}
+                className="px-3 py-1.5 rounded border border-red-900/70 hover:border-red-700 disabled:text-neutral-600 disabled:border-neutral-800 text-sm text-red-100"
+              >
+                Restore SQLite
+              </button>
+            ) : (
+              <>
+                <span data-testid="restore-confirm-warning" className="text-xs text-red-200">
+                  This replaces all current data with the backup. A safety backup is saved first.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void restoreSqliteBackup()}
+                  disabled={backupBusy}
+                  className="px-3 py-1.5 rounded border border-red-700 hover:border-red-500 disabled:text-neutral-600 disabled:border-neutral-800 text-sm text-red-100"
+                >
+                  Confirm restore
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingRestore(false)}
+                  disabled={backupBusy}
+                  className="btn-ghost px-3 py-1.5 text-sm"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
           </div>
           <input
             aria-label="SQLite restore path"
             value={sqliteRestorePath}
-            onChange={(e) => setSqliteRestorePath(e.target.value)}
+            onChange={(e) => {
+              setSqliteRestorePath(e.target.value);
+              setConfirmingRestore(false);
+            }}
             placeholder="Path to user.sqlite backup"
             className="settings-input font-mono text-xs"
           />
