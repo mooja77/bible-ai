@@ -1,7 +1,7 @@
 # Decompose God-Components F16 — Extract highlight/evidence-text utilities from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-highlight`)
+- **Status:** Implemented (branch `decompose-council-highlight`)
 - **Theme:** F — Decompose god-components, sub-project 16 (ninth CouncilPanel slice — leaf of the result-view chain)
 
 ## Problem
