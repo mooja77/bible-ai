@@ -1,7 +1,7 @@
 # Onboarding & Settings D5 — Extract presentational primitives from SettingsPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-settings-primitives`)
+- **Status:** Implemented (branch `decompose-settings-primitives`)
 - **Theme:** D — Onboarding & settings, sub-project 5 (first SettingsPanel decomposition slice)
 
 ## Problem
