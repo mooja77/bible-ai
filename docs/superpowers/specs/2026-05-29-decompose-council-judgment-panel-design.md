@@ -1,7 +1,7 @@
 # Decompose God-Components F12 — Extract CouncilJudgmentPanel from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-judgment-panel`)
+- **Status:** Implemented (branch `decompose-council-judgment-panel`)
 - **Theme:** F — Decompose god-components, sub-project 12 (fifth CouncilPanel slice — largest cluster)
 
 ## Problem
