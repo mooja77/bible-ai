@@ -1,7 +1,7 @@
 # Onboarding & Settings D2 — Wire the guided-tour actionLabel into an "Open {mode}" CTA — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `tour-action-cta`)
+- **Status:** Implemented (branch `tour-action-cta`)
 - **Theme:** D — Onboarding & settings, sub-project 2
 
 ## Problem
