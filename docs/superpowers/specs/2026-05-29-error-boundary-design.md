@@ -1,7 +1,7 @@
 # Robustness & Perf G1 — App-wide React ErrorBoundary — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `error-boundary`)
+- **Status:** Implemented (branch `error-boundary`)
 - **Theme:** G — Robustness & perf, sub-project 1 (first Theme G item)
 
 ## Problem
