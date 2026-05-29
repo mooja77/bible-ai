@@ -491,3 +491,15 @@ function labelTokenKey(label: string) {
 function escapeCell(value: unknown) {
   return String(value ?? "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
+
+export function countVoiceMentions(voices: CouncilVoice[], label: string) {
+  return voices.filter((voice) =>
+    voice.result?.positions.some((position) => labelsOverlap(position.label, label)),
+  ).length;
+}
+
+export function labelsOverlap(a: string, b: string) {
+  const first = normalizeLabel(a);
+  const second = normalizeLabel(b);
+  return first === second || first.includes(second) || second.includes(first);
+}
