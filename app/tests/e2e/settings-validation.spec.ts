@@ -15,12 +15,17 @@ describe("Settings connection-field validation", () => {
     await urlError.waitForDisplayed({ timeout: 5_000 });
     await expect(urlError).toBeDisplayed();
 
-    // A valid http(s) URL clears the error.
+    // The error is associated with the input for assistive tech.
+    await expect(await gatewayUrl.getAttribute("aria-invalid")).toBe("true");
+    await expect(await gatewayUrl.getAttribute("aria-describedby")).toBe("gateway-url-error");
+
+    // A valid http(s) URL clears the error and the invalid state.
     await gatewayUrl.setValue("https://gw.example.test");
     await browser.waitUntil(
       async () => !(await (await $('[data-testid="gateway-url-error"]')).isExisting()),
       { timeout: 5_000, timeoutMsg: "gateway URL error should clear once the value is a valid URL" },
     );
+    await expect(await gatewayUrl.getAttribute("aria-invalid")).toBe("false");
 
     // Leave the draft clean for any later spec in the shared session.
     await gatewayUrl.setValue("");

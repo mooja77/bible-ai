@@ -591,6 +591,8 @@ export function SettingsPanel({
           <Field label="Managed gateway URL">
             <input
               aria-label="Managed gateway URL"
+              aria-invalid={gatewayUrlInvalid}
+              aria-describedby={gatewayUrlInvalid ? "gateway-url-error" : undefined}
               value={draft.managed_gateway_url ?? ""}
               onChange={(e) => update("managed_gateway_url", e.target.value)}
               placeholder="https://gateway.example.com"
@@ -598,7 +600,7 @@ export function SettingsPanel({
               autoComplete="off"
             />
             {gatewayUrlInvalid && (
-              <p data-testid="gateway-url-error" className="text-xs text-red-300">
+              <p id="gateway-url-error" data-testid="gateway-url-error" className="text-xs text-red-300">
                 Enter a valid http(s):// URL.
               </p>
             )}
@@ -609,11 +611,12 @@ export function SettingsPanel({
               type="password"
               value={draft.managed_gateway_token ?? ""}
               onChange={(e) => update("managed_gateway_token", e.target.value)}
+              aria-describedby={gatewayTokenNeedsUrl ? "gateway-token-warning" : undefined}
               className="settings-input"
               autoComplete="off"
             />
             {gatewayTokenNeedsUrl && (
-              <p data-testid="gateway-token-warning" className="text-xs text-amber-300">
+              <p id="gateway-token-warning" data-testid="gateway-token-warning" className="text-xs text-amber-300">
                 Add the gateway URL above to use this token.
               </p>
             )}
@@ -663,10 +666,12 @@ export function SettingsPanel({
               value={draft.ollama_host ?? ""}
               onChange={(e) => update("ollama_host", e.target.value)}
               placeholder="http://localhost:11434"
+              aria-invalid={ollamaHostInvalid}
+              aria-describedby={ollamaHostInvalid ? "ollama-host-error" : undefined}
               className="settings-input"
             />
             {ollamaHostInvalid && (
-              <p data-testid="ollama-host-error" className="text-xs text-red-300">
+              <p id="ollama-host-error" data-testid="ollama-host-error" className="text-xs text-red-300">
                 Enter a valid http(s):// URL.
               </p>
             )}
