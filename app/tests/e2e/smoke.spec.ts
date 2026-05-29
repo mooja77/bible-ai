@@ -76,6 +76,8 @@ describe("Bible AI shell", () => {
 
     await expect(tour).toHaveText("Read, compare, and navigate Scripture", { containing: true, ignoreCase: true });
     await expect(tour).toHaveText("Auto-playing", { containing: true, ignoreCase: true });
+    // The step's actionLabel is surfaced as an "Open {mode}" CTA.
+    await expect(await tour.$("button=Open Reader")).toBeDisplayed();
 
     await clickTourButton("Pause");
     await expect(tour).toHaveText("Paused", { containing: true, ignoreCase: true });

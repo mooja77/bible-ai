@@ -1465,6 +1465,10 @@ function App() {
           onStepChange={goToTourStep}
           onClose={() => closeTour(false)}
           onFinish={() => closeTour(true)}
+          onAction={(mode) => {
+            selectMode(mode);
+            closeTour(true);
+          }}
         />
       )}
     </div>

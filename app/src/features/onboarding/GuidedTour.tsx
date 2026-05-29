@@ -112,12 +112,14 @@ export function GuidedTour({
   onStepChange,
   onClose,
   onFinish,
+  onAction,
 }: {
   steps: TourStep[];
   currentIndex: number;
   onStepChange: (index: number) => void;
   onClose: () => void;
   onFinish: () => void;
+  onAction: (mode: Mode) => void;
 }) {
   const step = steps[currentIndex] ?? steps[0];
   const isFirst = currentIndex === 0;
@@ -282,6 +284,16 @@ export function GuidedTour({
             </button>
           </div>
           <div className="flex items-center gap-2">
+            {step.actionLabel && (
+              <button
+                type="button"
+                onClick={() => onAction(step.mode)}
+                className="btn-secondary px-3 py-1.5 text-sm"
+                data-testid="tour-action"
+              >
+                {step.actionLabel}
+              </button>
+            )}
             <button
               type="button"
               onClick={onFinish}
