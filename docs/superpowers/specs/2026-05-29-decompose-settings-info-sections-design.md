@@ -1,7 +1,7 @@
 # Onboarding & Settings D7 — Extract static info sections from SettingsPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-settings-info-sections`)
+- **Status:** Implemented (branch `decompose-settings-info-sections`)
 - **Theme:** D — Onboarding & settings, sub-project 7 (third SettingsPanel decomposition slice)
 
 ## Problem
