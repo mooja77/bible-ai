@@ -1,7 +1,7 @@
 # Decompose God-Components F20 — Extract CouncilConfidenceRationale + VoicesAuditTrail/VoiceRow — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-final-leaves`)
+- **Status:** Implemented (branch `decompose-council-final-leaves`)
 - **Theme:** F — Decompose god-components, sub-project 20 (final CouncilPanel leaves)
 
 ## Problem
