@@ -1,7 +1,7 @@
 # Decompose God-Components F8 — Extract CouncilProcessView from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-process-view`)
+- **Status:** Implemented (branch `decompose-council-process-view`)
 - **Theme:** F — Decompose god-components, sub-project 8 (first CouncilPanel slice)
 
 ## Problem
