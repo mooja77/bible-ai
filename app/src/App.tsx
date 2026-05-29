@@ -65,6 +65,7 @@ import { TheologyPanel } from "./features/theology/TheologyPanel";
 import { ResourcesPanel } from "./features/resources/ResourcesPanel";
 import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
 import { ErrorState } from "./components/StateViews";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TagBrowser } from "./features/tags/TagBrowser";
 import { GuidedTour, TOUR_STEPS } from "./features/onboarding/GuidedTour";
 import { useGuidedTour } from "./features/onboarding/useGuidedTour";
@@ -1214,6 +1215,7 @@ function App() {
             </button>
           </div>
         )}
+        <ErrorBoundary key={mode} title="This view ran into a problem">
         {error ? (
           <ErrorState message={error} className="m-4" />
         ) : searchActive ? (
@@ -1439,6 +1441,7 @@ function App() {
             )}
           </>
         )}
+        </ErrorBoundary>
       </main>
 
       {selectedWord && (
