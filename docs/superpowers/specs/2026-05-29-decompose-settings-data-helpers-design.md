@@ -1,7 +1,7 @@
 # Onboarding & Settings D6 — Extract data/import-parsing helpers from SettingsPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-settings-data-helpers`)
+- **Status:** Implemented (branch `decompose-settings-data-helpers`)
 - **Theme:** D — Onboarding & settings, sub-project 6 (second SettingsPanel decomposition slice)
 
 ## Problem
