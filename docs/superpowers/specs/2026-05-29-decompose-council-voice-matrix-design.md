@@ -1,7 +1,7 @@
 # Decompose God-Components F14 — Extract CouncilVoiceMatrix from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-voice-matrix`)
+- **Status:** Implemented (branch `decompose-council-voice-matrix`)
 - **Theme:** F — Decompose god-components, sub-project 14 (seventh CouncilPanel slice)
 
 ## Problem
