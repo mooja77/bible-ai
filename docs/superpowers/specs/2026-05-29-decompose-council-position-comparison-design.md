@@ -1,7 +1,7 @@
 # Decompose God-Components F15 — Extract CouncilPositionComparison from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-position-comparison`)
+- **Status:** Implemented (branch `decompose-council-position-comparison`)
 - **Theme:** F — Decompose god-components, sub-project 15 (eighth CouncilPanel slice)
 
 ## Problem
