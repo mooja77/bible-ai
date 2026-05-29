@@ -1,7 +1,7 @@
 # Onboarding & Settings D1 — Settings connection-field validation & feedback — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `settings-validation-feedback`)
+- **Status:** Implemented (branch `settings-validation-feedback`)
 - **Theme:** D — Onboarding & settings, sub-project 1
 
 ## Problem
