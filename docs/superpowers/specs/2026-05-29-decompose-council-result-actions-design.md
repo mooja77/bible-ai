@@ -1,7 +1,7 @@
 # Decompose God-Components F11 — Extract CopyAsMarkdownButton + AddToTheologyMenu from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-result-actions`)
+- **Status:** Implemented (branch `decompose-council-result-actions`)
 - **Theme:** F — Decompose god-components, sub-project 11 (fourth CouncilPanel slice)
 
 ## Problem
