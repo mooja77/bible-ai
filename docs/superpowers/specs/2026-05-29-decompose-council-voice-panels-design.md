@@ -1,7 +1,7 @@
 # Decompose God-Components F13 — Extract CouncilVoicePreview + CouncilRunningPanel from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-voice-panels`)
+- **Status:** Implemented (branch `decompose-council-voice-panels`)
 - **Theme:** F — Decompose god-components, sub-project 13 (sixth CouncilPanel slice)
 
 ## Problem
