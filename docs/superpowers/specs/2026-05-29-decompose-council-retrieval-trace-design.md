@@ -1,7 +1,7 @@
 # Decompose God-Components F17 — Extract CouncilRetrievalTrace + lift evidence-status helpers — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-retrieval-trace`)
+- **Status:** Implemented (branch `decompose-council-retrieval-trace`)
 - **Theme:** F — Decompose god-components, sub-project 17 (tenth CouncilPanel slice)
 
 ## Problem
