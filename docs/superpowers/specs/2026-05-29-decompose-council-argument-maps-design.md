@@ -1,7 +1,7 @@
 # Decompose God-Components F10 — Extract CouncilArgumentMaps from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-argument-maps`)
+- **Status:** Implemented (branch `decompose-council-argument-maps`)
 - **Theme:** F — Decompose god-components, sub-project 10 (third CouncilPanel slice)
 
 ## Problem
