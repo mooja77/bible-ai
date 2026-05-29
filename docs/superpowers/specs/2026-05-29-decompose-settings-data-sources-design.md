@@ -1,7 +1,7 @@
 # Onboarding & Settings D8 — Extract DataSourcesSection from SettingsPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-settings-data-sources`)
+- **Status:** Implemented (branch `decompose-settings-data-sources`)
 - **Theme:** D — Onboarding & settings, sub-project 8 (fourth SettingsPanel slice — first stateful section)
 
 ## Problem
