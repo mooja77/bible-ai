@@ -1,7 +1,7 @@
 # Decompose God-Components F9 — Extract CouncilResearchTrail from CouncilPanel.tsx — Design
 
 - **Date:** 2026-05-29
-- **Status:** Draft (branch `decompose-council-research-trail`)
+- **Status:** Implemented (branch `decompose-council-research-trail`)
 - **Theme:** F — Decompose god-components, sub-project 9 (second CouncilPanel slice)
 
 ## Problem
