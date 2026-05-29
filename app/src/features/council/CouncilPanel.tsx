@@ -16,7 +16,6 @@ import {
   type Book,
   type Translation,
   type Testament,
-  type RetrievedEvidence,
 } from "../../lib/bible";
 import { CouncilJudgmentPanel, readPayloadJudgment, createEmptyJudgment } from "./CouncilJudgmentPanel";
 import { CouncilHistory } from "./CouncilHistory";
@@ -30,6 +29,8 @@ import { CouncilVoicePreview, CouncilRunningPanel } from "./CouncilVoicePanels";
 import { CouncilVoiceMatrix } from "./CouncilVoiceMatrix";
 import { CouncilPositionComparison } from "./CouncilPositionComparison";
 import { CouncilRetrievalTrace } from "./CouncilRetrievalTrace";
+import { CouncilSourceDrawer } from "./CouncilSourceDrawer";
+import { CouncilEvidenceAudit } from "./CouncilEvidenceAudit";
 import { HighlightedText, buildEvidenceTermsByVerse } from "./councilHighlight";
 import { ErrorState } from "../../components/StateViews";
 import {
@@ -938,99 +939,6 @@ function CouncilConfidenceRationale({ response }: { response: CouncilResponse })
   );
 }
 
-function CouncilSourceDrawer({ response }: { response: CouncilResponse }) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState("response");
-  const [copied, setCopied] = useState<"tab" | "full" | null>(null);
-  const tabs = [
-    ["response", "Response JSON", response],
-    ["synthesis", "Synthesis", response.synthesis],
-    ["voices", "Provider voices", response.voices],
-    ["retrieval", "Retrieval options", response.retrieval_options ?? {}],
-    ["evidence", "Retrieved evidence", response.retrieved_evidence ?? []],
-    ["manifest", "Provider manifest", response.manifest],
-  ] as const;
-  const current = tabs.find(([key]) => key === active) ?? tabs[0];
-  const json = JSON.stringify(current[2], null, 2);
-  const fullJson = JSON.stringify(response, null, 2);
-
-  const onCopy = async (value: string, scope: "tab" | "full") => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(scope);
-      window.setTimeout(() => setCopied(null), 1500);
-    } catch {
-      /* clipboard API may be unavailable */
-    }
-  };
-
-  return (
-    <section className="border-t border-neutral-800 pt-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm tracking-wider text-neutral-400">
-            Source Data
-          </h2>
-          <p className="text-xs text-neutral-500 mt-1">
-            Structured data stored for audit, debugging, and export verification.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          className="px-2 py-1 rounded border border-neutral-800 text-xs text-neutral-300 hover:border-neutral-700"
-        >
-          {open ? "Hide source data" : "View source data"}
-        </button>
-      </div>
-      {open && (
-        <div
-          className="border border-neutral-800 rounded mt-3 overflow-hidden"
-          data-testid="council-source-drawer"
-        >
-          <div className="flex items-center gap-1 flex-wrap p-2 border-b border-neutral-800 bg-neutral-950">
-            {tabs.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setActive(key)}
-                className={
-                  "px-2 py-1 rounded text-xs " +
-                  (active === key
-                    ? "bg-neutral-800 text-neutral-100"
-                    : "text-neutral-500 hover:text-neutral-300")
-                }
-              >
-                {label}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => onCopy(json, "tab")}
-              className="ml-auto px-2 py-1 rounded border border-neutral-800 text-xs text-neutral-300"
-            >
-              {copied === "tab" ? "Copied tab" : "Copy tab"}
-            </button>
-            <button
-              type="button"
-              onClick={() => onCopy(fullJson, "full")}
-              className="px-2 py-1 rounded border border-neutral-800 text-xs text-neutral-300"
-            >
-              {copied === "full" ? "Copied full JSON" : "Copy full JSON"}
-            </button>
-          </div>
-          <pre
-            className="max-h-96 overflow-auto p-3 text-xs text-neutral-300 whitespace-pre-wrap"
-            data-testid="council-source-json"
-          >
-            {json}
-          </pre>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function VoicesAuditTrail({
   voices,
   manifest,
@@ -1060,77 +968,6 @@ function VoicesAuditTrail({
             onJumpToVerse={onJumpToVerse}
           />
         ))}
-      </ul>
-    </section>
-  );
-}
-
-function CouncilEvidenceAudit({
-  evidence,
-  synthesis,
-  onJumpToVerse,
-}: {
-  evidence: RetrievedEvidence[];
-  synthesis: CouncilResult;
-  onJumpToVerse: (verseId: number, translationCode: string) => void;
-}) {
-  const used = new Set(
-    synthesis.positions.flatMap((p) => p.evidence.map((e) => e.verse_id)),
-  );
-  const classifications = new Map(
-    (synthesis.evidence_classification ?? []).map((entry) => [entry.verse_id, entry]),
-  );
-  if (evidence.length === 0) return null;
-  return (
-    <section className="border-t border-neutral-800 pt-5">
-      <h2 className="text-sm tracking-wider text-neutral-400 mb-3">
-        Retrieved Evidence
-      </h2>
-      <ul className="space-y-2 max-h-96 overflow-y-auto pr-2">
-        {evidence.map((e) => {
-          const classified = classifications.get(e.verse_id);
-          const status = classified?.status ?? (used.has(e.verse_id) ? "used" : "ignored");
-          return (
-            <li
-              key={`${e.source}-${e.translation_code}-${e.verse_id}`}
-              className="border border-neutral-800 rounded px-3 py-2"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <button
-                  type="button"
-                  onClick={() => onJumpToVerse(e.verse_id, e.translation_code)}
-                  className="font-mono text-xs text-amber-300 hover:text-amber-200"
-                >
-                  {e.book_name} {e.chapter}:{e.verse} ({e.translation_code})
-                </button>
-                <span
-                  className="text-[10px] tracking-wide text-neutral-500"
-                  title={sourceTooltip(e.source)}
-                >
-                  {sourceDisplay(e.source)}
-                </span>
-                <span
-                  className={
-                    "ml-auto text-[10px] px-1.5 py-0.5 rounded " +
-                    evidenceStatusClass(status)
-                  }
-                  title={evidenceStatusTooltip(status)}
-                >
-                  {evidenceStatusLabel(status)}
-                </span>
-              </div>
-              <p
-                className="text-sm text-neutral-300 leading-relaxed"
-                style={{ fontFamily: "var(--font-serif)" }}
-              >
-                {e.text}
-              </p>
-              {classified?.reasoning && (
-                <p className="text-xs text-neutral-500 mt-1">{classified.reasoning}</p>
-              )}
-            </li>
-          );
-        })}
       </ul>
     </section>
   );
