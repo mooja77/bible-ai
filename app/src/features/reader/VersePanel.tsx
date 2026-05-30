@@ -75,6 +75,7 @@ export function VersePanel({
 }: Props) {
   const [tab, setTab] = useState<Tab>("refs");
   const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarking, setBookmarking] = useState(false);
   const [bookmarkLabel, setBookmarkLabel] = useState("");
   const [explanation, setExplanation] = useState<PassageExplanation | null>(null);
   const [explanationError, setExplanationError] = useState<string | null>(null);
@@ -106,6 +107,7 @@ export function VersePanel({
     activeVerseId.current = verseId;
     explainRequestId.current += 1;
     setBookmarked(false);
+    setBookmarking(false);
     setBookmarkLabel("");
     setExplanation(null);
     setExplanationError(null);
@@ -241,14 +243,21 @@ export function VersePanel({
         />
         <button
           type="button"
+          disabled={bookmarking || bookmarked}
           onClick={async () => {
-            await addBookmark(verseId, null, bookmarkLabel.trim() || citation);
-            if (activeVerseId.current === verseId) setBookmarked(true);
-            onMutated();
+            if (bookmarking || bookmarked) return;
+            setBookmarking(true);
+            try {
+              await addBookmark(verseId, null, bookmarkLabel.trim() || citation);
+              if (activeVerseId.current === verseId) setBookmarked(true);
+              onMutated();
+            } finally {
+              if (activeVerseId.current === verseId) setBookmarking(false);
+            }
           }}
-          className="px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-900 rounded"
+          className="px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-900 rounded disabled:opacity-50"
         >
-          {bookmarked ? "Bookmarked" : "Bookmark"}
+          {bookmarked ? "Bookmarked" : bookmarking ? "Bookmarking…" : "Bookmark"}
         </button>
         <button
           type="button"

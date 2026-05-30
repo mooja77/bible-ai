@@ -324,21 +324,26 @@ export function TheologyPanel({
   };
 
   const saveManualLink = async () => {
-    if (!manualLink || !manualLink.title?.trim()) return;
-    const id = await createTheologyLink(manualLink);
-    setLinks((current) => [{ ...manualLink, id }, ...current]);
-    setManualLink({
-      topic_id: manualLink.topic_id,
-      link_kind: "verse",
-      target_id: null,
-      title: "",
-      payload_json: "{}",
-    });
-    await refreshTopicStats();
+    if (!manualLink || !manualLink.title?.trim() || saving) return;
+    setSaving(true);
+    try {
+      const id = await createTheologyLink(manualLink);
+      setLinks((current) => [{ ...manualLink, id }, ...current]);
+      setManualLink({
+        topic_id: manualLink.topic_id,
+        link_kind: "verse",
+        target_id: null,
+        title: "",
+        payload_json: "{}",
+      });
+      await refreshTopicStats();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const saveDoctrineRelation = async () => {
-    if (!selectedTopicId || !relationDraft.targetTopicId) return;
+    if (!selectedTopicId || !relationDraft.targetTopicId || saving) return;
     const target = topics.find((topic) => topic.id === relationDraft.targetTopicId);
     if (!target) return;
     const title = `${relationLabel(relationDraft.relation)}: ${target.title}`;
@@ -355,10 +360,15 @@ export function TheologyPanel({
         note: relationDraft.note.trim(),
       }),
     };
-    const id = await createTheologyLink(link);
-    setLinks((current) => [{ ...link, id }, ...current]);
-    setRelationDraft({ relation: relationDraft.relation, targetTopicId: target.id, note: "" });
-    await refreshTopicStats();
+    setSaving(true);
+    try {
+      const id = await createTheologyLink(link);
+      setLinks((current) => [{ ...link, id }, ...current]);
+      setRelationDraft({ relation: relationDraft.relation, targetTopicId: target.id, note: "" });
+      await refreshTopicStats();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const createTopic = async () => {
@@ -461,23 +471,28 @@ export function TheologyPanel({
   };
 
   const savePosition = async () => {
-    if (!positionDraft || !positionDraft.label.trim()) return;
-    const id = await upsertTheologyPosition(positionDraft);
-    const saved = { ...positionDraft, id };
-    setPositions((current) =>
-      [...current.filter((position) => position.id !== id), saved].sort(
-        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.label.localeCompare(b.label),
-      ),
-    );
-    setPositionDraft({
-      topic_id: positionDraft.topic_id,
-      label: "",
-      tradition_family: "",
-      summary: "",
-      strengths: "",
-      weaknesses: "",
-      sort_order: positions.length + 2,
-    });
+    if (!positionDraft || !positionDraft.label.trim() || saving) return;
+    setSaving(true);
+    try {
+      const id = await upsertTheologyPosition(positionDraft);
+      const saved = { ...positionDraft, id };
+      setPositions((current) =>
+        [...current.filter((position) => position.id !== id), saved].sort(
+          (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.label.localeCompare(b.label),
+        ),
+      );
+      setPositionDraft({
+        topic_id: positionDraft.topic_id,
+        label: "",
+        tradition_family: "",
+        summary: "",
+        strengths: "",
+        weaknesses: "",
+        sort_order: positions.length + 2,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const save = async () => {
@@ -881,7 +896,7 @@ export function TheologyPanel({
                   <button
                     type="button"
                     onClick={saveDoctrineRelation}
-                    disabled={!relationDraft.targetTopicId}
+                    disabled={!relationDraft.targetTopicId || saving}
                     className="btn-secondary px-2 py-1 text-xs md:col-span-2"
                   >
                     Save doctrine link
@@ -1000,7 +1015,7 @@ export function TheologyPanel({
                     <button
                       type="button"
                       onClick={savePosition}
-                      disabled={!positionDraft.label.trim()}
+                      disabled={!positionDraft.label.trim() || saving}
                       className="btn-secondary px-2 py-1 text-xs md:col-span-2"
                     >
                       Save position
@@ -1061,7 +1076,7 @@ export function TheologyPanel({
                     <button
                       type="button"
                       onClick={saveManualLink}
-                      disabled={!manualLink.title?.trim()}
+                      disabled={!manualLink.title?.trim() || saving}
                       className="btn-secondary px-2 py-1 text-xs"
                     >
                       Add link

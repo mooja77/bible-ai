@@ -78,6 +78,7 @@ export function WorkspacesPanel({
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
+  const [addingNote, setAddingNote] = useState(false);
   const [workspaceQuery, setWorkspaceQuery] = useState("");
   const [itemQuery, setItemQuery] = useState("");
   const [theologyTopics, setTheologyTopics] = useState<TheologyTopic[]>([]);
@@ -283,20 +284,25 @@ export function WorkspacesPanel({
   };
 
   const addWorkspaceNote = async () => {
-    if (!workspace) return;
+    if (!workspace || addingNote) return;
     const body = noteBody.trim();
     if (!body) return;
     const title = noteTitle.trim() || "Study note";
-    await addStudyItem(workspace.id, "note", title, {
-      title,
-      body,
-      created_from: "workspace",
-    });
-    setNoteTitle("");
-    setNoteBody("");
-    setNoteSaved(true);
-    window.setTimeout(() => setNoteSaved(false), 1500);
-    await refreshWorkspace(workspace.id);
+    setAddingNote(true);
+    try {
+      await addStudyItem(workspace.id, "note", title, {
+        title,
+        body,
+        created_from: "workspace",
+      });
+      setNoteTitle("");
+      setNoteBody("");
+      setNoteSaved(true);
+      window.setTimeout(() => setNoteSaved(false), 1500);
+      await refreshWorkspace(workspace.id);
+    } finally {
+      setAddingNote(false);
+    }
   };
 
   const moveItem = async (index: number, direction: -1 | 1) => {
@@ -521,7 +527,7 @@ export function WorkspacesPanel({
                   <button
                     type="button"
                     onClick={addWorkspaceNote}
-                    disabled={!noteBody.trim()}
+                    disabled={!noteBody.trim() || addingNote}
                     className="btn-secondary px-3 py-1.5 text-sm"
                   >
                     Add Note

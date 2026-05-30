@@ -32,6 +32,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
   const [selected, setSelected] = useState<ResourceEntry | null>(null);
   const [linkTopicId, setLinkTopicId] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,11 +140,12 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
   );
 
   const attachToTheology = async () => {
-    if (!selected?.id || !linkTopicId) return;
+    if (!selected?.id || !linkTopicId || linking) return;
     if (!topics.some((topic) => topic.id === linkTopicId)) {
       setStatus("Select a valid Theology topic before linking.");
       return;
     }
+    setLinking(true);
     setStatus("Linking resource to Theology...");
     try {
       await createTheologyLink({
@@ -165,6 +167,8 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
       setStatus("Resource linked to Theology.");
     } catch (e) {
       setStatus(`Link failed: ${String(e)}`);
+    } finally {
+      setLinking(false);
     }
   };
 
@@ -382,7 +386,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
                 <button
                   type="button"
                   onClick={attachToTheology}
-                  disabled={!selected.id || !linkTopicId}
+                  disabled={!selected.id || !linkTopicId || linking}
                   className="btn-primary px-3 py-1.5 text-sm"
                 >
                   Link to Theology
