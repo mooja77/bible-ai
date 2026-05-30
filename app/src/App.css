@@ -14,28 +14,41 @@
        high numbers as background, so a straight mirror works;
    (b) flips the semantic surface tokens used by the custom classes below. */
 :root {
-  --app-grad-a: #080a0d;
-  --app-grad-b: #0d1117;
-  --app-grad-c: #090b0f;
-  --app-tint: rgba(245, 158, 11, 0.07);
-  --surface-sidebar: rgba(8, 10, 14, 0.88);
-  --surface-panel: rgba(10, 13, 18, 0.72);
-  --surface-card: rgba(17, 24, 39, 0.46);
-  --surface-card-hover: rgba(24, 31, 43, 0.64);
-  --surface-input: rgba(17, 24, 39, 0.72);
-  --surface-input-focus: rgba(17, 24, 39, 0.95);
-  --surface-pill: rgba(23, 23, 23, 0.72);
-  --surface-btn2: rgba(17, 24, 39, 0.54);
-  --surface-btn2-hover: rgba(31, 41, 55, 0.72);
-  --surface-reader: rgba(11, 13, 17, 0.42);
-  --border-subtle: rgba(63, 63, 70, 0.72);
-  --border-strong: rgba(113, 113, 122, 0.9);
-  --sheen: rgba(255, 255, 255, 0.025);
-  --panel-shadow: rgba(0, 0, 0, 0.22);
-  --btn-primary-text: #ffedd5;
+  /* Modern indigo theme. Deep slate base + an indigo/violet accent. The accent
+     reaches the ~107 `amber-*` utility usages across components by remapping the
+     amber color TOKENS to indigo here (same token-remap mechanism light mode
+     uses), so no per-component edits are needed. emerald/red are kept for their
+     status meaning (positive / danger). */
+  --app-grad-a: #0c0f1a;
+  --app-grad-b: #0f1320;
+  --app-grad-c: #0b0e18;
+  --app-tint: rgba(129, 140, 248, 0.08);
+  --surface-sidebar: rgba(13, 16, 28, 0.88);
+  --surface-panel: rgba(15, 19, 32, 0.72);
+  --surface-card: rgba(30, 35, 56, 0.46);
+  --surface-card-hover: rgba(40, 46, 72, 0.64);
+  --surface-input: rgba(28, 33, 52, 0.72);
+  --surface-input-focus: rgba(28, 33, 52, 0.95);
+  --surface-pill: rgba(28, 32, 50, 0.72);
+  --surface-btn2: rgba(30, 35, 56, 0.54);
+  --surface-btn2-hover: rgba(44, 51, 78, 0.72);
+  --surface-reader: rgba(14, 17, 30, 0.42);
+  --border-subtle: rgba(99, 102, 141, 0.42);
+  --border-strong: rgba(129, 140, 248, 0.55);
+  --sheen: rgba(255, 255, 255, 0.03);
+  --panel-shadow: rgba(0, 0, 0, 0.30);
+  --btn-primary-text: #e0e7ff;
   --btn-danger-text: #fca5a5;
-  --scrollbar-thumb: #404040;
-  --scrollbar-track: #111827;
+  --scrollbar-thumb: #3a3f5c;
+  --scrollbar-track: #141827;
+
+  /* Remap amber accent tokens → indigo (dark-mode shades, tuned for the slate
+     surfaces). Higher number = brighter/more emphasis. */
+  --color-amber-100: #c7d2fe;
+  --color-amber-200: #a5b4fc;
+  --color-amber-300: #818cf8;
+  --color-amber-400: #6366f1;
+  --color-amber-500: #6366f1;
 }
 
 [data-theme="light"] {
@@ -54,7 +67,7 @@
   --app-grad-a: #f3f4f6;
   --app-grad-b: #e9ebef;
   --app-grad-c: #f5f6f8;
-  --app-tint: rgba(245, 158, 11, 0.12);
+  --app-tint: rgba(99, 102, 241, 0.12);
   --surface-sidebar: rgba(249, 250, 251, 0.94);
   --surface-panel: rgba(255, 255, 255, 0.86);
   --surface-card: rgba(255, 255, 255, 0.72);
@@ -69,7 +82,7 @@
   --border-strong: rgba(15, 23, 42, 0.32);
   --sheen: rgba(255, 255, 255, 0.55);
   --panel-shadow: rgba(15, 23, 42, 0.12);
-  --btn-primary-text: #92400e;
+  --btn-primary-text: #3730a3;
   --btn-danger-text: #b91c1c;
   --scrollbar-thumb: #c4c8cf;
   --scrollbar-track: #e9ebef;
@@ -83,9 +96,11 @@
      approach. A lighter dark-mode shade (more emphasis) maps to a darker
      light-mode value, preserving the emphasis hierarchy. amber-400 is left
      unchanged because it is also used as a bg-amber-400 badge fill. */
-  --color-amber-100: #78350f;
-  --color-amber-200: #92400e;
-  --color-amber-300: #b45309;
+  --color-amber-100: #3730a3;
+  --color-amber-200: #4338ca;
+  --color-amber-300: #4f46e5;
+  --color-amber-400: #4f46e5;
+  --color-amber-500: #4f46e5;
   --color-emerald-100: #064e3b;
   --color-emerald-200: #065f46;
   --color-emerald-300: #047857;
@@ -117,7 +132,7 @@ body {
 }
 
 ::selection {
-  background: rgba(245, 158, 11, 0.28);
+  background: rgba(129, 140, 248, 0.30);
   color: var(--color-neutral-100);
 }
 
@@ -138,24 +153,24 @@ select:focus-visible,
 textarea:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
-  /* Solid (not 55% opacity) amber for a clearly-visible, ≥3:1 focus indicator
-     on both themes — WCAG 2.2 SC 2.4.13. */
-  outline: 2px solid #f59e0b;
+  /* Solid indigo for a clearly-visible, ≥3:1 focus indicator on both themes —
+     WCAG 2.2 SC 2.4.13. */
+  outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
 
 /* Style FTS snippet highlights — <mark> tags come from SQLite. */
 mark {
-  background: rgba(251, 191, 36, 0.28);
+  background: rgba(129, 140, 248, 0.30);
   color: var(--color-neutral-100);
   padding: 0 0.15em;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .settings-input {
   width: 100%;
   border: 1px solid var(--border-subtle);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--surface-input);
   color: var(--color-neutral-100);
   font-size: 0.875rem;
@@ -165,9 +180,9 @@ mark {
 }
 
 .settings-input:focus {
-  border-color: rgba(245, 158, 11, 0.55);
+  border-color: rgba(129, 140, 248, 0.65);
   background: var(--surface-input-focus);
-  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.08);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
   outline: none;
 }
 
@@ -192,7 +207,7 @@ mark {
 .soft-card {
   border: 1px solid var(--border-subtle);
   background: var(--surface-card);
-  border-radius: 8px;
+  border-radius: 10px;
   box-shadow: inset 0 1px var(--sheen);
 }
 
@@ -237,7 +252,7 @@ mark {
 .btn-secondary,
 .btn-danger,
 .btn-ghost {
-  border-radius: 6px;
+  border-radius: 8px;
   transition:
     border-color 140ms ease,
     background-color 140ms ease,
@@ -246,14 +261,14 @@ mark {
 }
 
 .btn-primary {
-  border: 1px solid rgba(245, 158, 11, 0.45);
-  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.18);
   color: var(--btn-primary-text);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: rgba(245, 158, 11, 0.24);
-  border-color: rgba(251, 191, 36, 0.65);
+  background: rgba(99, 102, 241, 0.28);
+  border-color: rgba(129, 140, 248, 0.7);
 }
 
 .btn-secondary {
@@ -299,7 +314,7 @@ mark {
   animation: verse-flash 1.6s ease-out;
 }
 @keyframes verse-flash {
-  0% { background: rgba(251, 191, 36, 0.35); }
+  0% { background: rgba(129, 140, 248, 0.35); }
   100% { background: transparent; }
 }
 
@@ -326,7 +341,7 @@ mark {
   height: 3px;
   border-radius: 999px;
   background: currentColor;
-  color: rgba(251, 191, 36, 0.85);
+  color: rgba(129, 140, 248, 0.9);
   animation: council-thinking 1s ease-in-out infinite;
 }
 .council-thinking span:nth-child(2) { animation-delay: 0.16s; }
