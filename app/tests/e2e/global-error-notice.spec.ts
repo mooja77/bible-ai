@@ -10,7 +10,10 @@ import { browser, $, expect } from "@wdio/globals";
  */
 describe("Global async-error notice", () => {
   it("surfaces a dismissible toast for an uncaught error", async () => {
-    await browser.url("/");
+    // The app is already loaded in the shared session — no navigation needed
+    // (the Tauri/wdio harness has no baseUrl, so `browser.url("/")` is invalid).
+    // The notice is mounted at the root, so it surfaces regardless of the
+    // current view left behind by the previous spec.
 
     // No error yet — the notice should not be present.
     const before = await $('[data-testid="global-error-notice"]');
