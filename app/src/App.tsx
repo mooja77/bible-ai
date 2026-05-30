@@ -596,7 +596,9 @@ function App() {
     const requestId = ++referenceJumpRequestId.current;
     const parsed = parseReference(referenceInput, books);
     if (!parsed) {
-      setReferenceError("Use a reference like John 3:16 or John 3:16-4:2.");
+      setReferenceError(
+        "Hmm, I couldn't find that. Try a book, chapter, or verse — like “John”, “John 3”, “John 3:16”, or “John 3:16-4:2”.",
+      );
       return;
     }
     const activeTranslation = activeTranslations[0] ?? translations[0]?.code;
@@ -1098,7 +1100,7 @@ function App() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void jumpToReference();
                 }}
-                placeholder="John 3:16 or John 3:16-18"
+                placeholder="Go to… e.g. John, John 3, or John 3:16"
                 className="settings-input text-xs"
                 aria-label="Jump to reference"
               />

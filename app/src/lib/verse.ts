@@ -8,12 +8,10 @@ export function formatVerseId(verseId: number, books: Book[]) {
   return `${book?.name ?? `Book ${bookId}`} ${chapter}:${verse}`;
 }
 
-export function parseReference(input: string, books: Book[]) {
-  const match = input.trim().match(/^(.+?)\s+(\d+)(?::(\d+)(?:-(?:(\d+):)?(\d+))?)?$/);
-  if (!match) return null;
-  const [, rawBook, rawChapter, rawVerse, rawEndChapter, rawEndVerse] = match;
+function resolveBook(rawBook: string, books: Book[]): Book | undefined {
   const normalizedBook = normalizeReferenceBook(rawBook);
-  const book = [...books]
+  if (!normalizedBook) return undefined;
+  return [...books]
     .sort((a, b) => b.name.length - a.name.length)
     .find((b) => {
       const names = [
@@ -24,6 +22,27 @@ export function parseReference(input: string, books: Book[]) {
       ];
       return names.some((name) => normalizeReferenceBook(name) === normalizedBook);
     });
+}
+
+export function parseReference(input: string, books: Book[]) {
+  const trimmed = input.trim();
+  const match = trimmed.match(/^(.+?)\s+(\d+)(?::(\d+)(?:-(?:(\d+):)?(\d+))?)?$/);
+  if (!match) {
+    // No chapter given (e.g. "John", "1 John") — open the book at chapter 1 if
+    // the whole input resolves to a known book.
+    const bookOnly = resolveBook(trimmed, books);
+    if (!bookOnly) return null;
+    return {
+      book: bookOnly,
+      chapter: 1,
+      endChapter: 1,
+      verseId: bookOnly.id * 1_000_000 + 1 * 1000 + 1,
+      endVerseId: bookOnly.id * 1_000_000 + 1 * 1000 + 1,
+      citation: `${bookOnly.name} 1`,
+    };
+  }
+  const [, rawBook, rawChapter, rawVerse, rawEndChapter, rawEndVerse] = match;
+  const book = resolveBook(rawBook, books);
   if (!book) return null;
   // A bare chapter reference ("John 3") has no verse — navigate to the top of
   // the chapter (verse 1) and cite the chapter, not "John 3:1".
