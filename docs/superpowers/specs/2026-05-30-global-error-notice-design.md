@@ -1,7 +1,7 @@
 # Robustness & Perf G2 — Global async-error notice — Design
 
 - **Date:** 2026-05-30
-- **Status:** Draft (branch `global-error-notice`)
+- **Status:** Implemented (branch `global-error-notice`)
 - **Theme:** G — Robustness & perf, sub-project 2 (complements G1 ErrorBoundary)
 
 ## Problem
