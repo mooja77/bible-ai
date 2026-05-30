@@ -1,7 +1,7 @@
 # UX H1 — Accessibility & legibility baseline — Design
 
 - **Date:** 2026-05-30
-- **Status:** Draft (branch `ux-h1-legibility`)
+- **Status:** Implemented (merged to `main`)
 - **Theme:** H — UX for non-technical users, sub-project 1 (foundations). See `2026-05-30-ux-enhancement-plan.md`.
 
 ## Problem
