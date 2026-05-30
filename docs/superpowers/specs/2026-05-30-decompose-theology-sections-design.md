@@ -1,7 +1,7 @@
 # Decompose TheologyPanel — JSX sub-components (F22) — Design
 
 - **Date:** 2026-05-30
-- **Status:** Draft (branch `decompose-theology-sections`)
+- **Status:** Implemented (branch `decompose-theology-sections`)
 - **Theme:** F — god-component decomposition, sub-project 22 (second slice of TheologyPanel)
 
 ## Problem
