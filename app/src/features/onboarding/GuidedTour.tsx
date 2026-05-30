@@ -299,7 +299,7 @@ export function GuidedTour({
               onClick={onFinish}
               className="btn-ghost px-3 py-1.5 text-sm"
             >
-              Do not show prompt
+              Don't show this again
             </button>
             {isLast ? (
               <button
