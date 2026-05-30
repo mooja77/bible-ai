@@ -65,3 +65,33 @@ A redesigned running panel (keeps `data-testid="council-running-panel"`; no e2e 
 
 Branch `ux-h8-process-animation`. Modify: `CouncilVoicePanels.tsx`, `App.css`, spec/plan. Verify with
 `npm run check` + `npm run test:e2e:build`, then ff-merge to `main`.
+
+---
+
+## H8b feasibility notes (read-only investigation, 2026-05-30) — for a future session
+
+Surfacing *real* per-stage progress is a sizable, higher-risk change. Findings from grounding:
+
+- `ask_council` (`lib.rs:2408`) calls `retrieve_evidence` then a **single**
+  `state.request(&app, "council", body)` (`lib.rs:2502`).
+- `Sidecar::request` (`sidecar.rs:189`) is a strict one-line-request → one-line-response JSON
+  protocol over the node sidecar's stdin/stdout; the sidecar's internal stages (search → per-voice
+  analyze → synthesis) all happen inside that one opaque call. stderr is drained to the parent only
+  (`sidecar.rs:172`) and carries the human `[council]` logs.
+- There is **no** `.emit(`/`Channel`/`Emitter` usage anywhere in `lib.rs` yet — eventing is greenfield.
+
+To do H8b properly:
+1. Extend the sidecar stdout protocol to interleave `{type:"progress", stage, voice, status}` lines
+   before the final `{type:"result", …}` line (or use a Tauri `ipc::Channel<T>` passed into
+   `ask_council` and have Rust translate forwarded progress into channel sends).
+2. Teach `Sidecar::request` to loop reading lines, forwarding progress events (via an `Emitter`/
+   `Channel`) until the terminal result line — without breaking the existing strict framing, the
+   tokio mutex, timeouts, or the `BIBLE_AI_MOCK_COUNCIL` path.
+3. Frontend: `listen`/`Channel.onmessage` in CouncilPanel → feed real stage + per-voice status into
+   the H8a `CouncilRunningPanel` (which is already shaped for it: swap `estimateActiveStage` for the
+   real stage, and the per-helper cards for queued/thinking/done/failed). Add a staged-events e2e
+   (now assertable because the panel is event-driven, not time-estimated).
+
+**Risk:** touches the single transport every AI call depends on. Recommend a dedicated session with
+the full check + e2e gate, not a late-session attempt. H8a (shipped) already gives users honest
+process visibility in the meantime.
