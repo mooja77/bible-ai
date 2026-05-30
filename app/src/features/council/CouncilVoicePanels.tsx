@@ -89,30 +89,100 @@ export function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
   );
 }
 
+/**
+ * The visible stages of a Council run, in order. The first two complete quickly;
+ * "Consulting the helpers" is where the bulk of the time goes (and where the live
+ * per-helper cards appear). The timing is an honest *estimate* derived from
+ * elapsed seconds — we never claim the last stages finished, since the panel is
+ * replaced by the result the moment the run completes.
+ */
+const COUNCIL_STAGES = [
+  { id: "understand", label: "Understanding your question" },
+  { id: "search", label: "Searching Scripture" },
+  { id: "consult", label: "Consulting the helpers" },
+  { id: "compare", label: "Comparing the views" },
+  { id: "summary", label: "Writing the summary" },
+] as const;
+
+/** Index of the stage that is currently "active", estimated from elapsed time. */
+function estimateActiveStage(elapsed: number): number {
+  if (elapsed < 2) return 0; // understanding
+  if (elapsed < 5) return 1; // searching
+  return 2; // consulting — holds here (the long part); compare/summary stay upcoming
+}
+
 export function CouncilRunningPanel({ settings, elapsed }: { settings?: AppSettings; elapsed: number }) {
   const active = getCouncilVoices(settings).voices.filter((v) => v.active);
-  const rows = active.length > 0 ? active : [{ label: "Council", active: true }];
+  const helpers = active.length > 0 ? active : [{ label: "Council", active: true }];
+  const activeStage = estimateActiveStage(elapsed);
+
   return (
     <div className="soft-card p-3" data-testid="council-running-panel">
-      <div className="flex items-baseline justify-between gap-3 mb-2">
-        <h2 className="text-xs tracking-wider text-neutral-500">Consulting the Council</h2>
-        <span className="text-xs text-neutral-500">{elapsed}s</span>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <h2 className="text-xs tracking-wider text-neutral-500">Working on your question</h2>
+        <span className="text-xs text-neutral-500 tabular-nums">{elapsed}s</span>
       </div>
-      <ul className="space-y-1">
-        {rows.map((v) => (
-          <li key={v.label} className="flex items-center gap-2 text-sm text-neutral-300">
-            <span
-              className="inline-block w-2 h-2 rounded-full bg-amber-400/80 animate-pulse"
-              aria-hidden="true"
-            />
-            <span>{v.label}</span>
-            <span className="text-xs text-neutral-500">consulting…</span>
-          </li>
-        ))}
-      </ul>
-      <p className="text-xs text-neutral-600 mt-2">
-        Voices run in parallel; large models can take a while. Each voice is capped, so a slow one
-        won't hold up the rest.
+
+      {/* Pipeline of stages — what the app is doing right now. */}
+      <ol className="space-y-1.5" aria-label="Council progress">
+        {COUNCIL_STAGES.map((stage, index) => {
+          const status =
+            index < activeStage ? "done" : index === activeStage ? "active" : "upcoming";
+          return (
+            <li key={stage.id} className="flex items-center gap-2.5 text-sm">
+              <span
+                aria-hidden="true"
+                className={
+                  "grid place-items-center w-4 h-4 rounded-full shrink-0 text-[10px] " +
+                  (status === "done"
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : status === "active"
+                      ? "bg-amber-400/20 text-amber-300 council-stage-pulse"
+                      : "border border-neutral-700 text-transparent")
+                }
+              >
+                {status === "done" ? "✓" : status === "active" ? "●" : ""}
+              </span>
+              <span
+                className={
+                  status === "upcoming"
+                    ? "text-neutral-600"
+                    : status === "active"
+                      ? "text-neutral-200"
+                      : "text-neutral-400"
+                }
+              >
+                {stage.label}
+                {status === "active" ? "…" : ""}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* Live per-helper cards, shown while the helpers are consulting. */}
+      {activeStage >= 2 && (
+        <ul className="mt-3 grid sm:grid-cols-2 gap-1.5" aria-label="AI helpers working">
+          {helpers.map((v, index) => (
+            <li
+              key={v.label}
+              className="flex items-center gap-2 rounded-md border border-neutral-800 bg-neutral-900/40 px-2.5 py-1.5 text-sm text-neutral-300"
+            >
+              <span className="council-thinking shrink-0" aria-hidden="true" style={{ animationDelay: `${index * 160}ms` }}>
+                <span />
+                <span />
+                <span />
+              </span>
+              <span className="truncate">{v.label}</span>
+              <span className="ml-auto text-[11px] text-neutral-500">thinking…</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="text-xs text-neutral-600 mt-3">
+        The helpers work in parallel, so a slow one won't hold up the rest. Larger models can take a
+        little while.
       </p>
     </div>
   );

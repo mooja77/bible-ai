@@ -302,3 +302,53 @@ mark {
   0% { background: rgba(251, 191, 36, 0.35); }
   100% { background: transparent; }
 }
+
+/* ---- Council process visualization -------------------------------------
+   The active pipeline stage gently pulses; each helper card shows three
+   bouncing dots ("thinking…"). These reassure the user that work is in
+   progress. Both honor prefers-reduced-motion below. */
+.council-stage-pulse {
+  animation: council-stage-pulse 1.4s ease-in-out infinite;
+}
+@keyframes council-stage-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.council-thinking {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 0.7rem;
+}
+.council-thinking span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  color: rgba(251, 191, 36, 0.85);
+  animation: council-thinking 1s ease-in-out infinite;
+}
+.council-thinking span:nth-child(2) { animation-delay: 0.16s; }
+.council-thinking span:nth-child(3) { animation-delay: 0.32s; }
+@keyframes council-thinking {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* Respect the user's OS "reduce motion" preference: neutralize app animations
+   (pulse, spin, the council process motion, verse flash) so the UI still
+   communicates state via color/icon, just without movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .council-thinking span {
+    transform: none !important;
+    opacity: 0.85 !important;
+  }
+}
