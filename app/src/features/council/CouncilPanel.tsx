@@ -426,9 +426,9 @@ function CouncilRetrievalControls({
         className="settings-input text-xs"
         aria-label="Council retrieval strategy"
       >
-        <option value="hybrid">Hybrid retrieval</option>
-        <option value="keyword">Keyword only</option>
-        <option value="semantic">Semantic only</option>
+        <option value="hybrid">Search: keyword + meaning</option>
+        <option value="keyword">Search: keyword</option>
+        <option value="semantic">Search: by meaning</option>
       </select>
       <select
         value={translationCode}
@@ -472,10 +472,10 @@ function CouncilRetrievalControls({
           checked={includeCrossRefs}
           onChange={(e) => setIncludeCrossRefs(e.target.checked)}
         />
-        Cross-references
+        Include cross-references
       </label>
       <label className="flex items-center gap-2 text-xs text-neutral-400">
-        Limit
+        Max passages
         <input
           type="number"
           min={10}
@@ -483,6 +483,7 @@ function CouncilRetrievalControls({
           value={evidenceLimit}
           onChange={(e) => setEvidenceLimit(Number(e.target.value))}
           className="settings-input text-xs"
+          aria-label="Maximum passages to consider"
         />
       </label>
     </div>
