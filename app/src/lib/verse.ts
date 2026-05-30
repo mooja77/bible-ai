@@ -25,6 +25,9 @@ export function parseReference(input: string, books: Book[]) {
       return names.some((name) => normalizeReferenceBook(name) === normalizedBook);
     });
   if (!book) return null;
+  // A bare chapter reference ("John 3") has no verse — navigate to the top of
+  // the chapter (verse 1) and cite the chapter, not "John 3:1".
+  const chapterOnly = rawVerse === undefined;
   const chapter = Number(rawChapter);
   const verse = Number(rawVerse ?? "1");
   const endChapter = Number(rawEndChapter ?? rawChapter);
@@ -36,15 +39,17 @@ export function parseReference(input: string, books: Book[]) {
   if (!Number.isInteger(verse) || verse < 1 || verse > 999) return null;
   if (!Number.isInteger(endVerse) || endVerse < 1 || endVerse > 999) return null;
   if (endChapter === chapter && endVerse < verse) return null;
+  const verseId = book.id * 1_000_000 + chapter * 1000 + verse;
   const endVerseId = book.id * 1_000_000 + endChapter * 1000 + endVerse;
   return {
     book,
     chapter,
     endChapter,
-    verseId: book.id * 1_000_000 + chapter * 1000 + verse,
+    verseId,
     endVerseId,
-    citation:
-      endVerseId > book.id * 1_000_000 + chapter * 1000 + verse
+    citation: chapterOnly
+      ? `${book.name} ${chapter}`
+      : endVerseId > verseId
         ? endChapter === chapter
           ? `${book.name} ${chapter}:${verse}-${endVerse}`
           : `${book.name} ${chapter}:${verse}-${endChapter}:${endVerse}`

@@ -38,14 +38,27 @@ export function payloadString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+// Only accept a real number or a plain decimal-digit string. Number() coercion
+// would otherwise admit hex ("0x10"), booleans, and single-element arrays ([5]).
+function readIntegerPayloadValue(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) ? value : null;
+  }
+  if (typeof value === "string" && /^-?\d+$/.test(value.trim())) {
+    const parsed = Number(value.trim());
+    return Number.isSafeInteger(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 export function positiveIntegerPayloadValue(value: unknown) {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  const parsed = readIntegerPayloadValue(value);
+  return parsed != null && parsed > 0 ? parsed : null;
 }
 
 export function nonNegativeIntegerPayloadValue(value: unknown) {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+  const parsed = readIntegerPayloadValue(value);
+  return parsed != null && parsed >= 0 ? parsed : null;
 }
 
 export function stripSnippetMarkup(value: string) {

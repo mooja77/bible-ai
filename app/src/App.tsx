@@ -110,6 +110,10 @@ function App() {
     verses: Verse[];
   } | null>(null);
   const referenceJumpRequestId = useRef(0);
+  // Mirror the current reader location so an in-flight reference-range fetch can
+  // tell whether the user navigated away before it resolved.
+  const selectedBookIdRef = useRef<number | null>(null);
+  const selectedChapterRef = useRef<number | null>(null);
   const [referenceInput, setReferenceInput] = useState("");
   const [referenceError, setReferenceError] = useState<string | null>(null);
   const [searchFilterTranslation, setSearchFilterTranslation] = useState("active");
@@ -558,6 +562,16 @@ function App() {
     saveSettingsPatch({ sync_scroll: next });
   };
 
+  // Keep the location refs current and drop any reference-range panel whenever
+  // the reader navigates to a different book/chapter (sidebar, command palette,
+  // chapter grid). This both clears a stale panel after navigation and lets an
+  // in-flight cross-chapter fetch detect that it should no longer apply.
+  useEffect(() => {
+    selectedBookIdRef.current = selectedBook?.id ?? null;
+    selectedChapterRef.current = selectedChapter;
+    setReferenceRangePanel(null);
+  }, [selectedBook, selectedChapter]);
+
   const jumpToVerse = (verseId: number, translationCode: string) => {
     referenceJumpRequestId.current += 1;
     const bookId = Math.floor(verseId / 1_000_000);
@@ -589,6 +603,10 @@ function App() {
       return;
     }
     setReferenceError(null);
+    // Set the location refs synchronously so the post-await guard below compares
+    // against this jump's target (the mirror effect may not have run yet).
+    selectedBookIdRef.current = parsed.book.id;
+    selectedChapterRef.current = parsed.chapter;
     setSelectedBook(parsed.book);
     setSelectedChapter(parsed.chapter);
     setScrollTarget(parsed.verseId);
@@ -610,6 +628,14 @@ function App() {
             parsed.endVerseId,
           );
           if (requestId !== referenceJumpRequestId.current) return;
+          // Drop the result if the user navigated to a different location while
+          // the range was loading, so we never show a panel under the wrong chapter.
+          if (
+            selectedBookIdRef.current !== parsed.book.id ||
+            selectedChapterRef.current !== parsed.chapter
+          ) {
+            return;
+          }
           if (verses.length === 0) {
             setReferenceError("No verses found for that range.");
             return;

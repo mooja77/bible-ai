@@ -61,8 +61,15 @@ export function buildTopicStats(
 }
 
 export function countOpenQuestions(value?: string | null) {
-  return (value ?? "")
-    .split(/\n|[?]/)
+  const text = (value ?? "").trim();
+  if (!text) return 0;
+  // Count actual questions: each "?" is one question. A "?" must not let the
+  // answer text that follows it inflate the count (the old split on "?" did).
+  const questionMarks = (text.match(/\?/g) ?? []).length;
+  if (questionMarks > 0) return questionMarks;
+  // No "?" at all: treat each non-empty line as one recorded question.
+  return text
+    .split(/\n/)
     .map((part) => part.trim())
     .filter(Boolean).length;
 }
@@ -216,7 +223,16 @@ export function readPayloadString(value: unknown) {
 }
 
 export function readPositiveInteger(value: unknown) {
-  const parsed = typeof value === "number" ? value : Number(value);
+  // Only accept a real number or a plain decimal-digit string. Number()
+  // coercion would otherwise admit hex ("0x10"), booleans, and [5].
+  let parsed: number;
+  if (typeof value === "number") {
+    parsed = value;
+  } else if (typeof value === "string" && /^-?\d+$/.test(value.trim())) {
+    parsed = Number(value.trim());
+  } else {
+    return null;
+  }
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
