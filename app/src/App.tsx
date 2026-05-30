@@ -76,6 +76,7 @@ import { ReaderPlaceholder } from "./features/reader/ReaderPlaceholder";
 import { formatVerseId, parseReference } from "./lib/verse";
 import { settingsHasConfiguredAi } from "./lib/settings";
 import { useTheme } from "./lib/useTheme";
+import { useUiScale } from "./lib/useUiScale";
 import type { Mode } from "./lib/mode";
 
 // Translations that have Strong's-tagged word tokens ingested.
@@ -94,6 +95,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
+  const { uiScale, increaseUiScale, decreaseUiScale, canIncrease, canDecrease } = useUiScale();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchHit[]>([]);
@@ -865,6 +867,41 @@ function App() {
               <p className="text-xs text-neutral-500 mt-0.5">Reader, Council, workspace</p>
             </div>
             <div className="flex items-center gap-1">
+              <div
+                className="meta-pill gap-0.5 px-1"
+                role="group"
+                aria-label="App text size"
+              >
+                <button
+                  type="button"
+                  onClick={decreaseUiScale}
+                  disabled={!canDecrease}
+                  data-testid="ui-scale-dec"
+                  className="px-1 leading-none hover:text-neutral-100 disabled:opacity-40"
+                  aria-label="Decrease app text size"
+                  title="Decrease app text size"
+                >
+                  A−
+                </button>
+                <span
+                  data-testid="ui-scale-value"
+                  className="text-[11px] tabular-nums text-neutral-400 select-none"
+                  aria-hidden="true"
+                >
+                  {uiScale}%
+                </span>
+                <button
+                  type="button"
+                  onClick={increaseUiScale}
+                  disabled={!canIncrease}
+                  data-testid="ui-scale-inc"
+                  className="px-1 leading-none hover:text-neutral-100 disabled:opacity-40"
+                  aria-label="Increase app text size"
+                  title="Increase app text size"
+                >
+                  A+
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}

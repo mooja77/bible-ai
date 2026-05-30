@@ -135,8 +135,12 @@ textarea {
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid rgba(245, 158, 11, 0.55);
+textarea:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  /* Solid (not 55% opacity) amber for a clearly-visible, ≥3:1 focus indicator
+     on both themes — WCAG 2.2 SC 2.4.13. */
+  outline: 2px solid #f59e0b;
   outline-offset: 2px;
 }
 
@@ -211,7 +215,7 @@ mark {
 
 .nav-section-title {
   color: var(--color-neutral-500);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.03em;
 }
