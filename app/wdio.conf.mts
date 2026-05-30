@@ -136,6 +136,7 @@ export const config: WebdriverIO.Config = {
       "./tests/e2e/tags-browse.spec.ts",
       "./tests/e2e/release-readiness.spec.ts",
       "./tests/e2e/settings-validation.spec.ts",
+      "./tests/e2e/global-error-notice.spec.ts",
     ],
   ],
   maxInstances: 1,
