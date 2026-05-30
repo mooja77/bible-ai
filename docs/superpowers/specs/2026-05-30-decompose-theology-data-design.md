@@ -1,7 +1,7 @@
 # Decompose TheologyPanel — data/helpers module (F21) — Design
 
 - **Date:** 2026-05-30
-- **Status:** Draft (branch `decompose-theology-data`)
+- **Status:** Implemented (branch `decompose-theology-data`)
 - **Theme:** F — god-component decomposition, sub-project 21 (first slice of TheologyPanel)
 
 ## Problem
