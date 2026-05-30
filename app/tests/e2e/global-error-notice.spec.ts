@@ -33,9 +33,22 @@ describe("Global async-error notice", () => {
     await notice.waitForDisplayed({ timeout: 10000 });
     await expect(notice).toHaveText(expect.stringContaining("Synthetic test error"));
 
-    // Manual dismiss removes the notice.
-    const dismiss = await $('[data-testid="global-error-dismiss"]');
-    await dismiss.click();
-    await expect(notice).not.toBeDisplayed();
+    // Manual dismiss removes the notice. Re-click defensively: a native click
+    // on a `position: fixed` toast can intermittently miss in the WebView
+    // (webdriverio's scrollIntoView reports "move target out of bounds"), so
+    // retry until the notice is actually removed from the DOM.
+    await browser.waitUntil(
+      async () => {
+        const dismiss = await $('[data-testid="global-error-dismiss"]');
+        if (!(await dismiss.isExisting())) return true;
+        await dismiss.click().catch(() => {});
+        return !(await $('[data-testid="global-error-notice"]').isExisting());
+      },
+      {
+        timeout: 10000,
+        interval: 500,
+        timeoutMsg: "notice should disappear after clicking Dismiss",
+      },
+    );
   });
 });
