@@ -46,6 +46,8 @@ interface Props {
   onPresetConsumed?: () => void;
   onRestoredResultConsumed?: () => void;
   settings?: AppSettings;
+  /** Navigate the user to the Settings mode to connect an AI provider. */
+  onOpenSettings?: () => void;
 }
 
 export function CouncilPanel({
@@ -57,6 +59,7 @@ export function CouncilPanel({
   onPresetConsumed,
   onRestoredResultConsumed,
   settings,
+  onOpenSettings,
 }: Props) {
   const [question, setQuestion] = useState("");
   const [startingView, setStartingView] = useState("");
@@ -248,7 +251,7 @@ export function CouncilPanel({
         {loading ? (
           <CouncilRunningPanel settings={settings} elapsed={elapsed} />
         ) : (
-          <CouncilVoicePreview settings={settings} />
+          <CouncilVoicePreview settings={settings} onOpenSettings={onOpenSettings} />
         )}
         <CouncilRetrievalControls
           books={books}

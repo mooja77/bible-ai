@@ -43,7 +43,13 @@ function getCouncilVoices(settings?: AppSettings) {
   return { voices, noProvidersConfigured };
 }
 
-export function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
+export function CouncilVoicePreview({
+  settings,
+  onOpenSettings,
+}: {
+  settings?: AppSettings;
+  onOpenSettings?: () => void;
+}) {
   const { voices, noProvidersConfigured } = getCouncilVoices(settings);
   return (
     <div
@@ -52,17 +58,38 @@ export function CouncilVoicePreview({ settings }: { settings?: AppSettings }) {
     >
       <div className="flex items-baseline justify-between gap-3 mb-2">
         <h2 className="text-xs tracking-wider text-neutral-500">
-          Voices before submit
+          AI helpers ready to run
         </h2>
         <span className="text-xs text-neutral-600">
-          {voices.filter((voice) => voice.active).length}/{voices.length} enabled
+          {voices.filter((voice) => voice.active).length}/{voices.length} ready
         </span>
       </div>
       {noProvidersConfigured && (
-        <div className="mb-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
-          No AI provider is configured yet. The Council will try your local Claude
-          Code login — for reliable multi-voice analysis, open <strong>Settings</strong>{" "}
-          to add an OpenAI, Google, or Anthropic key.
+        <div
+          className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-100/90"
+          data-testid="council-setup-prompt"
+        >
+          <p className="font-semibold text-amber-100">Get the AI helpers ready</p>
+          <p className="mt-1 text-xs text-amber-200/90 leading-relaxed">
+            To ask the Council, connect at least one AI helper. The easiest option is a free local
+            Claude Code login; you can also paste your own OpenAI, Google, or Anthropic key. It takes
+            about a minute, and your key is stored securely on this device.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                data-testid="council-open-settings"
+                className="btn-primary px-3 py-1.5 text-xs"
+              >
+                Open Settings to connect
+              </button>
+            )}
+            <span className="text-[11px] text-amber-200/70">
+              You can keep reading and searching Scripture without AI.
+            </span>
+          </div>
         </div>
       )}
       <div className="grid md:grid-cols-4 gap-2">

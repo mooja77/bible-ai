@@ -1405,6 +1405,10 @@ function App() {
             restoredResult={workspaceCouncilResult}
             onPresetConsumed={() => setPendingCouncilQuestion(null)}
             onRestoredResultConsumed={() => setWorkspaceCouncilResult(null)}
+            onOpenSettings={() => {
+              setSearchQuery("");
+              setMode("settings");
+            }}
           />
         ) : !selectedBook || !selectedChapter ? (
           <ReaderPlaceholder title="Select a book" detail="Choose a book and chapter from the sidebar to begin reading." />
