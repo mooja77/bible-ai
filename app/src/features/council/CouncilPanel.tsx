@@ -32,6 +32,36 @@ import { CouncilConfidenceRationale } from "./CouncilConfidenceRationale";
 import { VoicesAuditTrail } from "./CouncilVoicesAudit";
 import { ErrorState } from "../../components/StateViews";
 
+/** Client-side backstop (5 min). The backend tolerates very long runs, so a
+ *  stuck or unreachable provider can otherwise spin forever. The live elapsed
+ *  counter + stage panel keep the user informed during normal waits; this only
+ *  trips on a genuine stall. */
+const COUNCIL_CLIENT_TIMEOUT_MS = 300_000;
+const COUNCIL_TIMEOUT_MESSAGE =
+  "The Council is taking longer than expected and may be stuck. This usually " +
+  "means a slow or unreachable AI provider. Check your connection and provider " +
+  "settings, then try again.";
+
+/** Race a council request against the backstop above so a stall surfaces as a
+ *  calm, actionable error (with a retry) instead of an endless spinner. Tests
+ *  may shrink the window via `window.__BIBLE_AI_COUNCIL_TIMEOUT_MS__`. */
+async function withCouncilTimeout<T>(promise: Promise<T>): Promise<T> {
+  const override = (
+    window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }
+  ).__BIBLE_AI_COUNCIL_TIMEOUT_MS__;
+  const ms =
+    typeof override === "number" && override > 0 ? override : COUNCIL_CLIENT_TIMEOUT_MS;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(COUNCIL_TIMEOUT_MESSAGE), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 interface Props {
   onJumpToVerse: (verseId: number, translationCode: string) => void;
   books: Book[];
@@ -145,16 +175,18 @@ export function CouncilPanel({
     setArgumentAnnotations([]);
     setLoading(true);
     try {
-      const r = await askCouncil(q, undefined, {
-        strategy,
-        include_cross_refs: includeCrossRefs,
-        translation_code: translationCode,
-        testament: testament === "all" ? null : testament,
-        book_id: bookId || null,
-        // Clamp to the supported range: the number input does not constrain
-        // typed values, and the backend rejects out-of-range limits.
-        evidence_limit: Math.min(120, Math.max(10, Math.round(evidenceLimit) || 60)),
-      });
+      const r = await withCouncilTimeout(
+        askCouncil(q, undefined, {
+          strategy,
+          include_cross_refs: includeCrossRefs,
+          translation_code: translationCode,
+          testament: testament === "all" ? null : testament,
+          book_id: bookId || null,
+          // Clamp to the supported range: the number input does not constrain
+          // typed values, and the backend rejects out-of-range limits.
+          evidence_limit: Math.min(120, Math.max(10, Math.round(evidenceLimit) || 60)),
+        }),
+      );
       if (requestId !== councilViewRequestId.current) return;
       setResponse(r);
       setActiveSessionId(r.session_id ?? null);

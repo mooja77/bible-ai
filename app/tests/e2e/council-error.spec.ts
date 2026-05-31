@@ -62,4 +62,53 @@ describe("Council failure UX", () => {
     const synthesis = await $("h2=Synthesis");
     await expect(synthesis).not.toBeDisplayed();
   });
+
+  it("stops a stuck run with a calm timeout message and a retry", async () => {
+    // Shrink the client-side backstop so the mock's 2s slow path reliably trips
+    // it. Restore it in `finally` so later specs use the real 5-minute default.
+    await browser.execute(() => {
+      (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__ = 600;
+    });
+    try {
+      const question = `What does the beginning say about creation? __FORCE_COUNCIL_SLOW__ e2e ${Date.now()}`;
+
+      const council = await $("button=Council");
+      await council.waitForClickable({ timeout: 10_000 });
+      await council.click();
+
+      const heading = await $("h1=The Council");
+      await heading.waitForDisplayed({ timeout: 10_000 });
+
+      const strategy = await $('select[aria-label="Council retrieval strategy"]');
+      await strategy.selectByAttribute("value", "keyword");
+      const crossRefs = await $('input[type="checkbox"]');
+      if (await crossRefs.isSelected()) await crossRefs.click();
+
+      const textarea = await $("textarea");
+      await textarea.setValue(question);
+
+      const ask = await $("button=Ask the Council");
+      await ask.click();
+
+      // The backstop must end the spinner with a clear, actionable message well
+      // before the (2s) backend would have answered.
+      await browser.waitUntil(
+        async () => {
+          const body = await $("body");
+          return (await body.getText()).includes("taking longer than expected");
+        },
+        { timeout: 15_000, timeoutMsg: "client-side council timeout never fired" },
+      );
+
+      const retry = await $("button=Try again");
+      await expect(retry).toBeDisplayed();
+
+      const synthesis = await $("h2=Synthesis");
+      await expect(synthesis).not.toBeDisplayed();
+    } finally {
+      await browser.execute(() => {
+        delete (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__;
+      });
+    }
+  });
 });

@@ -432,6 +432,12 @@ export async function runCouncil({ question, evidence, model, settings }) {
           "Add or fix your Anthropic API key in Settings, then try again.",
       );
     }
+    // Test-only slow path: lets a test exercise the frontend's client-side
+    // timeout (the UI shrinks its timeout so this 2s delay reliably trips it).
+    // Mock-only branch → unreachable in a production build.
+    if (question.includes("__FORCE_COUNCIL_SLOW__")) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
     return mockCouncilResult({ question, evidence, model });
   }
 
