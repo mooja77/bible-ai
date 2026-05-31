@@ -422,6 +422,16 @@ export async function runCouncil({ question, evidence, model, settings }) {
   }
 
   if (process.env.BIBLE_AI_MOCK_COUNCIL === "1") {
+    // Test-only failure injection. A sentinel in the question drives the same
+    // error path a real provider failure takes (thrown here -> caught by the
+    // sidecar dispatcher -> surfaced to the UI's error state). It lives inside
+    // the mock-only branch, so it is unreachable in a production build.
+    if (question.includes("__FORCE_COUNCIL_ERROR__")) {
+      throw new Error(
+        "Anthropic authentication failed (401 invalid x-api-key). " +
+          "Add or fix your Anthropic API key in Settings, then try again.",
+      );
+    }
     return mockCouncilResult({ question, evidence, model });
   }
 

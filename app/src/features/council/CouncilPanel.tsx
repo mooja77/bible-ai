@@ -277,7 +277,20 @@ export function CouncilPanel({
         onChanged={refreshSessions}
       />
 
-      {error && <ErrorState message={error} />}
+      {error && (
+        <div data-testid="council-error" className="space-y-2">
+          <ErrorState message={error} title="The Council could not finish" />
+          <button
+            type="button"
+            onClick={() => onAsk()}
+            disabled={loading || !question.trim()}
+            className="btn-secondary px-3 py-1.5 text-sm"
+            data-testid="council-retry"
+          >
+            Try again
+          </button>
+        </div>
+      )}
 
       {response && (
         <>

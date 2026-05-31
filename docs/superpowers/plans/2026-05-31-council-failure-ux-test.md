@@ -7,9 +7,13 @@
 **Verification:** `npm run check` (incl. `test:sidecar`) + full `npm run test:e2e:build`.
 
 ## Tasks (as executed)
-- [x] `sidecar/council.mjs` — inside the `BIBLE_AI_MOCK_COUNCIL === "1"` branch of
-  `mockCouncilResponse`, throw an actionable auth error when the question contains
+- [x] `sidecar/council.mjs` — inside `runCouncil`'s `BIBLE_AI_MOCK_COUNCIL === "1"`
+  branch, throw an actionable auth error when the question contains
   `__FORCE_COUNCIL_ERROR__`. Unreachable in production (mock-only branch).
+- [x] `src/features/council/CouncilPanel.tsx` — upgrade the bare
+  `<ErrorState message={error} />` to a titled "The Council could not finish"
+  error plus a "Try again" button (`data-testid="council-retry"`) that re-runs
+  the question. This is the UX the test asserts and the real user benefit.
 - [x] `sidecar/tests/council.test.mjs` — unit test: mock mode + sentinel rejects
   with a Settings/"try again" message.
 - [x] `tests/e2e/council-error.spec.ts` — e2e: sentinel question → calm error

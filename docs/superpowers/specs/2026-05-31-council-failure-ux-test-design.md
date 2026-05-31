@@ -28,10 +28,14 @@ council actually fails**. The council mock (`BIBLE_AI_MOCK_COUNCIL=1`) only ever
 succeeds, so the error state — the single most likely real-world experience for a
 non-technical user with a bad key / no network — was never rendered in a test.
 
-The frontend wiring is present (verified): a failed `run_council` sets
-`phase="error"` and renders `<ErrorState title="The Council could not finish"
-message={error}>` with a "Try again" button; `formatError` passes the sidecar's
-message through verbatim. It was simply unverified end-to-end.
+Inspecting the failure path revealed the UX itself was thin: a failed
+`askCouncil` set the `error` state and rendered a bare
+`<ErrorState message={error} />` — a generic red box titled "Error" with the raw
+message and **no way to recover**. `String(e)` does pass the sidecar's message
+(and its actionable hint) through, but the framing was unhelpful for a
+non-technical user. So this work both **adds coverage and improves the UX**: the
+council error now shows a clear title ("The Council could not finish") and a
+"Try again" button that re-runs the question.
 
 ## Approach — sentinel failure injection (mock-only)
 
