@@ -86,7 +86,7 @@ export function CouncilVoicePreview({
                 Open Settings to connect
               </button>
             )}
-            <span className="text-[11px] text-amber-200/70">
+            <span className="text-[0.6875rem] text-amber-200/70">
               You can keep reading and searching Scripture without AI.
             </span>
           </div>
@@ -99,7 +99,7 @@ export function CouncilVoicePreview({
               <span className="text-sm text-neutral-200">{voice.label}</span>
               <span
                 className={
-                  "text-[11px] px-2 py-0.5 rounded " +
+                  "text-[0.6875rem] px-2 py-0.5 rounded " +
                   (voice.active
                     ? "bg-emerald-500/15 text-emerald-300"
                     : "bg-neutral-800 text-neutral-500")
@@ -160,7 +160,7 @@ export function CouncilRunningPanel({ settings, elapsed }: { settings?: AppSetti
               <span
                 aria-hidden="true"
                 className={
-                  "grid place-items-center w-4 h-4 rounded-full shrink-0 text-[10px] " +
+                  "grid place-items-center w-4 h-4 rounded-full shrink-0 text-[0.625rem] " +
                   (status === "done"
                     ? "bg-emerald-500/20 text-emerald-300"
                     : status === "active"
@@ -201,7 +201,7 @@ export function CouncilRunningPanel({ settings, elapsed }: { settings?: AppSetti
                 <span />
               </span>
               <span className="truncate">{v.label}</span>
-              <span className="ml-auto text-[11px] text-neutral-500">thinking…</span>
+              <span className="ml-auto text-[0.6875rem] text-neutral-500">thinking…</span>
             </li>
           ))}
         </ul>

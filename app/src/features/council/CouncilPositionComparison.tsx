@@ -154,7 +154,7 @@ function PositionComparisonCard({
 function ComparisonFact({ label, value }: { label: string; value: string }) {
   return (
     <div className="border border-neutral-900 rounded px-2 py-1.5">
-      <dt className="text-[11px] tracking-wide text-neutral-600">{label}</dt>
+      <dt className="text-[0.6875rem] tracking-wide text-neutral-600">{label}</dt>
       <dd className="text-sm text-neutral-200">{value}</dd>
     </div>
   );

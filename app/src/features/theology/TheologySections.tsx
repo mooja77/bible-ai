@@ -64,7 +64,7 @@ export function DoctrineMap({
                   <p className="text-sm font-semibold">
                     {relationLabel(payload.relation)} {payload.target_topic_title ?? "related topic"}
                   </p>
-                  <span className="text-[11px] tracking-wider opacity-80">
+                  <span className="text-[0.6875rem] tracking-wider opacity-80">
                     {payload.relation.replace(/_/g, " ")}
                   </span>
                 </div>

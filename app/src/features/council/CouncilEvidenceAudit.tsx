@@ -46,14 +46,14 @@ export function CouncilEvidenceAudit({
                   {e.book_name} {e.chapter}:{e.verse} ({e.translation_code})
                 </button>
                 <span
-                  className="text-[10px] tracking-wide text-neutral-500"
+                  className="text-[0.625rem] tracking-wide text-neutral-500"
                   title={sourceTooltip(e.source)}
                 >
                   {sourceDisplay(e.source)}
                 </span>
                 <span
                   className={
-                    "ml-auto text-[10px] px-1.5 py-0.5 rounded " +
+                    "ml-auto text-[0.625rem] px-1.5 py-0.5 rounded " +
                     evidenceStatusClass(status)
                   }
                   title={evidenceStatusTooltip(status)}

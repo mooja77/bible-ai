@@ -123,7 +123,7 @@ export function CouncilArgumentMaps({
                 {position.interpretive_moves.map((move) => (
                   <span
                     key={move}
-                    className="text-[11px] px-2 py-0.5 rounded bg-neutral-900 text-neutral-400"
+                    className="text-[0.6875rem] px-2 py-0.5 rounded bg-neutral-900 text-neutral-400"
                   >
                     {move}
                   </span>
@@ -170,14 +170,14 @@ function ArgumentNodeCard({
   return (
     <div className="border border-neutral-900 rounded p-3 bg-neutral-950/40">
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
+        <span className="text-[0.625rem] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
           {node.kind}
         </span>
         <h4 className="text-sm font-semibold text-neutral-100">{node.label}</h4>
       </div>
       <p className="text-sm text-neutral-400">{node.detail}</p>
       {node.verse_ids?.length ? (
-        <p className="text-[11px] text-neutral-600 mt-1">
+        <p className="text-[0.6875rem] text-neutral-600 mt-1">
           Verse IDs: {node.verse_ids.join(", ")}
         </p>
       ) : null}

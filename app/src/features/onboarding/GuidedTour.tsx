@@ -194,7 +194,7 @@ export function GuidedTour({
             <h2 className="text-xl font-semibold text-neutral-100 mt-1">{step.title}</h2>
           </div>
           <div className="flex items-center gap-2">
-            <span className="meta-pill text-[11px]">
+            <span className="meta-pill text-[0.6875rem]">
               {isPlaying ? "Auto-playing" : "Paused"}
             </span>
             <button

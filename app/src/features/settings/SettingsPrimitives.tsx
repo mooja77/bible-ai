@@ -115,7 +115,7 @@ export function ProviderMiniStatus({ label, active }: { label: string; active: b
       <span className="text-neutral-300">{label}</span>
       <span
         className={
-          "text-[11px] px-2 py-0.5 rounded " +
+          "text-[0.6875rem] px-2 py-0.5 rounded " +
           (active
             ? "bg-emerald-500/15 text-emerald-300"
             : "bg-neutral-900 text-neutral-500")
@@ -136,7 +136,7 @@ export function SourceStatusBadge({ status }: { status: DataSourceStatus }) {
       : status === "deferred"
         ? "bg-amber-500/15 text-amber-300"
         : "bg-sky-500/15 text-sky-300";
-  return <span className={`text-[11px] px-2 py-0.5 rounded ${tone}`}>{label}</span>;
+  return <span className={`text-[0.6875rem] px-2 py-0.5 rounded ${tone}`}>{label}</span>;
 }
 
 export function ProviderStatusCard({
@@ -158,7 +158,7 @@ export function ProviderStatusCard({
         <p className="text-sm text-neutral-200">{label}</p>
         <span
           className={
-            "text-[11px] px-2 py-0.5 rounded " +
+            "text-[0.6875rem] px-2 py-0.5 rounded " +
             (state === "ok"
               ? "bg-emerald-500/15 text-emerald-300"
               : state === "configured"

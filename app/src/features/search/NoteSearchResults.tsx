@@ -93,7 +93,7 @@ export function NoteSearchResults({
                       <span
                         key={c.tag_id}
                         data-testid="note-result-tag"
-                        className="px-1.5 py-0.5 rounded text-[11px] bg-neutral-800 text-neutral-300"
+                        className="px-1.5 py-0.5 rounded text-[0.6875rem] bg-neutral-800 text-neutral-300"
                       >
                         {c.name}
                       </span>

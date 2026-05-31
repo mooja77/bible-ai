@@ -210,9 +210,9 @@ function WinnerMetric({
 }) {
   return (
     <div className="border border-neutral-800 rounded px-3 py-2 bg-neutral-950/50">
-      <div className="text-[11px] tracking-wide text-neutral-500">{label}</div>
+      <div className="text-[0.6875rem] tracking-wide text-neutral-500">{label}</div>
       <div className="text-sm font-semibold text-neutral-100">{value}</div>
-      <p className="text-[11px] text-neutral-500 line-clamp-2">{detail}</p>
+      <p className="text-[0.6875rem] text-neutral-500 line-clamp-2">{detail}</p>
     </div>
   );
 }
@@ -375,13 +375,13 @@ function EvidenceDisplayItem({
           {row.citation} ({row.translation_code})
         </button>
         <span
-          className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
+          className="text-[0.625rem] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
           title={sourceTooltip(row.source)}
         >
           {sourceDisplay(row.source)}
         </span>
         <span
-          className={"text-[10px] px-1.5 py-0.5 rounded " + evidenceStatusClass(row.status)}
+          className={"text-[0.625rem] px-1.5 py-0.5 rounded " + evidenceStatusClass(row.status)}
           title={evidenceStatusTooltip(row.status)}
         >
           {evidenceStatusLabel(row.status)}
@@ -395,7 +395,7 @@ function EvidenceDisplayItem({
       </p>
       {row.reasoning && <p className="text-xs text-neutral-500 mt-1">{row.reasoning}</p>}
       {row.matched_terms.length > 0 && (
-        <p className="text-[11px] text-neutral-600 mt-1">
+        <p className="text-[0.6875rem] text-neutral-600 mt-1">
           Matched terms: {row.matched_terms.join(", ")}
         </p>
       )}

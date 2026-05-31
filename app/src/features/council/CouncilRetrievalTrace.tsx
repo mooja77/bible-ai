@@ -39,13 +39,13 @@ export function CouncilRetrievalTrace({
                 {row.citation} ({row.translation_code})
               </button>
               <span
-                className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
+                className="text-[0.625rem] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400"
                 title={sourceTooltip(row.source)}
               >
                 {row.source_label}
               </span>
               <span
-                className={"text-[10px] px-1.5 py-0.5 rounded " + evidenceStatusClass(row.status)}
+                className={"text-[0.625rem] px-1.5 py-0.5 rounded " + evidenceStatusClass(row.status)}
                 title={evidenceStatusTooltip(row.status)}
               >
                 {row.status}
@@ -53,7 +53,7 @@ export function CouncilRetrievalTrace({
             </div>
             <RetrievalScoreBar row={row} />
             {row.from_verse_id && (
-              <p className="text-[11px] text-neutral-600 mt-1">
+              <p className="text-[0.6875rem] text-neutral-600 mt-1">
                 Cross-reference from {citationByVerse.get(row.from_verse_id) ?? `verse id ${row.from_verse_id}`}
               </p>
             )}
@@ -64,7 +64,7 @@ export function CouncilRetrievalTrace({
               <HighlightedText text={row.text} terms={row.matched_terms} />
             </p>
             {row.matched_terms.length > 0 && (
-              <p className="text-[11px] text-neutral-600 mt-1">
+              <p className="text-[0.6875rem] text-neutral-600 mt-1">
                 Matched terms: {row.matched_terms.join(", ")}
               </p>
             )}

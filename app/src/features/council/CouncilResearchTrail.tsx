@@ -33,18 +33,18 @@ export function CouncilResearchTrail({ response }: { response: CouncilResponse }
             <div className="soft-card p-3">
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <h3 className="text-sm font-semibold text-neutral-100">{event.label}</h3>
-                <span className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
+                <span className="text-[0.625rem] tracking-wide px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
                   {event.event_type}
                 </span>
                 {event.related_position && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300">
+                  <span className="text-[0.625rem] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300">
                     {event.related_position}
                   </span>
                 )}
               </div>
               <p className="text-sm text-neutral-400">{event.detail}</p>
               {event.related_verse_ids?.length ? (
-                <p className="text-[11px] text-neutral-600 mt-1">
+                <p className="text-[0.6875rem] text-neutral-600 mt-1">
                   Verse IDs: {event.related_verse_ids.slice(0, 8).join(", ")}
                 </p>
               ) : null}

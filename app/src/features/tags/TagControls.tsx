@@ -22,7 +22,7 @@ export function TagFilterBar({
             onClick={() => onSelect(active ? null : t.id)}
             aria-pressed={active}
             className={
-              "px-1.5 py-0.5 rounded text-[11px] border transition-colors " +
+              "px-1.5 py-0.5 rounded text-[0.6875rem] border transition-colors " +
               (active
                 ? "border-amber-500 text-amber-200 bg-amber-500/10"
                 : "border-neutral-700 text-neutral-400 hover:text-neutral-200")
@@ -36,7 +36,7 @@ export function TagFilterBar({
         <button
           type="button"
           onClick={() => onSelect(null)}
-          className="px-1 text-[11px] text-neutral-500 hover:text-neutral-300"
+          className="px-1 text-[0.6875rem] text-neutral-500 hover:text-neutral-300"
         >
           Clear
         </button>
@@ -75,7 +75,7 @@ export function ItemTagRow({
         <span
           key={t.tag_id}
           data-testid={`${testIdPrefix}-tag-chip`}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] bg-neutral-800 text-neutral-300"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[0.6875rem] bg-neutral-800 text-neutral-300"
         >
           {t.name}
           <button
@@ -108,7 +108,7 @@ export function ItemTagRow({
             placeholder="tag…"
             aria-label="Add tag"
             data-testid={`${testIdPrefix}-tag-input`}
-            className="settings-input h-5 w-20 text-[11px] px-1"
+            className="settings-input h-5 w-20 text-[0.6875rem] px-1"
           />
           <datalist id={datalistId}>
             {allTags.map((t) => (
@@ -122,7 +122,7 @@ export function ItemTagRow({
           onClick={() => setAdding(true)}
           aria-label="Add tag"
           data-testid={`${testIdPrefix}-add-tag`}
-          className="px-1 text-[11px] text-neutral-500 hover:text-amber-300"
+          className="px-1 text-[0.6875rem] text-neutral-500 hover:text-amber-300"
         >
           + tag
         </button>

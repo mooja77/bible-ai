@@ -136,7 +136,7 @@ function ProcessStep({
   return (
     <li className="soft-card px-3 py-2">
       <div className="flex items-center gap-2 mb-1">
-        <span className="grid place-items-center w-5 h-5 rounded-full bg-neutral-800 text-[11px] text-neutral-300">
+        <span className="grid place-items-center w-5 h-5 rounded-full bg-neutral-800 text-[0.6875rem] text-neutral-300">
           {number}
         </span>
         <span className="text-sm font-medium text-neutral-200">{title}</span>
