@@ -1123,23 +1123,35 @@ function App() {
               outside the Reader; search and jump-to-reference stay global. */}
           {mode === "reader" && (
           <>
-          <div className="flex items-center justify-between gap-2 text-xs text-neutral-400">
-            <span>Text</span>
+          {/* Distinct from the global "App text size" control above: this
+              scales ONLY the verse text, so it is labelled "Reading text" and
+              styled to match the app-size pills so the two read as one family
+              of control rather than two confusing near-identical rows. */}
+          <div
+            className="flex items-center justify-between gap-2 text-xs text-neutral-400"
+            role="group"
+            aria-label="Reading text size"
+          >
+            <span>Reading text</span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setReaderFontScale(fontScale - 0.1)}
-                className="btn-secondary w-7 h-7 text-neutral-300"
+                className="meta-pill px-2 hover:text-neutral-100 disabled:opacity-40"
                 aria-label="Decrease reader font size"
+                title="Decrease reading text size"
               >
-                A-
+                A−
               </button>
-              <span className="w-10 text-center font-mono">{Math.round(fontScale * 100)}%</span>
+              <span className="w-10 text-center font-mono tabular-nums select-none">
+                {Math.round(fontScale * 100)}%
+              </span>
               <button
                 type="button"
                 onClick={() => setReaderFontScale(fontScale + 0.1)}
-                className="btn-secondary w-7 h-7 text-neutral-300"
+                className="meta-pill px-2 hover:text-neutral-100 disabled:opacity-40"
                 aria-label="Increase reader font size"
+                title="Increase reading text size"
               >
                 A+
               </button>
