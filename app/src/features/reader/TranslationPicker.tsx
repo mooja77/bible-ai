@@ -23,7 +23,7 @@ export function TranslationPicker({ translations, activeCodes, onToggle }: Props
                   checked={checked}
                   onChange={() => onToggle(t.code)}
                   data-testid={`translation-${t.code}`}
-                  className="accent-amber-500"
+                  className="accent-indigo-500"
                 />
                 <span className="font-mono text-xs text-neutral-400 w-10">{t.code}</span>
                 <span className="text-neutral-200 truncate">{t.name}</span>

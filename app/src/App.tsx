@@ -869,41 +869,6 @@ function App() {
               <p className="text-xs text-neutral-500 mt-0.5">Reader, Council, workspace</p>
             </div>
             <div className="flex items-center gap-1">
-              <div
-                className="meta-pill gap-0.5 px-1"
-                role="group"
-                aria-label="App text size"
-              >
-                <button
-                  type="button"
-                  onClick={decreaseUiScale}
-                  disabled={!canDecrease}
-                  data-testid="ui-scale-dec"
-                  className="px-1 leading-none hover:text-neutral-100 disabled:opacity-40"
-                  aria-label="Decrease app text size"
-                  title="Decrease app text size"
-                >
-                  A−
-                </button>
-                <span
-                  data-testid="ui-scale-value"
-                  className="text-[11px] tabular-nums text-neutral-400 select-none"
-                  aria-hidden="true"
-                >
-                  {uiScale}%
-                </span>
-                <button
-                  type="button"
-                  onClick={increaseUiScale}
-                  disabled={!canIncrease}
-                  data-testid="ui-scale-inc"
-                  className="px-1 leading-none hover:text-neutral-100 disabled:opacity-40"
-                  aria-label="Increase app text size"
-                  title="Increase app text size"
-                >
-                  A+
-                </button>
-              </div>
               <button
                 type="button"
                 onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
@@ -922,6 +887,45 @@ function App() {
                 aria-label="Open command palette"
               >
                 Ctrl K
+              </button>
+            </div>
+          </div>
+
+          <div
+            className="flex items-center justify-between gap-2 text-xs text-neutral-400"
+            role="group"
+            aria-label="App text size"
+          >
+            <span>App text size</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={decreaseUiScale}
+                disabled={!canDecrease}
+                data-testid="ui-scale-dec"
+                className="meta-pill px-2 hover:text-neutral-100 disabled:opacity-40"
+                aria-label="Decrease app text size"
+                title="Decrease app text size"
+              >
+                A−
+              </button>
+              <span
+                data-testid="ui-scale-value"
+                className="w-10 text-center font-mono tabular-nums select-none"
+                aria-hidden="true"
+              >
+                {uiScale}%
+              </span>
+              <button
+                type="button"
+                onClick={increaseUiScale}
+                disabled={!canIncrease}
+                data-testid="ui-scale-inc"
+                className="meta-pill px-2 hover:text-neutral-100 disabled:opacity-40"
+                aria-label="Increase app text size"
+                title="Increase app text size"
+              >
+                A+
               </button>
             </div>
           </div>
@@ -1166,7 +1170,7 @@ function App() {
               type="checkbox"
               checked={syncScroll}
               onChange={(e) => setSyncScrollSetting(e.target.checked)}
-              className="accent-amber-500"
+              className="accent-indigo-500"
               aria-label="Sync reader scrolling"
             />
             Sync scroll
