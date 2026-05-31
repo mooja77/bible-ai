@@ -112,6 +112,26 @@ test("mock mode: the question is echoed into the research trail", async () => {
   assert.match(framed.detail, /literal week/);
 });
 
+test("mock mode: a sentinel question forces an actionable failure", async () => {
+  // The sentinel drives the production error path (thrown -> surfaced to the
+  // UI), so the failure state can be exercised end-to-end in tests. The
+  // message must stay plain-language and actionable for non-technical users.
+  await assert.rejects(
+    () =>
+      withMockMode(() =>
+        runCouncil({
+          question: "Anything __FORCE_COUNCIL_ERROR__ here",
+          evidence: EVIDENCE,
+        }),
+      ),
+    (err) => {
+      assert.match(err.message, /Settings/);
+      assert.match(err.message, /try again/i);
+      return true;
+    },
+  );
+});
+
 test("resolveSynthesisMode: one voice → single_voice (regardless of synthesisFailed)", () => {
   assert.equal(resolveSynthesisMode({ okCount: 1, synthesisFailed: false }), "single_voice");
   assert.equal(resolveSynthesisMode({ okCount: 1, synthesisFailed: true }), "single_voice");
