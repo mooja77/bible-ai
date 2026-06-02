@@ -102,9 +102,9 @@ export function SetupCheckPill({
         ? "border-red-500/25 bg-red-500/10 text-red-200"
         : "border-neutral-800 bg-neutral-950/35 text-neutral-300";
   return (
-    <div className={`rounded-md border px-3 py-2 ${tone}`}>
-      <p className="text-xs tracking-wider opacity-75">{label}</p>
-      <p className="text-sm mt-0.5">{detail}</p>
+    <div className={`rounded-md border px-3 py-2 min-w-0 ${tone}`}>
+      <p className="text-xs tracking-wider opacity-75 break-words">{label}</p>
+      <p className="text-sm mt-0.5 break-words">{detail}</p>
     </div>
   );
 }
@@ -153,12 +153,12 @@ export function ProviderStatusCard({
   const state =
     status === undefined ? (configured ? "configured" : "missing") : status ? "ok" : "check";
   return (
-    <div className="soft-card px-3 py-2">
+    <div className="soft-card px-3 py-2 min-w-0">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-neutral-200">{label}</p>
         <span
           className={
-            "text-[0.6875rem] px-2 py-0.5 rounded " +
+            "shrink-0 text-[0.6875rem] px-2 py-0.5 rounded " +
             (state === "ok"
               ? "bg-emerald-500/15 text-emerald-300"
               : state === "configured"
@@ -171,7 +171,7 @@ export function ProviderStatusCard({
           {state}
         </span>
       </div>
-      {detail && <p className="text-xs text-neutral-500 mt-1">{detail}</p>}
+      {detail && <p className="text-xs text-neutral-500 mt-1 break-words">{detail}</p>}
     </div>
   );
 }

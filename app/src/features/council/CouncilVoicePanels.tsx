@@ -94,7 +94,7 @@ export function CouncilVoicePreview({
       )}
       <div className="grid md:grid-cols-4 gap-2">
         {voices.map((voice) => (
-          <div key={voice.label} className="soft-card px-3 py-2">
+          <div key={voice.label} className="soft-card px-3 py-2 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm text-neutral-200">{voice.label}</span>
               <span
@@ -108,7 +108,7 @@ export function CouncilVoicePreview({
                 {voice.state}
               </span>
             </div>
-            <p className="text-xs text-neutral-500 mt-1">{voice.detail}</p>
+            <p className="text-xs text-neutral-500 mt-1 break-words">{voice.detail}</p>
           </div>
         ))}
       </div>
