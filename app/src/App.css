@@ -57,8 +57,13 @@
   --color-neutral-200: #262626;
   --color-neutral-300: #404040;
   --color-neutral-400: #525252;
-  --color-neutral-500: #737373;
-  --color-neutral-600: #a3a3a3;
+  /* 500/600 are foreground "muted"/"most-muted" text. A straight scale mirror
+     left them too light on a light background (neutral-500 ~3.8:1, neutral-600
+     ~2.5:1 — both fail WCAG AA for small text). Darken them so secondary and
+     tertiary captions stay readable; lower number still = more emphasis, so 500
+     stays darker than 600. (Verified by tests/e2e/contrast-light.spec.ts.) */
+  --color-neutral-500: #5c5c5c;
+  --color-neutral-600: #6b6b6b;
   --color-neutral-700: #d4d4d4;
   --color-neutral-800: #e5e5e5;
   --color-neutral-900: #f5f5f5;
