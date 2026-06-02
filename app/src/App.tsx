@@ -91,6 +91,10 @@ function App() {
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [selectedChapter, setSelectedChapter] = useState<number | null>(null);
   const [chapterData, setChapterData] = useState<Record<string, Verse[]>>({});
+  // Identifies which book:chapter `chapterData` was loaded for, so we never
+  // derive UI (e.g. which translations have text) from a previous chapter's
+  // data during the brief window after navigation but before the load lands.
+  const [chapterDataKey, setChapterDataKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -289,8 +293,10 @@ function App() {
   useEffect(() => {
     if (!selectedBook || !selectedChapter || activeTranslations.length === 0) {
       setChapterData({});
+      setChapterDataKey(null);
       return;
     }
+    const key = `${selectedBook.id}:${selectedChapter}`;
     let cancelled = false;
     setLoading(true);
     Promise.all(
@@ -301,7 +307,10 @@ function App() {
       ),
     )
       .then((entries) => {
-        if (!cancelled) setChapterData(Object.fromEntries(entries));
+        if (!cancelled) {
+          setChapterData(Object.fromEntries(entries));
+          setChapterDataKey(key);
+        }
       })
       .catch((e) => {
         if (!cancelled) setError(String(e));
@@ -522,6 +531,33 @@ function App() {
         .map((code) => translations.find((t) => t.code === code))
         .filter((t): t is Translation => !!t),
     [activeTranslations, translations],
+  );
+
+  // A canon-limited translation (e.g. TR is NT-only, WLC is OT-only) has no
+  // verses for some chapters. Drive the reader layouts off the translations
+  // that actually have text here so an absent one never eats a column/row.
+  // Only filter once `chapterData` belongs to the currently-selected chapter:
+  // while loading — or in the render right after navigation, before the load
+  // lands — chapterData still holds the previous chapter, and filtering on it
+  // would briefly hide columns / show a wrong omission note.
+  const chapterDataReady =
+    !loading &&
+    !!selectedBook &&
+    selectedChapter !== null &&
+    chapterDataKey === `${selectedBook.id}:${selectedChapter}`;
+  const presentActive = useMemo(
+    () =>
+      chapterDataReady
+        ? orderedActive.filter((t) => (chapterData[t.code] ?? []).length > 0)
+        : orderedActive,
+    [orderedActive, chapterData, chapterDataReady],
+  );
+  const absentActive = useMemo(
+    () =>
+      chapterDataReady
+        ? orderedActive.filter((t) => (chapterData[t.code] ?? []).length === 0)
+        : [],
+    [orderedActive, chapterData, chapterDataReady],
   );
 
   const visibleSearchResults = useMemo(() => {
@@ -1430,16 +1466,29 @@ function App() {
           <ReaderPlaceholder title="Select a book" detail="Choose a book and chapter from the sidebar to begin reading." />
         ) : orderedActive.length === 0 ? (
           <ReaderPlaceholder title="Select a translation" detail="Enable at least one translation in the sidebar translation list." />
+        ) : chapterDataReady && presentActive.length === 0 ? (
+          <ReaderPlaceholder
+            title="No text for this chapter"
+            detail={`None of your enabled translations include ${selectedBook.name} ${selectedChapter}. Try another chapter, or enable a translation that covers it.`}
+          />
         ) : (
           <>
-            {orderedActive.length === 1 ? (
+            {absentActive.length > 0 && (
+              <p
+                data-testid="absent-translations-note"
+                className="px-6 pt-4 text-sm text-neutral-500"
+              >
+                No text in this chapter for {absentActive.map((t) => t.code).join(", ")}.
+              </p>
+            )}
+            {presentActive.length === 1 ? (
               <ChapterReader
                 bookName={selectedBook.name}
                 chapter={selectedChapter}
-                translationName={orderedActive[0].name}
-                translationCode={orderedActive[0].code}
-                language={orderedActive[0].language}
-                verses={chapterData[orderedActive[0].code] ?? []}
+                translationName={presentActive[0].name}
+                translationCode={presentActive[0].code}
+                language={presentActive[0].language}
+                verses={chapterData[presentActive[0].code] ?? []}
                 loading={loading}
                 onJumpToVerse={jumpToVerse}
                 highlights={highlights}
@@ -1448,7 +1497,7 @@ function App() {
                 rangeNotes={rangeNotes}
                 onUserDataChanged={refreshUserDataAndNavigation}
                 onAskCouncilAboutVerse={askCouncilAboutVerse}
-                wordTokensByVerse={wordTokensByTranslation.get(orderedActive[0].code)}
+                wordTokensByVerse={wordTokensByTranslation.get(presentActive[0].code)}
                 onWordClick={setSelectedWord}
                 fontScale={fontScale}
                 density={readerDensity}
@@ -1459,7 +1508,7 @@ function App() {
               <InterleavedReader
                 bookName={selectedBook.name}
                 chapter={selectedChapter}
-                translations={orderedActive}
+                translations={presentActive}
                 chapterData={chapterData}
                 loading={loading}
                 fontScale={fontScale}
@@ -1476,12 +1525,12 @@ function App() {
                   </h1>
                 </div>
                 <div className="flex gap-0">
-                {orderedActive.map((t, idx) => (
+                {presentActive.map((t, idx) => (
                   <div
                     key={t.code}
                     className={
                       "flex-1 min-w-[360px] " +
-                      (idx < orderedActive.length - 1 ? "border-r border-neutral-800" : "")
+                      (idx < presentActive.length - 1 ? "border-r border-neutral-800" : "")
                     }
                   >
                     <ChapterReader
