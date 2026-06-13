@@ -16,7 +16,7 @@
 | Shell | **Tauri 2** | Small binary, Rust backend, web frontend, good offline story |
 | Frontend | **React + TypeScript + Tailwind** | Standard, fast iteration |
 | Local DB | **SQLite** (via `tauri-plugin-sql` / `rusqlite`) | Ships in-binary, handles Bible text + user notes |
-| Vector store | **sqlite-vec** (extension) | Stays in the same SQLite file — no separate service |
+| Vector store | **f32 BLOBs in SQLite + Rust cosine scan** | Embeddings live in the same SQLite file, scanned linearly in Rust; no extension or separate service. `sqlite-vec` is a deferred, measurement-gated option |
 | Local model host | **Ollama** (external) | Simple HTTP API, easy model swap, handles embeddings + small LLMs |
 | Ingestion scripts | **Python** | Heavy text processing, one-time work, output SQLite files |
 | Council APIs | Claude, OpenAI, Gemini, DeepSeek/others | Routed through a single provider-abstracted client |
@@ -70,10 +70,16 @@ CREATE TABLE cross_refs (
   source TEXT                      -- 'TSK'
 );
 
--- Semantic search
-CREATE VIRTUAL TABLE verse_embeddings USING vec0(
-  verse_id INTEGER PRIMARY KEY,
-  embedding FLOAT[768]
+-- Semantic search: embeddings are stored as little-endian f32 BLOBs and
+-- scanned with a linear cosine similarity in Rust (no sqlite-vec dependency).
+-- sqlite-vec remains a deferred, measurement-gated future optimization.
+CREATE TABLE verse_embeddings (
+  translation_code TEXT NOT NULL,
+  verse_id INTEGER NOT NULL,
+  model TEXT NOT NULL,               -- 'nomic-embed-text', 'bge-large-en-v1.5'
+  dim INTEGER NOT NULL,              -- embedding dimension
+  embedding BLOB NOT NULL,           -- dim * 4 bytes, little-endian f32
+  PRIMARY KEY (translation_code, verse_id, model)
 );
 
 -- User layer (separate file so the corpus can ship read-only)
