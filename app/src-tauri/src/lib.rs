@@ -393,12 +393,54 @@ fn migrate_restored_provider_secrets(conn: &rusqlite::Connection) -> Result<(), 
 #[cfg(test)]
 mod command_input_tests {
     use super::{
-        bounded_limit, normalize_app_settings, normalize_model_id, normalize_module_key_value,
-        normalize_strongs_codes, normalize_testament_filter, normalize_translation_code_value,
+        bounded_limit, council_retrieval_fallback_reason, normalize_app_settings,
+        normalize_model_id, normalize_module_key_value, normalize_strongs_codes,
+        normalize_testament_filter, normalize_translation_code_value,
         provider_settings_for_legacy_migration, validate_book_chapter, validate_book_id,
         validate_hex_color, validate_verse_range,
     };
     use crate::user_db::AppSettings;
+
+    #[test]
+    fn council_fallback_reason_none_when_semantic_not_wanted() {
+        // Keyword-only retrieval never "fell back" from anything.
+        assert_eq!(
+            council_retrieval_fallback_reason(false, "WEB", false, true),
+            None
+        );
+    }
+
+    #[test]
+    fn council_fallback_reason_when_no_embeddings() {
+        let reason = council_retrieval_fallback_reason(true, "WEB", false, true)
+            .expect("missing embeddings should produce a fallback reason");
+        assert!(
+            reason.contains("WEB"),
+            "reason should name the translation: {reason}"
+        );
+        assert!(
+            reason.to_lowercase().contains("keyword"),
+            "reason should explain it used keyword search: {reason}"
+        );
+    }
+
+    #[test]
+    fn council_fallback_reason_when_embedding_call_failed() {
+        let reason = council_retrieval_fallback_reason(true, "WEB", true, false)
+            .expect("a failed embedding call should produce a fallback reason");
+        assert!(
+            reason.to_lowercase().contains("keyword"),
+            "reason should explain it used keyword search: {reason}"
+        );
+    }
+
+    #[test]
+    fn council_fallback_reason_none_when_semantic_succeeds() {
+        assert_eq!(
+            council_retrieval_fallback_reason(true, "WEB", true, true),
+            None
+        );
+    }
 
     #[test]
     fn bounded_limit_rejects_sqlite_unbounded_negative_limits() {
@@ -2618,7 +2660,7 @@ async fn ask_council(
         evidence_limit: limit,
     };
 
-    let (evidence_json, retrieval_mode) = retrieve_evidence(
+    let (evidence_json, retrieval_mode, retrieval_fallback_reason) = retrieve_evidence(
         &app,
         &question,
         &retrieval_options,
@@ -2640,6 +2682,10 @@ async fn ask_council(
     let mut result = state.request(&app, "council", body).await?;
     // Surface how we retrieved the evidence so the UI can show it.
     result["retrieval_mode"] = serde_json::Value::String(retrieval_mode.clone());
+    result["retrieval_fallback_reason"] = match &retrieval_fallback_reason {
+        Some(reason) => serde_json::Value::String(reason.clone()),
+        None => serde_json::Value::Null,
+    };
     result["evidence_count"] = serde_json::Value::Number(evidence_count.into());
     result["retrieval_options"] =
         serde_json::to_value(&retrieval_options).unwrap_or(serde_json::Value::Null);
@@ -3376,12 +3422,38 @@ fn list_range_notes_for_chapter(
 /// (ordered by cosine); FTS-only hits (those not already in the semantic
 /// list) are appended as a safety net for exact-phrase matches the embedding
 /// missed. If semantic is unavailable, we fall back to FTS alone.
+/// Reason the Council's semantic retrieval was downgraded to keyword search,
+/// or None if semantic was not requested or completed successfully. Surfaced in
+/// the Council UI and exports so a degraded run is never silently presented as a
+/// full semantic one.
+fn council_retrieval_fallback_reason(
+    wanted_semantic: bool,
+    translation: &str,
+    has_embeddings: bool,
+    embed_ok: bool,
+) -> Option<String> {
+    if !wanted_semantic {
+        return None;
+    }
+    if !has_embeddings {
+        return Some(format!(
+            "No meaning index for {translation}; used keyword search instead."
+        ));
+    }
+    if !embed_ok {
+        return Some(
+            "Meaning search needs Ollama running; used keyword search instead.".to_string(),
+        );
+    }
+    None
+}
+
 async fn retrieve_evidence(
     app: &AppHandle,
     question: &str,
     options: &RetrievalOptions,
     ollama_host: Option<&str>,
-) -> Result<(Vec<serde_json::Value>, String), String> {
+) -> Result<(Vec<serde_json::Value>, String, Option<String>), String> {
     let translation = &options.translation_code;
     let limit = options.evidence_limit;
     let mock_council = std::env::var("BIBLE_AI_MOCK_COUNCIL").ok().as_deref() == Some("1");
@@ -3408,7 +3480,9 @@ async fn retrieve_evidence(
         end_verse_id: options.end_verse_id,
     };
 
-    // Semantic pass (if possible).
+    // Semantic pass (if possible). Track whether the embedding call itself
+    // succeeded so a downgrade to keyword search can be explained.
+    let mut embed_ok = true;
     let semantic_rows: Vec<serde_json::Value> = if use_semantic && has_embeddings {
         match ollama::embed_with_host(EMBED_MODEL, question, ollama_host).await {
             Ok(q_emb) => {
@@ -3440,6 +3514,7 @@ async fn retrieve_evidence(
             }
             Err(e) => {
                 eprintln!("[council] semantic retrieval failed: {e}");
+                embed_ok = false;
                 Vec::new()
             }
         }
@@ -3586,7 +3661,10 @@ async fn retrieve_evidence(
     }
     .to_string();
 
-    Ok((merged, mode))
+    let fallback_reason =
+        council_retrieval_fallback_reason(use_semantic, translation, has_embeddings, embed_ok);
+
+    Ok((merged, mode, fallback_reason))
 }
 
 fn explicit_reference_rows(

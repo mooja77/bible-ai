@@ -43,6 +43,9 @@ function renderResponseAsMarkdown(
   if (r.retrieval_mode) {
     lines.push(`*Retrieval: ${r.retrieval_mode}, ${r.evidence_count ?? "?"} evidence verses*`, "");
   }
+  if (r.retrieval_fallback_reason) {
+    lines.push(`> Retrieval note: ${r.retrieval_fallback_reason}`, "");
+  }
   const synth = r.synthesis;
   lines.push(`## Synthesis (confidence: ${synth.confidence})`, "");
   const sortedPositions = [...synth.positions].sort((a, b) => b.weight - a.weight);

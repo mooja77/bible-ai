@@ -225,6 +225,7 @@ export interface CouncilResponse {
     | "hybrid+xref"
     | "explicit+hybrid"
     | "explicit+hybrid+xref";
+  retrieval_fallback_reason?: string | null;
   evidence_count?: number;
   retrieval_options?: CouncilRetrievalOptions;
   retrieved_evidence?: RetrievedEvidence[];

@@ -388,6 +388,14 @@ export function CouncilPanel({
               <CopyAsMarkdownButton response={response} question={question} judgment={judgment} />
             </span>
           </div>
+          {response.retrieval_fallback_reason && (
+            <p
+              className="text-xs text-amber-300/90 mb-2"
+              data-testid="council-retrieval-fallback"
+            >
+              Note: {response.retrieval_fallback_reason}
+            </p>
+          )}
           <CouncilResultView
             result={response.synthesis}
             heading="Synthesis"
