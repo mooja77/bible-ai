@@ -1,0 +1,35 @@
+{
+  "schema": "bible-ai/study-packet",
+  "schema_version": "1.0",
+  "title": "How should Romans 9 be weighed in debates about election?",
+  "question": "How should Romans 9 be weighed in debates about election?",
+  "exported_at": "2026-06-13T00:00:00Z",
+  "app_version": "0.1.0",
+  "session_id": null,
+  "ai": {
+    "providers": [
+      { "name": "anthropic", "display_name": "Claude", "available": true },
+      { "name": "openai", "display_name": "GPT", "available": true },
+      { "name": "google", "display_name": "Gemini", "available": true }
+    ],
+    "synthesis_mode": "consensus",
+    "confidence": "medium"
+  },
+  "retrieval": {
+    "mode": "hybrid",
+    "requested_strategy": "hybrid",
+    "fallback_reason": null,
+    "evidence_count": 3
+  },
+  "translations": ["KJV"],
+  "content_labels": ["scripture", "source", "ai", "user"],
+  "files": [
+    "README.md",
+    "question.md",
+    "passage.md",
+    "evidence.md",
+    "council.md",
+    "judgment.md",
+    "sources.md"
+  ]
+}
