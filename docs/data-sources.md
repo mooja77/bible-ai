@@ -2,6 +2,8 @@
 
 This document records the corpus and module data sources used by the current app. It is based on the ingestion scripts and schema in this repository.
 
+Source decision classes and the full rights bill of materials live in [`content-bom.md`](content-bom.md).
+
 ## Policy
 
 - Ship only public-domain or permissively licensed corpus data by default.

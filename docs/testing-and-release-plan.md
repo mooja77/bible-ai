@@ -2,6 +2,8 @@
 
 This plan defines verification expectations for the feature roadmap.
 
+Release gates and contracts that this plan depends on: [`study-packet-v1-contract.md`](study-packet-v1-contract.md), [`accessibility-release-gate.md`](accessibility-release-gate.md), [`quality-ops-plan.md`](quality-ops-plan.md), [`ai-risk-eval-plan.md`](ai-risk-eval-plan.md), [`content-bom.md`](content-bom.md), and [`sensitive-topic-safety-policy.md`](sensitive-topic-safety-policy.md).
+
 ## Baseline Commands
 
 Run before completing any feature phase:

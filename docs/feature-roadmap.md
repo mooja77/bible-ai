@@ -2,6 +2,8 @@
 
 This roadmap extends the current reader, search, notes/highlights, Strong's popup, and Council workflow into a fuller study environment.
 
+The next arc is Study Packet v1, the portable auditable study artifact. Its canonical contract is [`study-packet-v1-contract.md`](study-packet-v1-contract.md).
+
 ## Goals
 
 - Make Bible AI useful as a persistent study workspace, not only a chapter reader.

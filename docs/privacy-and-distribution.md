@@ -1,5 +1,7 @@
 # Privacy And Distribution
 
+Sensitive religious and crisis disclosures are governed by [`sensitive-topic-safety-policy.md`](sensitive-topic-safety-policy.md).
+
 ## Current Privacy Posture
 
 Bible AI is currently treated as a personal-use local app.
