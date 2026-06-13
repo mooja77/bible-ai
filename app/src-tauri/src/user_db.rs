@@ -4954,6 +4954,27 @@ mod tests {
     }
 
     #[test]
+    fn imported_resource_sources_get_a_review_marker() {
+        let status = |meta: &str| -> String {
+            let v: serde_json::Value =
+                serde_json::from_str(&apply_resource_review_marker(meta)).expect("valid json");
+            v.get("review_status")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string()
+        };
+        // A backup-imported source with no human review is quarantined.
+        assert_eq!(status("{}"), "unreviewed");
+        // A source that carries a review note is marked reviewed.
+        assert_eq!(
+            status(r#"{"source_review":"checked by a maintainer"}"#),
+            "reviewed"
+        );
+        // A bundled source is trusted.
+        assert_eq!(status(r#"{"source_status":"bundled"}"#), "bundled");
+    }
+
+    #[test]
     fn user_data_import_rejects_invalid_guided_study_rows_transactionally() {
         let conn = test_conn();
         let payload = serde_json::json!({
@@ -7892,6 +7913,39 @@ fn rebuild_resource_entries_fts(conn: &Connection) -> SqlResult<()> {
     Ok(())
 }
 
+/// Stamp a `review_status` onto an imported resource source's metadata so a
+/// source brought in from backup JSON cannot silently pose as reviewed. Bundled
+/// sources are trusted; a source carrying a non-empty `source_review` is
+/// "reviewed"; everything else is quarantined as "unreviewed".
+fn apply_resource_review_marker(metadata_json: &str) -> String {
+    let mut value: serde_json::Value =
+        serde_json::from_str(metadata_json).unwrap_or_else(|_| serde_json::json!({}));
+    let Some(obj) = value.as_object_mut() else {
+        return metadata_json.to_string();
+    };
+    let status = obj
+        .get("source_status")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
+    let marker =
+        if status.eq_ignore_ascii_case("bundled") || status.eq_ignore_ascii_case("built-in") {
+            "bundled"
+        } else {
+            let has_review = obj
+                .get("source_review")
+                .and_then(serde_json::Value::as_str)
+                .map(|s| !s.trim().is_empty())
+                .unwrap_or(false);
+            if has_review {
+                "reviewed"
+            } else {
+                "unreviewed"
+            }
+        };
+    obj.insert("review_status".to_string(), serde_json::json!(marker));
+    serde_json::to_string(&value).unwrap_or_else(|_| metadata_json.to_string())
+}
+
 fn normalize_import_row(
     table: &str,
     row: &mut serde_json::Map<String, serde_json::Value>,
@@ -7970,6 +8024,14 @@ fn normalize_import_row(
             normalize_optional_import_text(row, "source_url");
             normalize_optional_import_text(row, "version");
             normalize_json_import_text(row, table, "metadata_json", "{}", false)?;
+            // Quarantine: a backup-imported source cannot bypass source review.
+            if let Some(meta) = row.get("metadata_json").and_then(serde_json::Value::as_str) {
+                let marked = apply_resource_review_marker(meta);
+                row.insert(
+                    "metadata_json".to_string(),
+                    serde_json::Value::String(marked),
+                );
+            }
         }
         "resource_collections" => {
             normalize_required_import_text(row, table, "slug")?;
