@@ -8,7 +8,7 @@ function getCouncilVoices(settings?: AppSettings) {
   const voices = [
     {
       label: "Claude",
-      state: anthropicReady ? "will run" : "will try",
+      state: anthropicReady ? "configured" : "will try",
       detail: anthropicReady
         ? `Anthropic API ${settings?.anthropic_model || "claude-sonnet-4-6"} handles Claude voice and synthesis.`
         : `Claude Code ${settings?.claude_model ?? "sonnet"} handles synthesis if the local login is available.`,
@@ -16,7 +16,7 @@ function getCouncilVoices(settings?: AppSettings) {
     },
     {
       label: "Gateway",
-      state: gatewayReady ? "will run" : "optional",
+      state: gatewayReady ? "configured" : "optional",
       detail: gatewayReady
         ? "Managed gateway will run as a Council voice without direct provider keys on this device."
         : "Add a managed gateway URL in Settings for team/public deployments.",
@@ -24,7 +24,7 @@ function getCouncilVoices(settings?: AppSettings) {
     },
     {
       label: "Gemini",
-      state: googleReady ? "will run" : "needs key",
+      state: googleReady ? "configured" : "needs key",
       detail: googleReady
         ? `Google API key is set for ${settings?.gemini_model || "gemini-2.5-flash"}.`
         : "Add a Google API key in Settings.",
@@ -32,7 +32,7 @@ function getCouncilVoices(settings?: AppSettings) {
     },
     {
       label: "OpenAI",
-      state: openAiReady ? "will run" : "needs key",
+      state: openAiReady ? "configured" : "needs key",
       detail: openAiReady
         ? `OpenAI API key is set for ${settings?.openai_model || "gpt-5"}.`
         : "Add an OpenAI API key in Settings.",
@@ -58,10 +58,10 @@ export function CouncilVoicePreview({
     >
       <div className="flex items-baseline justify-between gap-3 mb-2">
         <h2 className="text-xs tracking-wider text-neutral-500">
-          AI helpers ready to run
+          AI helpers configured
         </h2>
         <span className="text-xs text-neutral-600">
-          {voices.filter((voice) => voice.active).length}/{voices.length} ready
+          {voices.filter((voice) => voice.active).length}/{voices.length} configured
         </span>
       </div>
       {noProvidersConfigured && (
@@ -95,7 +95,7 @@ export function CouncilVoicePreview({
       <div className="grid md:grid-cols-4 gap-2">
         {voices.map((voice) => (
           <div key={voice.label} className="soft-card px-3 py-2 min-w-0">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
               <span className="text-sm text-neutral-200">{voice.label}</span>
               <span
                 className={

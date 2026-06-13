@@ -1,6 +1,23 @@
 import { browser, $, $$, expect } from "@wdio/globals";
 
 describe("Council mock workflow", () => {
+  it("does not overclaim provider readiness in the voice preview", async () => {
+    const council = await $("button=Council");
+    await council.waitForClickable({ timeout: 10_000 });
+    await council.click();
+    await $("h1=The Council").waitForDisplayed({ timeout: 10_000 });
+
+    const preview = await $('[data-testid="council-voice-preview"]');
+    await preview.waitForDisplayed({ timeout: 10_000 });
+    const text = (await preview.getText()).toLowerCase();
+    // A saved key is not verification. The preview must describe helpers as
+    // "configured" (we will attempt them), not assert they are "ready" / "will
+    // run", which implies a verified working provider.
+    expect(text).toContain("configured");
+    expect(text).not.toContain("ready to run");
+    expect(text).not.toContain("will run");
+  });
+
   it("surfaces explicitly named passages in the retrieval trace", async () => {
     const question = `How should Acts 2:38 be interpreted? e2e ${Date.now()}`;
     const council = await $("button=Council");
