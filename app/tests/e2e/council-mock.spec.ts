@@ -18,6 +18,52 @@ describe("Council mock workflow", () => {
     expect(text).not.toContain("will run");
   });
 
+  it("exports a Study Packet folder with the contract files", async () => {
+    const council = await $("button=Council");
+    await council.waitForClickable({ timeout: 10_000 });
+    await council.click();
+    await $("h1=The Council").waitForDisplayed({ timeout: 10_000 });
+
+    const strategy = await $('select[aria-label="Council retrieval strategy"]');
+    await strategy.selectByAttribute("value", "hybrid");
+    const crossRefs = await $('input[type="checkbox"]');
+    if (await crossRefs.isSelected()) await crossRefs.click();
+
+    const textarea = await $("textarea");
+    // Use a question with Scripture content so retrieval finds evidence.
+    await textarea.setValue(`What does the beginning say about creation? packet ${Date.now()}`);
+    const ask = await $("button=Ask the Council");
+    await ask.waitForClickable({ timeout: 10_000 });
+    await ask.click();
+    await $("h2=Synthesis").waitForDisplayed({ timeout: 30_000 });
+
+    const exportBtn = await $('[data-testid="export-study-packet"]');
+    await exportBtn.waitForClickable({ timeout: 10_000 });
+    await exportBtn.click();
+
+    const status = await $('[data-testid="packet-export-status"]');
+    await status.waitForDisplayed({ timeout: 10_000 });
+    let folder = "";
+    await browser.waitUntil(
+      async () => {
+        const m = (await status.getText()).match(/exported to (.+)$/);
+        if (m) folder = m[1].trim();
+        return folder.length > 0;
+      },
+      { timeout: 10_000, timeoutMsg: "packet export did not report a folder" },
+    );
+
+    // wdio specs run in Node, so verify the packet that was actually written.
+    const { existsSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    expect(existsSync(join(folder, "README.md"))).toBe(true);
+    expect(existsSync(join(folder, "council.md"))).toBe(true);
+    const manifest = JSON.parse(readFileSync(join(folder, "manifest.json"), "utf8"));
+    expect(manifest.schema).toBe("bible-ai/study-packet");
+    expect(Array.isArray(manifest.files)).toBe(true);
+    expect(readFileSync(join(folder, "council.md"), "utf8")).toContain("Synthesis");
+  });
+
   it("surfaces explicitly named passages in the retrieval trace", async () => {
     const question = `How should Acts 2:38 be interpreted? e2e ${Date.now()}`;
     const council = await $("button=Council");

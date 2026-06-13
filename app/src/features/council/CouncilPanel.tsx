@@ -4,6 +4,7 @@ import {
   getCouncilSession,
   listCouncilSessions,
   upsertCouncilJudgment,
+  exportStudyPacket,
   type ArgumentAnnotation,
   type CouncilJudgment,
   type CouncilResponse,
@@ -20,6 +21,7 @@ import { CouncilResearchTrail } from "./CouncilResearchTrail";
 import { CouncilArgumentMaps } from "./CouncilArgumentMaps";
 import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
 import { CopyAsMarkdownButton } from "./CouncilMarkdownExport";
+import { buildStudyPacketFiles } from "./studyPacket";
 import { AddToTheologyMenu } from "./AddToTheologyMenu";
 import { CouncilVoicePreview, CouncilRunningPanel } from "./CouncilVoicePanels";
 import { CouncilVoiceMatrix } from "./CouncilVoiceMatrix";
@@ -108,6 +110,7 @@ export function CouncilPanel({
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [judgment, setJudgment] = useState<CouncilJudgment | null>(null);
   const [argumentAnnotations, setArgumentAnnotations] = useState<ArgumentAnnotation[]>([]);
+  const [packetStatus, setPacketStatus] = useState<string | null>(null);
   const councilViewRequestId = useRef(0);
   const sessionListRequestId = useRef(0);
 
@@ -204,6 +207,18 @@ export function CouncilPanel({
       if (requestId === councilViewRequestId.current) setError(String(e));
     } finally {
       if (requestId === councilViewRequestId.current) setLoading(false);
+    }
+  };
+
+  const onExportPacket = async () => {
+    if (!response) return;
+    setPacketStatus(null);
+    try {
+      const files = buildStudyPacketFiles(question, response, judgment);
+      const path = await exportStudyPacket(question.slice(0, 60) || "council", files);
+      setPacketStatus(`Study Packet exported to ${path}`);
+    } catch (e) {
+      setPacketStatus(`Packet export failed: ${String(e)}`);
     }
   };
 
@@ -386,8 +401,24 @@ export function CouncilPanel({
                 response={response}
               />
               <CopyAsMarkdownButton response={response} question={question} judgment={judgment} />
+              <button
+                type="button"
+                onClick={() => void onExportPacket()}
+                data-testid="export-study-packet"
+                className="btn-secondary px-2 py-1 text-xs"
+              >
+                Export Study Packet
+              </button>
             </span>
           </div>
+          {packetStatus && (
+            <p
+              className="text-xs text-neutral-400 mb-2 break-words"
+              data-testid="packet-export-status"
+            >
+              {packetStatus}
+            </p>
+          )}
           {response.retrieval_fallback_reason && (
             <p
               className="text-xs text-amber-300/90 mb-2"

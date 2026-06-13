@@ -2395,8 +2395,34 @@ fn is_safe_packet_filename(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
 }
 
-/// Write a Study Packet as a folder of files. Validates every filename BEFORE
-/// creating anything, so a bad name fails without leaving a partial directory.
+/// True if `text` contains a Windows drive-letter path like `C:\...`.
+fn contains_windows_path(text: &str) -> bool {
+    text.as_bytes()
+        .windows(3)
+        .any(|w| w[0].is_ascii_alphabetic() && w[1] == b':' && w[2] == b'\\')
+}
+
+/// High-confidence forbidden-data markers for the write-boundary guard. The JS
+/// scanner (`scripts/scan-packet-leaks.mjs`) runs the fuller scan over generated
+/// sample packets in CI; this is the last line of defense so a packet that
+/// obviously embeds a secret or local path is never written to disk.
+fn packet_content_leaks(text: &str) -> Vec<&'static str> {
+    let mut leaks = Vec::new();
+    if text.contains("sk-ant-") || text.contains("sk-proj-") || text.contains("AIza") {
+        leaks.push("provider API key");
+    }
+    if contains_windows_path(text) || text.contains("/Users/") || text.contains("/home/") {
+        leaks.push("local filesystem path");
+    }
+    if text.contains("\\\\") {
+        leaks.push("network path");
+    }
+    leaks
+}
+
+/// Write a Study Packet as a folder of files. Validates every filename and scans
+/// every file for forbidden data BEFORE creating anything, so a bad name or a
+/// leaked secret fails without leaving a partial directory on disk.
 fn write_study_packet_dir(dir: &Path, files: &[PacketFile]) -> Result<(), String> {
     if files.is_empty() {
         return Err("study packet has no files to write".to_string());
@@ -2404,6 +2430,14 @@ fn write_study_packet_dir(dir: &Path, files: &[PacketFile]) -> Result<(), String
     for file in files {
         if !is_safe_packet_filename(&file.name) {
             return Err(format!("unsafe study packet filename: {}", file.name));
+        }
+        let leaks = packet_content_leaks(&file.content);
+        if !leaks.is_empty() {
+            return Err(format!(
+                "refusing to write study packet: {} contains forbidden data ({})",
+                file.name,
+                leaks.join(", ")
+            ));
         }
     }
     std::fs::create_dir_all(dir)
@@ -2565,6 +2599,28 @@ mod study_packet_tests {
         assert!(write_study_packet_dir(&dir, &files).is_err());
         // Nothing should have been created when validation fails up front.
         assert!(!dir.exists());
+    }
+
+    #[test]
+    fn write_study_packet_dir_refuses_to_write_leaked_secrets() {
+        let dir = temp_dir("packet-leak");
+        let files = vec![PacketFile {
+            name: "manifest.json".to_string(),
+            content: "{\"key\":\"sk-ant-api03-supersecretvalue1234567890\"}".to_string(),
+        }];
+        let err = write_study_packet_dir(&dir, &files).expect_err("leaky packet must be refused");
+        assert!(err.contains("forbidden data"), "{err}");
+        // Fail-closed: the directory is not created when a leak is detected.
+        assert!(!dir.exists());
+    }
+
+    #[test]
+    fn packet_content_leaks_flags_keys_and_paths_but_not_scripture() {
+        use super::packet_content_leaks;
+        assert!(packet_content_leaks("In the beginning God created the heaven").is_empty());
+        assert!(!packet_content_leaks("token sk-proj-ABCDEFGHIJKLMNOP1234").is_empty());
+        assert!(!packet_content_leaks("exported from C:\\Users\\me\\app").is_empty());
+        assert!(!packet_content_leaks("/home/jdoe/.config/bible-ai").is_empty());
     }
 }
 
