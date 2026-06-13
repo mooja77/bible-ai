@@ -2068,6 +2068,12 @@ fn restore_user_sqlite(
         .unwrap_or_else(|| "No previous user.sqlite existed".to_string()))
 }
 
+/// Minimum number of recognized Bible AI user tables a restore source must
+/// contain to be accepted. Set well below the full table count so older backups
+/// (which predate some tables) still pass, but high enough that a minimal or
+/// wrong DB (e.g. only `app_settings`) is rejected.
+const MIN_RECOGNIZED_USER_TABLES: usize = 4;
+
 fn validate_user_sqlite_source(source: &Path) -> Result<(), String> {
     let conn =
         rusqlite::Connection::open_with_flags(source, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
@@ -2086,21 +2092,46 @@ fn validate_user_sqlite_source(source: &Path) -> Result<(), String> {
             source.display()
         ));
     }
-    let has_settings_table: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'app_settings'",
-            [],
-            |r| r.get(0),
-        )
-        .map_err(|e| {
+    // Identity check: a genuine Bible AI user database has the `app_settings`
+    // table plus a body of the recognized user tables. Requiring several
+    // recognized tables (not just `app_settings`) rejects wrong or hand-crafted
+    // minimal DBs, while staying tolerant of older backups that predate some of
+    // the newer tables.
+    let table_names: std::collections::HashSet<String> = {
+        let mut stmt = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+            .map_err(|e| {
+                format!(
+                    "restore source schema check failed ({}): {e}",
+                    source.display()
+                )
+            })?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0)).map_err(|e| {
             format!(
                 "restore source schema check failed ({}): {e}",
                 source.display()
             )
         })?;
-    if has_settings_table == 0 {
+        rows.collect::<rusqlite::Result<_>>().map_err(|e| {
+            format!(
+                "restore source schema check failed ({}): {e}",
+                source.display()
+            )
+        })?
+    };
+    if !table_names.contains("app_settings") {
         return Err(format!(
             "restore source is not a Bible AI user database ({}): missing app_settings table",
+            source.display()
+        ));
+    }
+    let recognized_user_tables = user_db::USER_TABLES
+        .iter()
+        .filter(|table| table_names.contains(**table))
+        .count();
+    if recognized_user_tables < MIN_RECOGNIZED_USER_TABLES {
+        return Err(format!(
+            "restore source is not a Bible AI user database ({}): only {recognized_user_tables} recognized user tables present",
             source.display()
         ));
     }
@@ -2180,17 +2211,9 @@ mod sqlite_restore_tests {
     fn validate_user_sqlite_source_accepts_bible_ai_backup() {
         let path = temp_sqlite_path("valid-restore-source");
         {
-            let conn = rusqlite::Connection::open(&path).expect("create sqlite file");
-            conn.execute_batch(&format!(
-                "CREATE TABLE app_settings (
-                  key TEXT PRIMARY KEY,
-                  value TEXT NOT NULL,
-                  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-                );
-                PRAGMA user_version = {};",
-                user_db::USER_SCHEMA_VERSION
-            ))
-            .expect("create minimal user schema");
+            // A genuine backup is produced by opening a user DB, which builds the
+            // full Bible AI schema (all USER_TABLES) and sets the schema version.
+            let _conn = user_db::open(&path).expect("create real Bible AI user schema");
         }
 
         let result = validate_user_sqlite_source(&path);
@@ -2210,6 +2233,35 @@ mod sqlite_restore_tests {
         let result = validate_user_sqlite_source(&path);
         let _ = std::fs::remove_file(&path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn validate_user_sqlite_source_rejects_minimal_app_settings_only_db() {
+        // A SQLite file that contains only `app_settings` (with a plausible
+        // schema version) is not a real Bible AI user database — it must be
+        // rejected so a wrong or hand-crafted minimal DB cannot silently become
+        // the active user.sqlite on restore.
+        let path = temp_sqlite_path("minimal-app-settings-restore-source");
+        {
+            let conn = rusqlite::Connection::open(&path).expect("create sqlite file");
+            conn.execute_batch(&format!(
+                "CREATE TABLE app_settings (
+                  key TEXT PRIMARY KEY,
+                  value TEXT NOT NULL,
+                  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                PRAGMA user_version = {};",
+                user_db::USER_SCHEMA_VERSION
+            ))
+            .expect("create minimal user schema");
+        }
+
+        let result = validate_user_sqlite_source(&path);
+        let _ = std::fs::remove_file(&path);
+        assert!(
+            result.is_err(),
+            "a DB containing only app_settings must be rejected: {result:?}"
+        );
     }
 
     #[test]

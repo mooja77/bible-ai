@@ -12,7 +12,7 @@ use std::path::Path;
 
 pub const USER_SCHEMA_VERSION: i64 = 14;
 const EXPORT_VERSION: i64 = 1;
-const USER_TABLES: &[&str] = &[
+pub const USER_TABLES: &[&str] = &[
     "app_settings",
     "user_notes",
     "user_highlights",
