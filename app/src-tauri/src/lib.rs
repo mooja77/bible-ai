@@ -372,6 +372,24 @@ fn keep_only_non_empty_secret(value: &mut Option<String>) {
     }
 }
 
+/// Migrate legacy plaintext provider secrets out of a freshly-restored user DB.
+///
+/// A backup made before provider keys moved to the OS credential vault stores
+/// them as plaintext rows in `app_settings`. Restore is a raw file copy, so it
+/// would otherwise leave those secrets at rest in the active SQLite file until
+/// the next settings read happened to migrate them. Run the same migration the
+/// startup path uses (copy into the vault, then delete the rows) immediately, so
+/// the active DB never retains plaintext secrets after a restore returns success.
+fn migrate_restored_provider_secrets(conn: &rusqlite::Connection) -> Result<(), String> {
+    let settings = user_db::get_app_settings(conn).map_err(|e| e.to_string())?;
+    if has_legacy_provider_key_rows(&settings) {
+        let legacy_settings = provider_settings_for_legacy_migration(&settings);
+        credentials::save_provider_keys(&legacy_settings)?;
+        user_db::delete_secret_settings(conn).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod command_input_tests {
     use super::{
@@ -2032,6 +2050,14 @@ fn restore_user_sqlite(
             ));
         }
     };
+    if let Err(err) = migrate_restored_provider_secrets(&conn) {
+        return Err(restore_safety_backup(
+            &state,
+            &target,
+            safety_backup.as_deref(),
+            format!("could not secure provider secrets in restored user.sqlite: {err}"),
+        ));
+    }
     let mut guard = state
         .0
         .lock()
@@ -2184,6 +2210,66 @@ mod sqlite_restore_tests {
         let result = validate_user_sqlite_source(&path);
         let _ = std::fs::remove_file(&path);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn restore_migrates_legacy_provider_secret_rows_out_of_active_db() {
+        // Restoring a legacy backup (one made before provider keys moved to the OS
+        // vault) must not leave plaintext secrets sitting in the active SQLite file.
+        // Isolate the credential service so the real "Bible AI" vault is untouched.
+        let service = format!(
+            "Bible-AI-restore-secret-test-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after Unix epoch")
+                .as_nanos()
+        );
+        std::env::set_var("BIBLE_AI_CREDENTIAL_SERVICE", &service);
+
+        let path = temp_sqlite_path("restore-secret-cleanup");
+        {
+            let conn = user_db::open(&path).expect("open restored-style user db");
+            conn.execute(
+                "INSERT INTO app_settings (key, value) VALUES ('anthropic_api_key', 'sk-legacy-restore-secret')",
+                [],
+            )
+            .expect("seed legacy plaintext provider key");
+        }
+
+        let conn = user_db::open(&path).expect("reopen restored user db");
+        migrate_restored_provider_secrets(&conn).expect("migrate restored provider secrets");
+
+        // Security guarantee: the plaintext secret row is gone from the active DB.
+        let remaining: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM app_settings WHERE key = 'anthropic_api_key'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count secret rows");
+        assert_eq!(
+            remaining, 0,
+            "restore must clear legacy provider secret rows from the active DB"
+        );
+
+        // Preservation: the key was migrated into the vault, not silently destroyed.
+        let mut migrated = user_db::AppSettings::default();
+        credentials::read_provider_keys(&mut migrated).expect("read migrated vault keys");
+        assert_eq!(
+            migrated.anthropic_api_key.as_deref(),
+            Some("sk-legacy-restore-secret"),
+            "restore must migrate legacy keys into the OS vault before deleting the rows"
+        );
+
+        // Cleanup: remove the isolated vault entry and temp file.
+        let clear = user_db::AppSettings {
+            anthropic_api_key: Some(String::new()), // empty value => delete entry
+            ..Default::default()
+        };
+        let _ = credentials::save_provider_keys(&clear);
+        let _ = std::fs::remove_file(&path);
+        std::env::remove_var("BIBLE_AI_CREDENTIAL_SERVICE");
     }
 }
 
