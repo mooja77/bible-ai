@@ -231,6 +231,9 @@ export interface CouncilResponse {
   retrieved_evidence?: RetrievedEvidence[];
   synthesis_mode?: "consensus" | "single_voice" | "synthesis_failed";
   synthesis_voice?: string;
+  /** Present when a sensitive/crisis prompt was routed away from the Council
+   *  before any generation. When set, the normal result is not produced. */
+  sensitive_topic?: { category: string; message: string } | null;
 }
 
 export interface RetrievedEvidence {

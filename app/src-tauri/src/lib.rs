@@ -393,13 +393,41 @@ fn migrate_restored_provider_secrets(conn: &rusqlite::Connection) -> Result<(), 
 #[cfg(test)]
 mod command_input_tests {
     use super::{
-        bounded_limit, council_retrieval_fallback_reason, normalize_app_settings,
-        normalize_model_id, normalize_module_key_value, normalize_strongs_codes,
-        normalize_testament_filter, normalize_translation_code_value,
+        bounded_limit, classify_sensitive_topic, council_retrieval_fallback_reason,
+        normalize_app_settings, normalize_model_id, normalize_module_key_value,
+        normalize_strongs_codes, normalize_testament_filter, normalize_translation_code_value,
         provider_settings_for_legacy_migration, validate_book_chapter, validate_book_id,
         validate_hex_color, validate_verse_range,
     };
     use crate::user_db::AppSettings;
+
+    #[test]
+    fn sensitive_router_flags_direct_crisis_prompts() {
+        assert!(classify_sensitive_topic("I want to kill myself").is_some());
+        assert!(classify_sensitive_topic("I am going to end my life tonight").is_some());
+        assert!(classify_sensitive_topic("my husband hits me and I am scared").is_some());
+    }
+
+    #[test]
+    fn sensitive_router_flags_indirect_phrasings() {
+        // The dangerous failure is the false negative, so euphemistic / third-person
+        // / Scripture-wrapped phrasings must still route to safety.
+        assert!(
+            classify_sensitive_topic("everyone would be better off without me").is_some(),
+            "euphemistic self-harm must be flagged"
+        );
+        assert!(
+            classify_sensitive_topic("asking for a friend, how do you end it all").is_some(),
+            "third-person framing must be flagged"
+        );
+    }
+
+    #[test]
+    fn sensitive_router_ignores_ordinary_study_questions() {
+        assert!(classify_sensitive_topic("What does Romans 9 say about election?").is_none());
+        assert!(classify_sensitive_topic("Did Jesus die for our sins?").is_none());
+        assert!(classify_sensitive_topic("How do I forgive someone who hurt me?").is_none());
+    }
 
     #[test]
     fn council_fallback_reason_none_when_semantic_not_wanted() {
@@ -2757,6 +2785,90 @@ mod pdf_tests {
 /// embeddings table is populated and Ollama is reachable; otherwise falls
 /// back to the FTS OR-query path. Either way, evidence is handed to the
 /// sidecar along with the question.
+// TODO(pastoral-review): the exact crisis wording and the real-world resources
+// (US 988 is a placeholder; non-US localization is required) must be reviewed by
+// a person, ideally with pastoral/crisis-response input, before release. See
+// docs/sensitive-topic-safety-policy.md.
+const SENSITIVE_TOPIC_MESSAGE: &str = "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, or emergency service. If you or someone else may be in danger, please reach out to a real person who can help right now. In the US you can call or text 988 (the Suicide and Crisis Lifeline), or call 911 for an emergency. You matter, and you deserve support from someone who can be present with you.";
+
+/// Starter rule set for the pre-Council sensitive-topic router (EP-020). It is
+/// rule-based, local, and deliberately conservative: the dangerous failure is a
+/// missed crisis disclosure (a false negative), so it prefers to over-trigger.
+/// The rule coverage and the crisis wording are a starting point that needs
+/// pastoral/professional review and expansion before release (see
+/// docs/sensitive-topic-safety-policy.md). Returns a category label or None.
+fn classify_sensitive_topic(question: &str) -> Option<&'static str> {
+    let q = question.to_lowercase();
+    const RULES: &[(&str, &[&str])] = &[
+        (
+            "self-harm or suicide",
+            &[
+                "kill myself",
+                "killing myself",
+                "end my life",
+                "ending my life",
+                "want to die",
+                "wants to die",
+                "wish i was dead",
+                "wish i were dead",
+                "better off dead",
+                "better off without me",
+                "no reason to live",
+                "suicid",
+                "self-harm",
+                "self harm",
+                "cut myself",
+                "cutting myself",
+                "take my own life",
+                "end it all",
+                "overdose",
+            ],
+        ),
+        (
+            "harm to others",
+            &[
+                "kill him",
+                "kill her",
+                "kill them",
+                "want to hurt someone",
+                "going to hurt someone",
+                "make them pay",
+                "shoot them",
+            ],
+        ),
+        (
+            "abuse",
+            &[
+                "being abused",
+                "abusing me",
+                "molest",
+                "rape",
+                "sexually assault",
+                "beats me",
+                "hits me",
+                "domestic violence",
+                "my husband hits",
+                "my partner hits",
+            ],
+        ),
+        (
+            "child safety",
+            &[
+                "abusing a child",
+                "hurting a child",
+                "touched a child",
+                "child is being abused",
+            ],
+        ),
+    ];
+    for (category, markers) in RULES {
+        if markers.iter().any(|marker| q.contains(marker)) {
+            return Some(category);
+        }
+    }
+    None
+}
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)] // Tauri command: each arg is an invoke field.
 async fn ask_council(
@@ -2780,6 +2892,17 @@ async fn ask_council(
     }
     if question.len() > 2_000 {
         return Err("Council question is too long".to_string());
+    }
+    // Pre-Council sensitive-topic routing: a crisis or sensitive disclosure must
+    // never enter normal Council generation. Return a calm safety response
+    // before any retrieval, provider call, or session persistence happens.
+    if let Some(category) = classify_sensitive_topic(&question) {
+        return Ok(serde_json::json!({
+            "sensitive_topic": {
+                "category": category,
+                "message": SENSITIVE_TOPIC_MESSAGE,
+            }
+        }));
     }
     let mut settings = with_user_db(&app, &user_state, |conn| {
         user_db::get_app_settings(conn).map_err(|e| e.to_string())

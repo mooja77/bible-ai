@@ -64,6 +64,27 @@ describe("Council mock workflow", () => {
     expect(readFileSync(join(folder, "council.md"), "utf8")).toContain("Synthesis");
   });
 
+  it("routes a sensitive prompt to a safety notice instead of the Council", async () => {
+    const council = await $("button=Council");
+    await council.waitForClickable({ timeout: 10_000 });
+    await council.click();
+    await $("h1=The Council").waitForDisplayed({ timeout: 10_000 });
+
+    const textarea = await $("textarea");
+    await textarea.setValue("I want to kill myself");
+    const ask = await $("button=Ask the Council");
+    await ask.waitForClickable({ timeout: 10_000 });
+    await ask.click();
+
+    const notice = await $('[data-testid="sensitive-topic-notice"]');
+    await notice.waitForDisplayed({ timeout: 10_000 });
+    await expect(notice).toHaveText(expect.stringContaining("988"));
+
+    // The Council must NOT have generated a result for a sensitive prompt.
+    const synthesis = await $("h2=Synthesis");
+    expect(await synthesis.isExisting()).toBe(false);
+  });
+
   it("surfaces explicitly named passages in the retrieval trace", async () => {
     const question = `How should Acts 2:38 be interpreted? e2e ${Date.now()}`;
     const council = await $("button=Council");

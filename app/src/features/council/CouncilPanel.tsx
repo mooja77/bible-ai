@@ -339,7 +339,22 @@ export function CouncilPanel({
         </div>
       )}
 
-      {response && (
+      {response?.sensitive_topic && (
+        <div
+          className="soft-card p-4 border border-amber-500/40 bg-amber-500/10"
+          data-testid="sensitive-topic-notice"
+          role="alert"
+        >
+          <p className="text-sm font-semibold text-amber-100">
+            If this is urgent, please reach out for real help.
+          </p>
+          <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">
+            {response.sensitive_topic.message}
+          </p>
+        </div>
+      )}
+
+      {response && !response.sensitive_topic && (
         <>
           <div className="text-xs text-neutral-500 flex items-center gap-2 flex-wrap">
             {response.retrieval_mode && (
