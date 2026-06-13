@@ -2374,6 +2374,64 @@ fn backup_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+#[derive(serde::Deserialize)]
+struct PacketFile {
+    name: String,
+    content: String,
+}
+
+/// A safe single-leaf packet filename: no path separators, no traversal, no
+/// hidden/absolute names, only conservative characters. Guards the folder writer
+/// against a malformed or malicious file name escaping the packet directory.
+fn is_safe_packet_filename(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with('.')
+        && !name.contains('/')
+        && !name.contains('\\')
+        && !name.contains("..")
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+}
+
+/// Write a Study Packet as a folder of files. Validates every filename BEFORE
+/// creating anything, so a bad name fails without leaving a partial directory.
+fn write_study_packet_dir(dir: &Path, files: &[PacketFile]) -> Result<(), String> {
+    if files.is_empty() {
+        return Err("study packet has no files to write".to_string());
+    }
+    for file in files {
+        if !is_safe_packet_filename(&file.name) {
+            return Err(format!("unsafe study packet filename: {}", file.name));
+        }
+    }
+    std::fs::create_dir_all(dir)
+        .map_err(|e| format!("could not create packet dir {}: {e}", dir.display()))?;
+    for file in files {
+        let path = dir.join(&file.name);
+        std::fs::write(&path, &file.content)
+            .map_err(|e| format!("could not write {}: {e}", path.display()))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn export_study_packet(
+    app: AppHandle,
+    title: String,
+    files: Vec<PacketFile>,
+) -> Result<String, String> {
+    let dir = export_dir(&app)?;
+    let safe_title = sanitize_filename(&title);
+    let folder = dir.join(format!(
+        "bible-ai-packet-{safe_title}-{stamp}",
+        stamp = unix_stamp()
+    ));
+    write_study_packet_dir(&folder, &files)?;
+    Ok(folder.display().to_string())
+}
+
 fn export_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = user_data_dir(app)?.join("exports");
     std::fs::create_dir_all(&dir)
@@ -2447,6 +2505,66 @@ fn sanitize_filename(value: &str) -> String {
         "workspace".to_string()
     } else {
         trimmed
+    }
+}
+
+#[cfg(test)]
+mod study_packet_tests {
+    use super::{is_safe_packet_filename, write_study_packet_dir, PacketFile};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(label: &str) -> std::path::PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock after epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("bible-ai-{label}-{}-{stamp}", std::process::id()))
+    }
+
+    #[test]
+    fn is_safe_packet_filename_accepts_leaf_names_and_rejects_traversal() {
+        assert!(is_safe_packet_filename("README.md"));
+        assert!(is_safe_packet_filename("manifest.json"));
+        assert!(is_safe_packet_filename("passage.md"));
+        assert!(!is_safe_packet_filename(""));
+        assert!(!is_safe_packet_filename("../escape.md"));
+        assert!(!is_safe_packet_filename("sub/dir.md"));
+        assert!(!is_safe_packet_filename("sub\\dir.md"));
+        assert!(!is_safe_packet_filename(".hidden"));
+    }
+
+    #[test]
+    fn write_study_packet_dir_writes_each_file() {
+        let dir = temp_dir("packet-write");
+        let files = vec![
+            PacketFile {
+                name: "README.md".to_string(),
+                content: "# Study Packet".to_string(),
+            },
+            PacketFile {
+                name: "manifest.json".to_string(),
+                content: "{\"schema\":\"bible-ai/study-packet\"}".to_string(),
+            },
+        ];
+        write_study_packet_dir(&dir, &files).expect("write packet");
+        assert_eq!(
+            std::fs::read_to_string(dir.join("README.md")).expect("read readme"),
+            "# Study Packet"
+        );
+        assert!(dir.join("manifest.json").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_study_packet_dir_rejects_unsafe_filename_and_writes_nothing() {
+        let dir = temp_dir("packet-unsafe");
+        let files = vec![PacketFile {
+            name: "../escape.md".to_string(),
+            content: "x".to_string(),
+        }];
+        assert!(write_study_packet_dir(&dir, &files).is_err());
+        // Nothing should have been created when validation fails up front.
+        assert!(!dir.exists());
     }
 }
 
@@ -4250,6 +4368,7 @@ pub fn run() {
             import_user_data_json,
             write_user_data_backup,
             write_workspace_markdown,
+            export_study_packet,
             write_workspace_markdown_to_path,
             write_workspace_html,
             write_workspace_pdf,

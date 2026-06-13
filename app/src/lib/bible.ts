@@ -458,6 +458,17 @@ export const reorderStudyItems = (workspaceId: number, itemIds: number[]) =>
 export const writeWorkspaceMarkdown = (title: string, markdown: string) =>
   invoke<string>("write_workspace_markdown", { title, markdown });
 
+/** A single file inside a Study Packet folder export (name is a safe leaf). */
+export interface PacketFile {
+  name: string;
+  content: string;
+}
+
+/** Write a Study Packet as a folder of files under the export directory.
+ *  Returns the created folder path. */
+export const exportStudyPacket = (title: string, files: PacketFile[]) =>
+  invoke<string>("export_study_packet", { title, files });
+
 export const writeWorkspaceMarkdownToPath = (path: string, markdown: string) =>
   invoke<string>("write_workspace_markdown_to_path", { path, markdown });
 
