@@ -216,6 +216,7 @@ export function SettingsPanel({
       setBackupStatus(
         `Imported ${report.imported}, replaced ${report.replaced}, skipped ${report.skipped}`,
       );
+      await refreshModules();
       onUserDataChanged?.();
     } catch (e) {
       setBackupStatus(`Import failed: ${String(e)}`);
@@ -244,6 +245,7 @@ export function SettingsPanel({
     try {
       const safetyPath = await restoreUserSqlite(sqliteRestorePath);
       setBackupStatus(`Restored SQLite. Safety backup: ${safetyPath}`);
+      await refreshModules();
       onUserDataChanged?.();
     } catch (e) {
       setBackupStatus(`Restore failed: ${String(e)}`);

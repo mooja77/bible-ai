@@ -270,6 +270,58 @@ describe("Backup and restore", () => {
     await expect(reviewCards).toHaveText("State the study question", { containing: true, ignoreCase: true });
     await expect(reviewCards).toHaveText(expect.stringContaining(focusQuestion));
   });
+
+  it("refreshes Settings Data Sources after import without leaving Settings", async () => {
+    const settings = await $("button=Settings");
+    await settings.waitForClickable({ timeout: 10_000 });
+    await settings.click();
+
+    const idBase = Math.floor(Date.now() % 1_000_000_000);
+    const sourceTitle = `In-place Refresh Source ${idBase}`;
+    const importedAt = new Date(Date.now() + 240_000).toISOString();
+    const backup = {
+      app: "Bible AI",
+      export_version: 1,
+      user_schema_version: 12,
+      exported_at: importedAt,
+      tables: {
+        resource_sources: [
+          {
+            id: idBase,
+            slug: `e2e-inplace-source-${idBase}`,
+            title: sourceTitle,
+            source_url: "E2E fixture",
+            license: "Public Domain",
+            attribution: "E2E in-place refresh fixture.",
+            version: "e2e",
+            imported_at: importedAt,
+            metadata_json: JSON.stringify({
+              source_status: "user-imported",
+              source_review: "E2E in-place review note.",
+            }),
+          },
+        ],
+      },
+    };
+
+    const textarea = await $('textarea[aria-label="Backup JSON"]');
+    await textarea.waitForDisplayed({ timeout: 10_000 });
+    await textarea.setValue(JSON.stringify(backup));
+
+    const importButton = await $("button=Import pasted JSON");
+    await importButton.waitForClickable({ timeout: 10_000 });
+    await importButton.click();
+
+    await waitForBackupStatus("Imported 1", "in-place resource import did not complete");
+
+    // Without navigating away from Settings, Data Sources must reflect the import.
+    const dataSources = await $('[data-testid="data-sources-screen"]');
+    await dataSources.waitForDisplayed({ timeout: 10_000 });
+    await browser.waitUntil(
+      async () => (await dataSources.getText()).includes(sourceTitle),
+      { timeout: 10_000, timeoutMsg: "Data Sources did not refresh in place after import" },
+    );
+  });
 });
 
 async function waitForBackupStatus(expected: string, timeoutMsg: string) {
