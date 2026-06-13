@@ -210,6 +210,17 @@ export function CouncilPanel({
     }
   };
 
+  const onCancelCouncil = () => {
+    // Client-side cancel: bump the request id so the in-flight run's late result
+    // is suppressed (onAsk ignores results whose id is stale), and reset the UI
+    // so the user can ask again. The backend run still completes and is saved;
+    // true provider-level abort is separate transport work.
+    councilViewRequestId.current += 1;
+    setLoading(false);
+    setError(null);
+    setPacketStatus(null);
+  };
+
   const onExportPacket = async () => {
     if (!response) return;
     setPacketStatus(null);
@@ -296,7 +307,17 @@ export function CouncilPanel({
           />
         </label>
         {loading ? (
-          <CouncilRunningPanel settings={settings} elapsed={elapsed} />
+          <div className="space-y-2">
+            <CouncilRunningPanel settings={settings} elapsed={elapsed} />
+            <button
+              type="button"
+              onClick={onCancelCouncil}
+              data-testid="council-cancel"
+              className="btn-secondary px-3 py-1.5 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
         ) : (
           <CouncilVoicePreview settings={settings} onOpenSettings={onOpenSettings} />
         )}
