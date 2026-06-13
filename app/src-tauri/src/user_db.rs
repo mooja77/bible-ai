@@ -12,6 +12,13 @@ use std::path::Path;
 
 pub const USER_SCHEMA_VERSION: i64 = 14;
 const EXPORT_VERSION: i64 = 1;
+// Import budgets, enforced before any transaction starts so an oversized or
+// malformed backup cannot lock the DB and grind through a huge transaction
+// before failing. Generous for real personal study data; they only bound the
+// pathological/abusive case.
+const MAX_IMPORT_ROWS_PER_TABLE: usize = 50_000;
+const MAX_IMPORT_ROWS_TOTAL: usize = 200_000;
+const MAX_IMPORT_TEXT_FIELD_CHARS: usize = 2_000_000;
 pub const USER_TABLES: &[&str] = &[
     "app_settings",
     "user_notes",
@@ -4912,6 +4919,41 @@ mod tests {
     }
 
     #[test]
+    fn import_rejects_oversized_text_field_before_transaction() {
+        let conn = test_conn();
+        let giant = "x".repeat(MAX_IMPORT_TEXT_FIELD_CHARS + 1);
+        let payload = serde_json::json!({
+            "app": "Bible AI",
+            "export_version": EXPORT_VERSION,
+            "user_schema_version": USER_SCHEMA_VERSION,
+            "tables": { "user_notes": [ { "verse_id": 1, "body": giant } ] }
+        });
+        let err = import_user_data(&conn, &payload, "skip_existing")
+            .expect_err("oversized text field should be rejected before import");
+        assert!(err.contains("limit"), "expected a budget error, got: {err}");
+    }
+
+    #[test]
+    fn import_rejects_too_many_rows_in_a_table_before_transaction() {
+        let conn = test_conn();
+        let rows: Vec<serde_json::Value> = (0..=MAX_IMPORT_ROWS_PER_TABLE)
+            .map(|i| serde_json::json!({ "id": i as i64, "verse_id": 1, "label": "x" }))
+            .collect();
+        let payload = serde_json::json!({
+            "app": "Bible AI",
+            "export_version": EXPORT_VERSION,
+            "user_schema_version": USER_SCHEMA_VERSION,
+            "tables": { "bookmarks": rows }
+        });
+        let err = import_user_data(&conn, &payload, "skip_existing")
+            .expect_err("over-budget row count should be rejected before import");
+        assert!(
+            err.contains("limit") && err.contains("bookmarks"),
+            "expected a per-table budget error, got: {err}"
+        );
+    }
+
+    #[test]
     fn user_data_import_rejects_invalid_guided_study_rows_transactionally() {
         let conn = test_conn();
         let payload = serde_json::json!({
@@ -7500,6 +7542,7 @@ pub fn import_user_data(
         .get("tables")
         .and_then(serde_json::Value::as_object)
         .ok_or_else(|| "backup payload requires a tables object".to_string())?;
+    validate_import_budgets(tables)?;
 
     conn.execute_batch("BEGIN IMMEDIATE")
         .map_err(|e| e.to_string())?;
@@ -7514,6 +7557,46 @@ pub fn import_user_data(
             Err(err)
         }
     }
+}
+
+/// Enforce import size budgets on the parsed payload before any transaction
+/// starts. Rejects over-budget per-table row counts, total row counts, and
+/// oversized text fields with a clear message.
+fn validate_import_budgets(
+    tables: &serde_json::Map<String, serde_json::Value>,
+) -> Result<(), String> {
+    let mut total_rows = 0usize;
+    for (table, value) in tables {
+        let Some(rows) = value.as_array() else {
+            continue; // non-array shapes are rejected later by row validation
+        };
+        if rows.len() > MAX_IMPORT_ROWS_PER_TABLE {
+            return Err(format!(
+                "import rejected: table '{table}' has {} rows, over the limit of {MAX_IMPORT_ROWS_PER_TABLE}",
+                rows.len()
+            ));
+        }
+        total_rows += rows.len();
+        for row in rows {
+            let Some(obj) = row.as_object() else { continue };
+            for (column, field) in obj {
+                if let Some(text) = field.as_str() {
+                    if text.len() > MAX_IMPORT_TEXT_FIELD_CHARS {
+                        return Err(format!(
+                            "import rejected: field '{table}.{column}' is {} characters, over the limit of {MAX_IMPORT_TEXT_FIELD_CHARS}",
+                            text.len()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    if total_rows > MAX_IMPORT_ROWS_TOTAL {
+        return Err(format!(
+            "import rejected: {total_rows} total rows, over the limit of {MAX_IMPORT_ROWS_TOTAL}"
+        ));
+    }
+    Ok(())
 }
 
 fn validate_import_payload(payload: &serde_json::Value) -> Result<(), String> {
