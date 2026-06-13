@@ -1219,11 +1219,21 @@ pub fn list_item_tags(conn: &Connection, item_type: &str) -> SqlResult<Vec<ItemT
 }
 
 pub fn list_tags_with_counts(conn: &Connection) -> SqlResult<Vec<TagCount>> {
+    // Count only links whose underlying item still exists, so the count always
+    // agrees with list_tagged_items (which JOINs the item tables). A raw
+    // COUNT over item_tags would include orphaned links and disagree with the
+    // visible items.
     let mut stmt = conn.prepare(
-        "SELECT t.id, t.name, COUNT(it.tag_id)
+        "SELECT t.id, t.name, (
+             SELECT COUNT(*) FROM item_tags it
+             WHERE it.tag_id = t.id AND (
+                 (it.item_type = 'bookmark'
+                  AND EXISTS (SELECT 1 FROM bookmarks b WHERE b.id = it.item_id))
+              OR (it.item_type = 'note'
+                  AND EXISTS (SELECT 1 FROM user_notes n WHERE n.verse_id = it.item_id))
+             )
+         )
          FROM tags t
-         LEFT JOIN item_tags it ON it.tag_id = t.id AND it.item_type IN ('bookmark', 'note')
-         GROUP BY t.id, t.name
          ORDER BY t.name COLLATE NOCASE",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -6441,6 +6451,46 @@ mod tests {
     }
 
     #[test]
+    fn delete_note_clears_its_item_tags() {
+        let conn = test_conn();
+        let verse_id = 1_001_003_i64;
+        upsert_note(&conn, verse_id, "note body").expect("note");
+        let t = create_tag(&conn, "delta").expect("tag");
+        tag_item(&conn, t.id, "note", verse_id).expect("tag_item");
+        delete_note(&conn, verse_id).expect("delete_note");
+        // Deleting the note must remove its tag links, like delete_bookmark does.
+        assert!(list_item_tags(&conn, "note").expect("list").is_empty());
+        // The tag itself remains in the vocabulary.
+        assert_eq!(list_tags(&conn).expect("tags").len(), 1);
+    }
+
+    #[test]
+    fn list_tags_with_counts_ignores_orphaned_note_links() {
+        let conn = test_conn();
+        let verse_id = 1_001_004_i64;
+        upsert_note(&conn, verse_id, "note body").expect("note");
+        let t = create_tag(&conn, "omega").expect("tag");
+        tag_item(&conn, t.id, "note", verse_id).expect("tag_item");
+        // Orphan the tag link by removing the note row directly (bypassing
+        // delete_note), simulating any path that leaves an item_tags row whose
+        // underlying item no longer exists.
+        conn.execute(
+            "DELETE FROM user_notes WHERE verse_id = ?",
+            params![verse_id],
+        )
+        .expect("orphan the note");
+        let counts = list_tags_with_counts(&conn).expect("counts");
+        let omega = counts.iter().find(|c| c.name == "omega").expect("omega");
+        // The count must agree with the number of actually-visible tagged items.
+        let visible = list_tagged_items(&conn, t.id).expect("items").len();
+        assert_eq!(visible, 0, "orphaned link should not be a visible item");
+        assert_eq!(
+            omega.count as usize, visible,
+            "tag count must match visible tagged items, not orphaned links"
+        );
+    }
+
+    #[test]
     fn list_tagged_items_unions_bookmarks_and_notes() {
         let conn = test_conn();
         let bm = add_bookmark(&conn, 1_001_001, None, Some("my bm")).expect("bm");
@@ -9063,6 +9113,12 @@ pub fn upsert_note(conn: &Connection, verse_id: i64, body: &str) -> SqlResult<()
 }
 
 pub fn delete_note(conn: &Connection, verse_id: i64) -> SqlResult<usize> {
+    // Clear the note's tag links first so they cannot outlive the note and
+    // inflate tag counts (mirrors delete_bookmark). Note tags key on verse_id.
+    conn.execute(
+        "DELETE FROM item_tags WHERE item_type = 'note' AND item_id = ?",
+        params![verse_id],
+    )?;
     conn.execute(
         "DELETE FROM user_notes WHERE verse_id = ?",
         params![verse_id],
