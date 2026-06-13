@@ -1,0 +1,18 @@
+{
+  "id": "QC-EXAMPLE-001",
+  "severity": "S1",
+  "source": "internal-eval",
+  "user_workflow": "council",
+  "prompt": "What does Romans 9 teach about election?",
+  "context": "Romans 9",
+  "provider": "anthropic",
+  "retrieval_mode": "hybrid",
+  "expected": "Every verse a position cites must appear in the session's retrieved evidence.",
+  "actual": "Template/example case: documents the schema and the resolution rule; not a real defect.",
+  "failure_class": "fabricated_citation",
+  "status": "accepted_risk",
+  "linked_fix": null,
+  "linked_fixture": null,
+  "accepted_risk": "Shipped as a schema example so the runner has a case to validate; revisit when the first real quality case is filed.",
+  "repeated": false
+}
