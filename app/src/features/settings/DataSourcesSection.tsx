@@ -68,6 +68,14 @@ export function DataSourcesSection({
                     <div className="flex items-baseline justify-between gap-3">
                       <p className="text-sm text-neutral-200">{source.title}</p>
                       <div className="flex items-center gap-2">
+                        {metadata.reviewStatus === "unreviewed" && (
+                          <span
+                            className="text-[0.6875rem] px-2 py-0.5 rounded bg-amber-500/15 text-amber-300"
+                            data-testid="source-unreviewed-badge"
+                          >
+                            unreviewed
+                          </span>
+                        )}
                         <SourceStatusBadge status={resourceSourceStatus(source)} />
                         <span className="text-xs text-neutral-500">{source.license}</span>
                       </div>

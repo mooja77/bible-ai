@@ -65,6 +65,8 @@ export function resourceSourceMetadata(source: ResourceSource) {
     readString(nested.share_alike_requirements) ??
     readString(nested.shareAlikeRequirements);
   return {
+    reviewStatus:
+      readString(metadata.review_status) ?? readString(nested.review_status),
     review:
       readString(metadata.source_review) ??
       readString(metadata.review) ??
