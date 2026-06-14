@@ -2632,9 +2632,12 @@ mod study_packet_tests {
     #[test]
     fn write_study_packet_dir_refuses_to_write_leaked_secrets() {
         let dir = temp_dir("packet-leak");
+        // Fake key built by concat! so this source has no contiguous secret-
+        // format literal for external secret scanners to flag.
+        let fake_key = concat!("sk-ant-", "api03-EXAMPLEonlyNOTAREALKEY00000");
         let files = vec![PacketFile {
             name: "manifest.json".to_string(),
-            content: "{\"key\":\"sk-ant-api03-supersecretvalue1234567890\"}".to_string(),
+            content: format!("{{\"key\":\"{fake_key}\"}}"),
         }];
         let err = write_study_packet_dir(&dir, &files).expect_err("leaky packet must be refused");
         assert!(err.contains("forbidden data"), "{err}");
@@ -2646,7 +2649,9 @@ mod study_packet_tests {
     fn packet_content_leaks_flags_keys_and_paths_but_not_scripture() {
         use super::packet_content_leaks;
         assert!(packet_content_leaks("In the beginning God created the heaven").is_empty());
-        assert!(!packet_content_leaks("token sk-proj-ABCDEFGHIJKLMNOP1234").is_empty());
+        assert!(
+            !packet_content_leaks(concat!("token sk-", "proj-ABCDEFGHIJKLMNOP1234")).is_empty()
+        );
         assert!(!packet_content_leaks("exported from C:\\Users\\me\\app").is_empty());
         assert!(!packet_content_leaks("/home/jdoe/.config/bible-ai").is_empty());
     }

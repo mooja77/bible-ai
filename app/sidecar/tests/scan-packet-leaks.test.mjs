@@ -6,6 +6,17 @@ function types(text) {
   return scanForLeaks(text).map((f) => f.type);
 }
 
+// Fake, non-functional sample values for exercising the scanner. They are built
+// by concatenation so this file never contains a contiguous secret-format
+// literal that an external secret scanner (e.g. GitGuardian) would flag. None of
+// these are, or ever were, real credentials.
+const SAMPLE = {
+  anthropic: "sk-ant-" + "api03-EXAMPLEonlyNOTAREALKEY00000",
+  openai: "sk-proj-" + "EXAMPLEonlyNOTAREALKEY0000",
+  google: "AIza" + "SyEXAMPLEonlyNOTAREALKEY0000000000",
+  gatewayToken: "tok_" + "EXAMPLEonlyNOTAREAL1234567890",
+};
+
 test("clean Scripture and prose produce no findings", () => {
   assert.deepEqual(
     scanForLeaks("In the beginning God created the heaven and the earth. (Genesis 1:1, KJV)"),
@@ -14,14 +25,14 @@ test("clean Scripture and prose produce no findings", () => {
 });
 
 test("provider API keys are detected", () => {
-  assert.ok(types("token: sk-ant-api03-abcdEFGH1234ijklMNOP5678qrst").includes("provider_api_key"));
-  assert.ok(types("openai sk-proj-ABCDEFGHIJKLMNOP1234567890").includes("provider_api_key"));
-  assert.ok(types("google key AIzaSyA1B2C3D4E5F6G7H8I9J0kLmNoPqRsTuVw").includes("provider_api_key"));
+  assert.ok(types(`token: ${SAMPLE.anthropic}`).includes("provider_api_key"));
+  assert.ok(types(`openai ${SAMPLE.openai}`).includes("provider_api_key"));
+  assert.ok(types(`google key ${SAMPLE.google}`).includes("provider_api_key"));
 });
 
 test("secret-looking assignments are detected", () => {
-  assert.ok(types("ANTHROPIC_API_KEY=sk-secret-value-1234567890").includes("secret_assignment"));
-  assert.ok(types('managed_gateway_token: "tok_abcdef1234567890"').includes("secret_assignment"));
+  assert.ok(types(`ANTHROPIC_API_KEY=${SAMPLE.anthropic}`).includes("secret_assignment"));
+  assert.ok(types(`managed_gateway_token: "${SAMPLE.gatewayToken}"`).includes("secret_assignment"));
 });
 
 test("local filesystem paths are detected", () => {
@@ -35,10 +46,10 @@ test("UNC / network paths are detected (a gap the old sanitizer missed)", () => 
 });
 
 test("findings never echo the full secret back", () => {
-  const findings = scanForLeaks("ANTHROPIC_API_KEY=sk-ant-api03-supersecretvalue1234567890");
+  const findings = scanForLeaks(`ANTHROPIC_API_KEY=${SAMPLE.anthropic}`);
   assert.ok(findings.length >= 1);
   for (const f of findings) {
-    assert.ok(!String(f.sample).includes("supersecretvalue1234567890"), JSON.stringify(f));
+    assert.ok(!String(f.sample).includes("NOTAREALKEY"), JSON.stringify(f));
   }
 });
 
