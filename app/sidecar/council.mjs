@@ -401,6 +401,49 @@ function mockCouncilResult({ question, evidence, model }) {
 }
 
 /**
+ * Emit a progress-event sequence that exactly mirrors a finished council
+ * result, so the stream can never diverge from what is returned. Pure: all
+ * effects go through `emit`. Used by mock mode and unit tests; the live path
+ * (Task 2) emits the same kinds at their real moments.
+ */
+export function emitMockSequence(result, emit) {
+  for (const v of result.voices ?? []) {
+    emit("voice_started", { provider: v.provider, display_name: v.display_name });
+    if (v.status === "ok") {
+      emit("voice_done", {
+        provider: v.provider,
+        ms: v.duration_ms ?? 0,
+        position_count: v.result?.positions?.length ?? 0,
+      });
+    } else {
+      emit("voice_failed", {
+        provider: v.provider,
+        category: v.error_category ?? null,
+        hint: v.error_hint ?? null,
+      });
+    }
+  }
+  const okCount = (result.voices ?? []).filter((v) => v.status === "ok").length;
+  if (okCount > 1) {
+    emit("synthesis_started", { voice_count: okCount });
+    if (result.synthesis_mode === "synthesis_failed") {
+      emit("synthesis_fallback", { reason: "synthesis failed; using the lead voice" });
+    }
+  }
+  const positions = [...(result.synthesis?.positions ?? [])].sort(
+    (a, b) => b.weight - a.weight,
+  );
+  const leader = positions[0];
+  if (leader) {
+    emit("judged", {
+      leader_label: leader.label,
+      leader_weight: leader.weight,
+      confidence: result.synthesis?.confidence ?? null,
+    });
+  }
+}
+
+/**
  * How the headline synthesis was produced:
  *  - single_voice: only one voice succeeded (no synthesis performed)
  *  - synthesis_failed: ≥2 voices succeeded but the synthesis call threw; we
@@ -413,7 +456,10 @@ export function resolveSynthesisMode({ okCount, synthesisFailed }) {
   return "consensus";
 }
 
-export async function runCouncil({ question, evidence, model, settings }) {
+export async function runCouncil({ question, evidence, model, settings, onEvent }) {
+  let seq = 0;
+  const emit = (kind, payload = {}) =>
+    onEvent?.({ seq: ++seq, ts: Date.now(), kind, ...payload });
   if (!question || typeof question !== "string") {
     throw new Error("council: question is required");
   }
@@ -438,7 +484,9 @@ export async function runCouncil({ question, evidence, model, settings }) {
     if (question.includes("__FORCE_COUNCIL_SLOW__")) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
-    return mockCouncilResult({ question, evidence, model });
+    const mock = mockCouncilResult({ question, evidence, model });
+    emitMockSequence(mock, emit);
+    return mock;
   }
 
   const env = envWithSettings(settings);

@@ -155,3 +155,28 @@ test("withTimeout: rejects with a timeout error when the promise is too slow", a
     /timed out after/,
   );
 });
+
+test("mock mode emits an ordered progress event sequence", async () => {
+  const events = [];
+  await withMockMode(() =>
+    runCouncil({
+      question: "What does grace mean?",
+      evidence: EVIDENCE,
+      model: "sonnet",
+      onEvent: (e) => events.push(e),
+    }),
+  );
+
+  const kinds = events.map((e) => e.kind);
+  assert.ok(kinds.includes("voice_started"), "expected a voice_started event");
+  assert.ok(
+    kinds.includes("voice_done") || kinds.includes("voice_failed"),
+    "expected a voice outcome event",
+  );
+  assert.equal(kinds[kinds.length - 1], "judged", "judged must be last");
+
+  for (let i = 1; i < events.length; i++) {
+    assert.ok(events[i].seq > events[i - 1].seq, "seq must strictly increase");
+  }
+  assert.ok(events.every((e) => typeof e.ts === "number"));
+});
