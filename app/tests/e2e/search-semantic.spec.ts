@@ -22,6 +22,9 @@ describe("Semantic search strategy", () => {
     const reader = await $("button=Reader");
     await reader.waitForClickable({ timeout: 30_000 });
 
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
+
     const keyword = await $('[data-testid="search-strategy-keyword"]');
     const semantic = await $('[data-testid="search-strategy-semantic"]');
     const hybrid = await $('[data-testid="search-strategy-hybrid"]');
@@ -33,6 +36,10 @@ describe("Semantic search strategy", () => {
 
     // Keyword is the default — aria-pressed should be "true".
     await expect(keyword).toHaveAttribute("aria-pressed", "true");
+
+    // Leave the panel closed so the next test can click the sidebar nav.
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
   it("selects Meaning strategy and shows degraded fallback notice with results", async () => {
@@ -42,6 +49,10 @@ describe("Semantic search strategy", () => {
     const reader = await $("button=Reader");
     await reader.waitForClickable({ timeout: 10_000 });
     await reader.click();
+
+    // Search controls now live in the SearchPanel overlay — open it via "/".
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
 
     // Select the WEB translation in the search-scope filter. WEB has no
     // semantic index in the corpus database, so any Meaning-strategy search
@@ -116,5 +127,7 @@ describe("Semantic search strategy", () => {
     await translationFilter.selectByVisibleText("Active translation");
     await $('[aria-label="Clear search"]').click();
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 });

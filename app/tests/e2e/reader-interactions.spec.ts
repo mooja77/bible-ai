@@ -407,6 +407,9 @@ describe("Reader interactions", () => {
   });
 
   it("returns FTS search results and navigates on click", async () => {
+    // Search now lives in the SearchPanel overlay — open it via "/".
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
     const searchInput = await $('input[type="search"]');
     await searchInput.waitForDisplayed({ timeout: 5_000 });
     await searchInput.click();

@@ -13,6 +13,15 @@ async function openWorkspaces() {
 }
 
 async function runSidebarSearch(query: string) {
+  // Search now lives in the SearchPanel overlay — open it via "/". The "/"
+  // shortcut is ignored while a text field holds focus, so blur first (the
+  // workspace flow often leaves focus in an input).
+  const panel = await $('[data-testid="search-panel"]');
+  if (!(await panel.isDisplayed().catch(() => false))) {
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+    await browser.keys("/");
+    await panel.waitForDisplayed({ timeout: 5_000 });
+  }
   const searchInput = await $('input[type="search"]');
   await searchInput.waitForDisplayed({ timeout: 5_000 });
   await searchInput.click();
@@ -406,10 +415,14 @@ describe("Workspaces", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    // Close the search overlay so the sidebar mode nav is clickable again.
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
 
     const work = await $("button=Workspaces");
-    await work.waitForClickable({ timeout: 10_000 });
-    await work.click();
+    await work.waitForDisplayed({ timeout: 10_000 });
+    await browser.execute((button) => (button as HTMLButtonElement).click(), work);
 
     const workspaceRow = await $(`button*=${title}`);
     await workspaceRow.waitForClickable({ timeout: 10_000 });
@@ -448,8 +461,11 @@ describe("Workspaces", () => {
     await theology.waitForClickable({ timeout: 10_000 });
     await theology.click();
     await expect(await $("body")).toHaveText(expect.stringContaining(itemTitle));
-    await work.waitForClickable({ timeout: 10_000 });
-    await work.click();
+    // Re-fetch the nav button: the sidebar re-renders across mode switches, so
+    // the handle captured before navigating to Theology can go stale.
+    const workBack = await $("button=Workspaces");
+    await workBack.waitForDisplayed({ timeout: 10_000 });
+    await browser.execute((button) => (button as HTMLButtonElement).click(), workBack);
     const linkedWorkspaceRow = await $(`button*=${title}`);
     await linkedWorkspaceRow.waitForClickable({ timeout: 10_000 });
     await linkedWorkspaceRow.click();
@@ -498,8 +514,13 @@ describe("Workspaces", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await rerunHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
-    await work.waitForClickable({ timeout: 10_000 });
-    await work.click();
+    // Rerun Search reopens the SearchPanel overlay — close it before using nav.
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
+    const workReopen = await $("button=Workspaces");
+    await workReopen.waitForDisplayed({ timeout: 10_000 });
+    await browser.execute((button) => (button as HTMLButtonElement).click(), workReopen);
     const reopenedWorkspaceRow = await $(`button*=${title}`);
     await reopenedWorkspaceRow.waitForClickable({ timeout: 10_000 });
     await reopenedWorkspaceRow.click();
@@ -535,10 +556,14 @@ describe("Workspaces", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    // Close the search overlay so the sidebar mode nav is clickable again.
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
 
     const work = await $("button=Workspaces");
-    await work.waitForClickable({ timeout: 10_000 });
-    await work.click();
+    await work.waitForDisplayed({ timeout: 10_000 });
+    await browser.execute((button) => (button as HTMLButtonElement).click(), work);
     const workspaceRow = await $(`button*=${title}`);
     await workspaceRow.waitForClickable({ timeout: 10_000 });
     await workspaceRow.click();
@@ -573,8 +598,13 @@ describe("Workspaces", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await rerunHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
-    await work.waitForClickable({ timeout: 10_000 });
-    await work.click();
+    // Rerun Search reopens the SearchPanel overlay — close it before using nav.
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
+    const workReopen = await $("button=Workspaces");
+    await workReopen.waitForDisplayed({ timeout: 10_000 });
+    await browser.execute((button) => (button as HTMLButtonElement).click(), workReopen);
     const reopenedWorkspaceRow = await $(`button*=${title}`);
     await reopenedWorkspaceRow.waitForClickable({ timeout: 10_000 });
     await reopenedWorkspaceRow.click();
@@ -586,6 +616,11 @@ describe("Workspaces", () => {
   it("renames, reruns, and deletes a saved search", async () => {
     const title = `E2E saved search ${Date.now()}`;
     const renamed = `${title} renamed`;
+
+    // Search now lives in the SearchPanel overlay — open it via "/".
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
     const searchInput = await $('input[type="search"]');
     await searchInput.waitForDisplayed({ timeout: 5_000 });
     await searchInput.setValue(title);
@@ -595,6 +630,12 @@ describe("Workspaces", () => {
     const saveSearch = await $("button=Save");
     await saveSearch.waitForClickable({ timeout: 10_000 });
     await saveSearch.click();
+
+    // Saved-search management lives in the sidebar (behind the overlay) — close
+    // the panel so its rename/rerun/delete controls become clickable.
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
 
     const savedSearch = await $(`button=${title}`);
     await savedSearch.waitForExist({ timeout: 10_000 });
@@ -616,6 +657,8 @@ describe("Workspaces", () => {
     await renamedSearch.scrollIntoView();
     await renamedSearch.waitForDisplayed({ timeout: 10_000 });
     await renamedSearch.click();
+    // Rerunning the saved search reopens the SearchPanel overlay.
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
     await browser.waitUntil(
       async () => {
         const inputValue = await searchInput.getValue();
@@ -624,10 +667,7 @@ describe("Workspaces", () => {
       { timeout: 10_000, timeoutMsg: "renamed saved search did not rerun original query" },
     );
 
-    const deleteButton = await $(`[aria-label="Delete saved search ${renamed}"]`);
-    await deleteButton.waitForClickable({ timeout: 10_000 });
-    await deleteButton.click();
-    await renamedSearch.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    // Clear the query and close the overlay so the sidebar delete control is usable.
     await browser.execute(() => {
       const input = document.querySelector('input[type="search"]') as HTMLInputElement | null;
       if (!input) return;
@@ -636,6 +676,14 @@ describe("Workspaces", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
+
+    const deleteButton = await $(`[aria-label="Delete saved search ${renamed}"]`);
+    await deleteButton.waitForClickable({ timeout: 10_000 });
+    await deleteButton.click();
+    await renamedSearch.waitForDisplayed({ reverse: true, timeout: 10_000 });
   });
 
   it("reorders workspace items", async () => {

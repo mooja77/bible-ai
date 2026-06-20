@@ -53,11 +53,8 @@ import { ChapterReader, RangeActionBar } from "./features/reader/ChapterReader";
 import { InterleavedReader } from "./features/reader/InterleavedReader";
 import { TranslationPicker } from "./features/reader/TranslationPicker";
 import type { ReaderLayout, ReaderDensity } from "./features/reader/types";
-import { SearchInput } from "./features/search/SearchInput";
-import { SearchStrategyControl } from "./features/search/SearchStrategyControl";
-import { SearchScopeControl, type SearchScope } from "./features/search/SearchScopeControl";
-import { NoteSearchResults } from "./features/search/NoteSearchResults";
-import { SearchResults } from "./features/search/SearchResults";
+import { type SearchScope } from "./features/search/SearchScopeControl";
+import { SearchPanel } from "./features/search/SearchPanel";
 import { CouncilPanel } from "./features/council/CouncilPanel";
 import { StrongsPopup } from "./features/reader/StrongsPopup";
 import { SettingsPanel } from "./features/settings/SettingsPanel";
@@ -84,7 +81,7 @@ import type { Mode } from "./lib/mode";
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
 
-type SearchTestamentFilter = "all" | "OT" | "NT" | "DC";
+export type SearchTestamentFilter = "all" | "OT" | "NT" | "DC";
 
 function App() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -155,6 +152,7 @@ function App() {
   const [workspaceFocusId, setWorkspaceFocusId] = useState<number | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
 
   // Per-chapter user data (highlights + which verses have notes).
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -700,11 +698,39 @@ function App() {
     setMode("reader");
   };
 
-  const onSelectSearchHit = (hit: SearchHit) =>
+  const onSelectSearchHit = (hit: SearchHit) => {
+    setSearchPanelOpen(false);
     jumpToVerse(hit.verse_id, hit.translation_code);
+  };
 
-  const onSelectNote = (hit: NoteHit) =>
+  const onSelectNote = (hit: NoteHit) => {
+    setSearchPanelOpen(false);
     jumpToVerse(hit.verse_id, activeTranslations[0] ?? "KJV");
+  };
+
+  const handleSaveSearch = async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    const translation =
+      searchFilterTranslation === "active"
+        ? (activeTranslations[0] ?? null)
+        : searchFilterTranslation === "all"
+          ? null
+          : searchFilterTranslation;
+    await createSavedSearch(
+      q,
+      q,
+      translation,
+      searchFilterTestament === "all" ? null : searchFilterTestament,
+      searchFilterBookId || null,
+    );
+    await refreshNavigationLists();
+  };
+
+  const handleChangeSearchStrategy = (next: SearchStrategy) => {
+    setSearchStrategy(next);
+    saveSettingsPatch({ search_strategy: next });
+  };
 
   const askCouncilAboutVerse = (_verseId: number, citation: string) => {
     setPendingCouncilQuestion(
@@ -744,11 +770,40 @@ function App() {
         event.preventDefault();
         setCommandPaletteOpen(true);
         setCommandPaletteQuery("");
+        return;
+      }
+      if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const target = (event.target as HTMLElement | null) ?? document.activeElement;
+        const tag = target?.tagName;
+        const isEditable =
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          (target instanceof HTMLElement && target.isContentEditable);
+        if (isEditable) return;
+        event.preventDefault();
+        setSearchPanelOpen(true);
+        return;
+      }
+      if (event.key === "Escape") {
+        // Close the search overlay regardless of where focus currently sits
+        // (e.g. focus falls back to <body> after the clear button vanishes).
+        setSearchPanelOpen((open) => {
+          if (open) return false;
+          return open;
+        });
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  // Any path that sets a non-empty query (saved searches, command palette,
+  // workspace "run search") should reveal the search results — which now live
+  // only inside the overlay — so open it whenever a search becomes active.
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) setSearchPanelOpen(true);
+  }, [searchQuery]);
 
   const commandItems = useMemo<CommandItem[]>(() => {
     const items: CommandItem[] = [
@@ -849,6 +904,7 @@ function App() {
           setSearchFilterTranslation(search.translation_code ?? "all");
           setSearchFilterTestament((search.testament ?? "all") as SearchTestamentFilter);
           setSearchFilterBookId(search.book_id ?? 0);
+          setSearchPanelOpen(true);
           setMode("reader");
         },
       })),
@@ -1026,66 +1082,8 @@ function App() {
             </div>
           )}
 
-          <div className="mb-2">
-            <SearchScopeControl value={searchScope} onChange={setSearchScope} />
-          </div>
-          <SearchInput value={searchQuery} onChange={updateSearchQuery} />
-          {searchScope === "scripture" && (
-            <>
-              <div className="mt-2">
-                <SearchStrategyControl
-                  value={searchStrategy}
-                  onChange={(next) => {
-                    setSearchStrategy(next);
-                    saveSettingsPatch({ search_strategy: next });
-                  }}
-                />
-              </div>
-              {/* Labelled so these read as the search's scope, distinct from the
-                  reader's translation picker and book navigation list. */}
-              <p className="nav-section-title">Search in</p>
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={searchFilterTranslation}
-                  onChange={(e) => setSearchFilterTranslation(e.target.value)}
-                  className="settings-input text-xs"
-                  aria-label="Search translation"
-                >
-                  <option value="active">Active translation</option>
-                  <option value="all">All translations</option>
-                  {translations.map((t) => (
-                    <option key={t.code} value={t.code}>
-                      {t.code}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={searchFilterTestament}
-                  onChange={(e) => setSearchFilterTestament(e.target.value as SearchTestamentFilter)}
-                  className="settings-input text-xs"
-                  aria-label="Search testament"
-                >
-                  <option value="all">All testaments</option>
-                  <option value="OT">Old Testament</option>
-                  <option value="NT">New Testament</option>
-                  <option value="DC">Deuterocanon</option>
-                </select>
-              </div>
-              <select
-                value={searchFilterBookId}
-                onChange={(e) => setSearchFilterBookId(Number(e.target.value))}
-                className="settings-input text-xs"
-                aria-label="Search book"
-              >
-                <option value={0}>All books</option>
-                {books.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
+          {/* Search (scope/strategy/filters/results) now lives in the
+              SearchPanel overlay — opened via "/" or ⌘K. */}
 
           <div className="space-y-1">
             <div className="flex gap-2">
@@ -1227,6 +1225,7 @@ function App() {
               setSearchFilterTranslation(s.translation_code ?? "all");
               setSearchFilterTestament((s.testament ?? "all") as SearchTestamentFilter);
               setSearchFilterBookId(s.book_id ?? 0);
+              setSearchPanelOpen(true);
               setMode("reader");
             }}
             onRenameSavedSearch={async (search, title) => {
@@ -1293,45 +1292,6 @@ function App() {
         <ErrorBoundary key={mode} title="This view ran into a problem">
         {error ? (
           <ErrorState message={error} className="m-4" />
-        ) : searchActive ? (
-          searchScope === "notes" ? (
-            <NoteSearchResults
-              query={searchQuery.trim()}
-              results={noteResults}
-              loading={noteLoading}
-              onSelect={onSelectNote}
-              noteTags={noteTags}
-              selectedTagId={noteTagFilter}
-              onSelectTag={setNoteTagFilter}
-            />
-          ) : (
-            <SearchResults
-              query={searchQuery.trim()}
-              results={visibleSearchResults}
-              loading={searchLoading}
-              onSelect={onSelectSearchHit}
-              degraded={searchDegraded}
-              degradedReason={searchDegradedReason}
-              onSaveSearch={async () => {
-                const q = searchQuery.trim();
-                if (!q) return;
-                const translation =
-                  searchFilterTranslation === "active"
-                    ? (activeTranslations[0] ?? null)
-                    : searchFilterTranslation === "all"
-                      ? null
-                      : searchFilterTranslation;
-                await createSavedSearch(
-                  q,
-                  q,
-                  translation,
-                  searchFilterTestament === "all" ? null : searchFilterTestament,
-                  searchFilterBookId || null,
-                );
-                await refreshNavigationLists();
-              }}
-            />
-          )
         ) : mode === "settings" ? (
           <SettingsPanel
             settings={settings}
@@ -1370,6 +1330,7 @@ function App() {
             }}
             onRunSearch={(query) => {
               setSearchQuery(query);
+              setSearchPanelOpen(true);
               setMode("reader");
             }}
             onOpenCouncilResult={(question, response) => {
@@ -1544,6 +1505,38 @@ function App() {
           morph={selectedWord.morph}
           onJumpToVerse={jumpToVerse}
           onClose={() => setSelectedWord(null)}
+        />
+      )}
+      {searchPanelOpen && (
+        <SearchPanel
+          onClose={() => setSearchPanelOpen(false)}
+          searchScope={searchScope}
+          setSearchScope={setSearchScope}
+          searchQuery={searchQuery}
+          updateSearchQuery={updateSearchQuery}
+          searchActive={searchActive}
+          searchStrategy={searchStrategy}
+          onChangeSearchStrategy={handleChangeSearchStrategy}
+          translations={translations}
+          books={books}
+          searchFilterTranslation={searchFilterTranslation}
+          setSearchFilterTranslation={setSearchFilterTranslation}
+          searchFilterTestament={searchFilterTestament}
+          setSearchFilterTestament={setSearchFilterTestament}
+          searchFilterBookId={searchFilterBookId}
+          setSearchFilterBookId={setSearchFilterBookId}
+          scriptureResults={visibleSearchResults}
+          searchLoading={searchLoading}
+          onSelectSearchHit={onSelectSearchHit}
+          searchDegraded={searchDegraded}
+          searchDegradedReason={searchDegradedReason}
+          onSaveSearch={handleSaveSearch}
+          noteResults={noteResults}
+          noteLoading={noteLoading}
+          onSelectNote={onSelectNote}
+          noteTags={noteTags}
+          noteTagFilter={noteTagFilter}
+          setNoteTagFilter={setNoteTagFilter}
         />
       )}
       {commandPaletteOpen && (

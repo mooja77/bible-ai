@@ -142,11 +142,23 @@ describe("Bible AI shell", () => {
   });
 
   it("has a search input focusable via the `/` shortcut", async () => {
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
     const search = await $('input[type="search"]');
     await expect(search).toBeDisplayed();
+    // The `/` shortcut opens the panel AND focuses the search input.
+    const focused = await browser.execute(
+      () => document.activeElement === document.querySelector('input[type="search"]'),
+    );
+    expect(focused).toBe(true);
+    // Leave the panel closed for subsequent tests.
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
   it("links selected Search results directly to Theology", async () => {
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
     const search = await $('input[type="search"]');
     await search.waitForDisplayed({ timeout: 5_000 });
     await search.setValue("God");
@@ -170,6 +182,9 @@ describe("Bible AI shell", () => {
 
     await $('[aria-label="Clear search"]').click();
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    // Close the search overlay so the sidebar mode nav is clickable again.
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
     const theology = await $("button=Theology");
     await theology.click();
     await expect(await $("body")).toHaveText("Search: God", { containing: true, ignoreCase: true });
