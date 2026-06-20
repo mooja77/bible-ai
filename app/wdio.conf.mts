@@ -145,6 +145,7 @@ export const config: WebdriverIO.Config = {
       "./tests/e2e/council-run-map.spec.ts",
       "./tests/e2e/reasoning-explorer.spec.ts",
       "./tests/e2e/council-verdict.spec.ts",
+      "./tests/e2e/nav-shell.spec.ts",
     ],
   ],
   maxInstances: 1,
