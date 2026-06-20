@@ -336,9 +336,9 @@ export function CouncilPanel({
           >
             Cancel
           </button>
-        ) : (
+        ) : !response ? (
           <CouncilVoicePreview settings={settings} onOpenSettings={onOpenSettings} />
-        )}
+        ) : null}
         <CouncilRetrievalControls
           books={books}
           translations={translations}
