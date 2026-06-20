@@ -49,6 +49,26 @@
   --color-amber-300: #818cf8;
   --color-amber-400: #6366f1;
   --color-amber-500: #6366f1;
+
+  /* ---- Run-map / reasoning semantic palette (P2) ----------------------
+     One color grammar reused across the run map, result, and explorer:
+     support = emerald, challenge = rose, leader/verdict = gold, plus a
+     fixed set of per-voice accents. */
+  --c-support: #5ec99a;
+  --c-challenge: #f07a8a;
+  --c-leader: #ffd479;
+  --c-voice-a: #6f9bff;
+  --c-voice-b: #8affd0;
+  --c-voice-c: #ffd479;
+  --c-voice-d: #ff9ad1;
+  --c-stage-active: #818cf8;
+  --c-stage-done: #5ec99a;
+  --c-stage-failed: #f07a8a;
+
+  /* Motion tokens */
+  --motion-fast: 140ms;
+  --motion-base: 320ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 [data-theme="light"] {
@@ -106,6 +126,15 @@
   --color-amber-300: #4f46e5;
   --color-amber-400: #4f46e5;
   --color-amber-500: #4f46e5;
+
+  /* Run-map palette tuned for light surfaces (foreground use). */
+  --c-support: #047857;
+  --c-challenge: #be123c;
+  --c-leader: #b45309;
+  --c-stage-active: #4f46e5;
+  --c-stage-done: #047857;
+  --c-stage-failed: #be123c;
+
   --color-emerald-100: #064e3b;
   --color-emerald-200: #065f46;
   --color-emerald-300: #047857;
@@ -354,6 +383,17 @@ mark {
 @keyframes council-thinking {
   0%, 100% { transform: translateY(0); opacity: 0.5; }
   50% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* ---- Run map -----------------------------------------------------------
+   The active stage's marker pulses; the connecting fill grows. Honors
+   prefers-reduced-motion via the global reduce block below. */
+.runmap-active-pulse {
+  animation: runmap-pulse 1.4s ease-in-out infinite;
+}
+@keyframes runmap-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(129, 140, 248, 0); }
 }
 
 /* Respect the user's OS "reduce motion" preference: neutralize app animations
