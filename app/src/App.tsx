@@ -50,8 +50,7 @@ import {
 import { BookNav } from "./features/reader/BookNav";
 import { ChapterReader, RangeActionBar } from "./features/reader/ChapterReader";
 import { InterleavedReader } from "./features/reader/InterleavedReader";
-import { JumpBar } from "./features/reader/JumpBar";
-import { ReaderTopControls } from "./features/reader/ReaderTopControls";
+import { ReaderBar } from "./features/reader/ReaderBar";
 import type { ReaderLayout, ReaderDensity } from "./features/reader/types";
 import { type SearchScope } from "./features/search/SearchScopeControl";
 import { SearchPanel } from "./features/search/SearchPanel";
@@ -1109,31 +1108,28 @@ function App() {
         )}
         <ErrorBoundary key={mode} title="This view ran into a problem">
         {mode === "reader" && !error && (
-          /* Reader controls relocated into the main content area (T4).
-             The sidebar copies still exist (removed in T7) and precede this
-             in the DOM, so WebdriverIO `$()` keeps hitting the sidebar. */
-          <div className="space-y-3 border-b border-neutral-800/60 px-6 pt-4 pb-3">
-            <JumpBar
-              value={referenceInput}
-              onChange={setReferenceInput}
-              error={referenceError}
-              onClear={() => setReferenceError(null)}
-              onJump={() => void jumpToReference()}
-            />
-            <ReaderTopControls
-              translations={translations}
-              activeTranslations={activeTranslations}
-              onToggleTranslation={toggleTranslation}
-              fontScale={fontScale}
-              onFontScaleChange={setReaderFontScale}
-              readerLayout={readerLayout}
-              onReaderLayoutChange={setReaderLayoutSetting}
-              readerDensity={readerDensity}
-              onReaderDensityChange={setReaderDensitySetting}
-              syncScroll={syncScroll}
-              onSyncScrollChange={setSyncScrollSetting}
-            />
-          </div>
+          /* Editorial reader control row (W6). Controls tucked into popovers;
+             jump input always rendered. */
+          <ReaderBar
+            selectedBook={selectedBook}
+            selectedChapter={selectedChapter}
+            translations={translations}
+            activeTranslations={activeTranslations}
+            onToggleTranslation={toggleTranslation}
+            fontScale={fontScale}
+            onFontScaleChange={setReaderFontScale}
+            readerLayout={readerLayout}
+            onReaderLayoutChange={setReaderLayoutSetting}
+            readerDensity={readerDensity}
+            onReaderDensityChange={setReaderDensitySetting}
+            syncScroll={syncScroll}
+            onSyncScrollChange={setSyncScrollSetting}
+            referenceInput={referenceInput}
+            onReferenceInputChange={setReferenceInput}
+            referenceError={referenceError}
+            onReferenceErrorClear={() => setReferenceError(null)}
+            onJump={() => void jumpToReference()}
+          />
         )}
         {error ? (
           <ErrorState message={error} className="m-4" />

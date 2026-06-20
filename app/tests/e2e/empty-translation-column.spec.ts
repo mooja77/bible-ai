@@ -15,6 +15,24 @@ import { browser, $, expect } from "@wdio/globals";
 describe("Empty translation columns", () => {
   const ALL_CODES = ["KJV", "ASV", "YLT", "WLC", "TR", "WEB"];
 
+  // The translation checkboxes now live inside the translation-switcher popover
+  // (WC2 ReaderBar). Open it once, toggle, then close before asserting.
+  async function openTranslationSwitcher() {
+    const trigger = await $('[data-testid="translation-switcher-trigger"]');
+    await trigger.waitForClickable({ timeout: 20_000 });
+    await trigger.click();
+    await $('[data-testid="translation-switcher-popover"]').waitForDisplayed({
+      timeout: 10_000,
+    });
+  }
+
+  async function closeTranslationSwitcher() {
+    const popover = await $('[data-testid="translation-switcher-popover"]');
+    if (!(await popover.isExisting())) return;
+    await browser.keys("Escape");
+    await popover.waitForDisplayed({ reverse: true, timeout: 5_000 });
+  }
+
   async function setChecked(code: string, desired: boolean) {
     const box = await $(`[data-testid="translation-${code}"]`);
     // The translation rows depend on the async translations load; on a cold
@@ -28,11 +46,14 @@ describe("Empty translation columns", () => {
     }
   }
 
-  // Make exactly `codes` active and everything else off.
+  // Make exactly `codes` active and everything else off. Opens the translation
+  // switcher popover, toggles each code inside it, then closes it.
   async function setExactActive(codes: string[]) {
+    await openTranslationSwitcher();
     for (const code of ALL_CODES) {
       await setChecked(code, codes.includes(code));
     }
+    await closeTranslationSwitcher();
   }
 
   // Book navigation now lives in the on-demand BookNav drawer (WC1 shell).

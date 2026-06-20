@@ -124,17 +124,29 @@ describe("Bible AI shell", () => {
   });
 
   it("populates the translation picker with the 6 ingested translations", async () => {
-    // The translation picker now lives in the reader's top controls (WC1 shell),
-    // so ensure we are in the Reader before asserting its rows.
+    // The translation picker now lives in the reader's translation-switcher
+    // popover (WC2 ReaderBar), so ensure we are in the Reader and open it before
+    // asserting its rows.
     const reader = await $("button=Reader");
     await reader.waitForClickable({ timeout: 10_000 });
     await reader.click();
+
+    const trigger = await $('[data-testid="translation-switcher-trigger"]');
+    await trigger.waitForClickable({ timeout: 10_000 });
+    await trigger.click();
+    const popover = await $('[data-testid="translation-switcher-popover"]');
+    await popover.waitForDisplayed({ timeout: 10_000 });
+
     // Each checkbox row has its translation code in a <span> with text content.
     const codes = ["KJV", "ASV", "WEB", "YLT", "TR", "WLC"];
     for (const code of codes) {
-      const label = await $(`span=${code}`);
+      const label = await popover.$(`span=${code}`);
       await label.waitForExist({ timeout: 10_000 });
     }
+
+    // Leave the popover closed for subsequent tests.
+    await browser.keys("Escape");
+    await popover.waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
   it("renders a chapter of Genesis by default", async () => {

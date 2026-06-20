@@ -6,6 +6,19 @@
 
 import { browser, $, $$, expect } from "@wdio/globals";
 
+async function openReadingSettings() {
+  const t = await $('button[aria-label="Reading settings"]');
+  await t.waitForClickable({ timeout: 8_000 });
+  await t.click();
+  await $('[data-testid="reading-settings-popover"]').waitForDisplayed({ timeout: 5_000 });
+}
+async function openTranslationSwitcher() {
+  const t = await $('[data-testid="translation-switcher-trigger"]');
+  await t.waitForClickable({ timeout: 8_000 });
+  await t.click();
+  await $('[data-testid="translation-switcher-popover"]').waitForDisplayed({ timeout: 5_000 });
+}
+
 describe("Reader interactions", () => {
   it("opens the verse panel when a verse number is clicked", async () => {
     const reader = await $("button=Reader");
@@ -195,8 +208,10 @@ describe("Reader interactions", () => {
     await jumpInput.waitForDisplayed({ timeout: 5_000 });
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "columns");
+    await browser.keys("Escape");
 
     const firstVerse = await $('button[aria-label="Verse 1 actions"]');
     await firstVerse.waitForClickable({ timeout: 10_000 });
@@ -404,15 +419,19 @@ describe("Reader interactions", () => {
       await clearVisibleRangeBar("Genesis 1:1-3");
     }
 
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "columns");
+    await browser.keys("Escape");
 
+    await openTranslationSwitcher();
     const wlcCheckbox = await $('[data-testid="translation-WLC"]');
     await wlcCheckbox.waitForDisplayed({ timeout: 10_000 });
     if (!(await wlcCheckbox.isSelected())) {
       const wlcLabel = await wlcCheckbox.parentElement();
       await wlcLabel.click();
     }
+    await browser.keys("Escape");
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });
@@ -642,17 +661,21 @@ describe("Reader interactions", () => {
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
 
+    await openTranslationSwitcher();
     const asvCheckbox = await $('[data-testid="translation-ASV"]');
     await asvCheckbox.waitForDisplayed({ timeout: 10_000 });
     if (!(await asvCheckbox.isSelected())) {
       const asvLabel = await asvCheckbox.parentElement();
       await asvLabel.click();
     }
+    await browser.keys("Escape");
 
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "interleaved");
     const density = await $('select[aria-label="Reader density"]');
     await density.selectByAttribute("value", "compact");
+    await browser.keys("Escape");
 
     const interleaved = await $('[data-testid="interleaved-reader"]');
     await interleaved.waitForDisplayed({ timeout: 10_000 });
@@ -680,15 +703,19 @@ describe("Reader interactions", () => {
     await jumpInput.waitForDisplayed({ timeout: 5_000 });
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "columns");
+    await browser.keys("Escape");
 
+    await openTranslationSwitcher();
     const wlcCheckbox = await $('[data-testid="translation-WLC"]');
     await wlcCheckbox.waitForDisplayed({ timeout: 10_000 });
     if (!(await wlcCheckbox.isSelected())) {
       const wlcLabel = await wlcCheckbox.parentElement();
       await wlcLabel.click();
     }
+    await browser.keys("Escape");
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });
@@ -711,15 +738,19 @@ describe("Reader interactions", () => {
     await jumpInput.waitForDisplayed({ timeout: 5_000 });
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "columns");
+    await browser.keys("Escape");
 
+    await openTranslationSwitcher();
     const wlcCheckbox = await $('[data-testid="translation-WLC"]');
     await wlcCheckbox.waitForDisplayed({ timeout: 10_000 });
     if (!(await wlcCheckbox.isSelected())) {
       const wlcLabel = await wlcCheckbox.parentElement();
       await wlcLabel.click();
     }
+    await browser.keys("Escape");
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });
