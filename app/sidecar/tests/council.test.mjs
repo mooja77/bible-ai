@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { runCouncil, resolveSynthesisMode, withTimeout } from "../council.mjs";
+import { runCouncil, resolveSynthesisMode, withTimeout, emitMockSequence } from "../council.mjs";
 
 const EVIDENCE = [
   {
@@ -156,6 +156,27 @@ test("withTimeout: rejects with a timeout error when the promise is too slow", a
   );
 });
 
+test("emitMockSequence: emits voice_failed for a non-ok voice", () => {
+  const events = [];
+  const emit = (kind, payload) => events.push({ kind, ...payload });
+  emitMockSequence(
+    {
+      voices: [
+        { provider: "a", display_name: "A", status: "ok", result: { positions: [] }, duration_ms: 10 },
+        { provider: "b", display_name: "B", status: "error", error_category: "auth", error_hint: "check key" },
+      ],
+      synthesis: { positions: [{ label: "X", weight: 1.0 }], confidence: "high" },
+      synthesis_mode: "consensus",
+    },
+    emit,
+  );
+  assert.equal(events[0].kind, "voice_started");
+  assert.equal(events[1].kind, "voice_done");
+  assert.equal(events[2].kind, "voice_started");
+  assert.equal(events[3].kind, "voice_failed");
+  assert.equal(events[3].category, "auth");
+});
+
 test("mock mode emits an ordered progress event sequence", async () => {
   const events = [];
   await withMockMode(() =>
@@ -168,15 +189,10 @@ test("mock mode emits an ordered progress event sequence", async () => {
   );
 
   const kinds = events.map((e) => e.kind);
-  assert.ok(kinds.includes("voice_started"), "expected a voice_started event");
-  assert.ok(
-    kinds.includes("voice_done") || kinds.includes("voice_failed"),
-    "expected a voice outcome event",
-  );
-  assert.equal(kinds[kinds.length - 1], "judged", "judged must be last");
+  assert.deepEqual(kinds, ["voice_started", "voice_done", "judged"]);
 
   for (let i = 1; i < events.length; i++) {
     assert.ok(events[i].seq > events[i - 1].seq, "seq must strictly increase");
   }
-  assert.ok(events.every((e) => typeof e.ts === "number"));
+  assert.ok(events.every((e) => typeof e.ts === "number" && e.ts > 0));
 });

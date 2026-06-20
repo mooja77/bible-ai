@@ -27,6 +27,8 @@ import {
 
 const log = (...args) => console.error("[council]", ...args);
 
+const SYNTHESIS_FALLBACK_REASON = "synthesis failed; using the lead voice";
+
 /**
  * Race a promise against a wall-clock timeout. On timeout, rejects with a
  * labeled Error. Does NOT cancel the underlying work (the loser keeps running
@@ -427,13 +429,12 @@ export function emitMockSequence(result, emit) {
   if (okCount > 1) {
     emit("synthesis_started", { voice_count: okCount });
     if (result.synthesis_mode === "synthesis_failed") {
-      emit("synthesis_fallback", { reason: "synthesis failed; using the lead voice" });
+      emit("synthesis_fallback", { reason: SYNTHESIS_FALLBACK_REASON });
     }
   }
-  const positions = [...(result.synthesis?.positions ?? [])].sort(
+  const leader = [...(result.synthesis?.positions ?? [])].sort(
     (a, b) => b.weight - a.weight,
-  );
-  const leader = positions[0];
+  )[0];
   if (leader) {
     emit("judged", {
       leader_label: leader.label,
