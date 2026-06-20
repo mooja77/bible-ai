@@ -628,9 +628,9 @@ function App() {
     setMode("reader");
   };
 
-  const jumpToReference = async () => {
+  const jumpToReference = async (overrideReference?: string) => {
     const requestId = ++referenceJumpRequestId.current;
-    const parsed = parseReference(referenceInput, books);
+    const parsed = parseReference(overrideReference ?? referenceInput, books);
     if (!parsed) {
       setReferenceError(
         "Hmm, I couldn't find that. Try a book, chapter, or verse — like “John”, “John 3”, “John 3:16”, or “John 3:16-4:2”.",
@@ -806,45 +806,81 @@ function App() {
   }, [searchQuery]);
 
   const commandItems = useMemo<CommandItem[]>(() => {
+    const query = commandPaletteQuery.trim();
+    const dynamicItems: CommandItem[] = query
+      ? [
+          {
+            id: "jump-to-query",
+            category: "Jump",
+            label: `Jump to “${query}”`,
+            detail: "Go to this reference",
+            run: () => {
+              setReferenceInput(query);
+              setCommandPaletteOpen(false);
+              void jumpToReference(query);
+            },
+          },
+          {
+            id: "search-for-query",
+            category: "Search",
+            label: `Search for “${query}”`,
+            detail: "Full-text search",
+            run: () => {
+              setCommandPaletteOpen(false);
+              setSearchPanelOpen(true);
+              setSearchQuery(query);
+            },
+          },
+        ]
+      : [];
+
     const items: CommandItem[] = [
+      ...dynamicItems,
       {
         id: "mode-theology",
+        category: "Go to",
         label: "Open Theology",
         detail: "Dynamic systematic theology",
         run: () => selectMode("theology"),
       },
       {
         id: "mode-reader",
+        category: "Go to",
         label: "Open Reader",
         detail: "View Bible text",
         run: () => selectMode("reader"),
       },
       {
         id: "mode-council",
+        category: "Go to",
         label: "Open Council",
         detail: "Ask and compare theological arguments",
         run: () => selectMode("council"),
       },
       {
         id: "mode-workspaces",
+        category: "Go to",
         label: "Open Workspaces",
         detail: "Saved studies and exports",
         run: () => selectMode("workspaces"),
       },
       {
         id: "mode-resources",
+        category: "Go to",
         label: "Open Resources",
         detail: "Search open study resources",
         run: () => selectMode("resources"),
       },
       {
         id: "mode-settings",
+        category: "Go to",
         label: "Open Settings",
         detail: "Providers, data sources, backups",
         run: () => selectMode("settings"),
       },
       {
         id: "setup-ai-providers",
+        category: "Settings",
         label: "Set Up AI Providers",
         detail: "Guided user-owned key, local, or gateway setup",
         run: () => {
@@ -854,12 +890,26 @@ function App() {
       },
       {
         id: "open-guide",
+        category: "Settings",
         label: "Open Guided Tour",
         detail: "Pause, rewind, and step through the app workflow",
         run: () => openTour(0),
       },
+      ...translations.map((translation) => ({
+        id: `translation-${translation.code}`,
+        category: "Translation",
+        label: `Read in ${translation.code}`,
+        detail: translation.name ?? "Switch reading translation",
+        run: () => {
+          setActiveTranslations([translation.code]);
+          saveSettingsPatch({ active_translations: translation.code });
+          setSearchQuery("");
+          setMode("reader");
+        },
+      })),
       ...books.map((book) => ({
         id: `book-${book.id}`,
+        category: "Read",
         label: `Open ${book.name}`,
         detail: `${book.testament} book`,
         run: () => {
@@ -924,22 +974,14 @@ function App() {
     activeTranslations,
     bookmarks,
     books,
+    commandPaletteQuery,
     jumpToVerse,
     readingHistory,
+    saveSettingsPatch,
     savedSearches,
     translations,
     workspaceShortcuts,
   ]);
-
-  const filteredCommandItems = useMemo(() => {
-    const query = commandPaletteQuery.trim().toLowerCase();
-    if (!query) return commandItems.slice(0, 20);
-    return commandItems
-      .filter((item) =>
-        `${item.label} ${item.detail}`.toLowerCase().includes(query),
-      )
-      .slice(0, 20);
-  }, [commandItems, commandPaletteQuery]);
 
   return (
     <div className="app-shell h-full flex flex-col">
@@ -1543,7 +1585,7 @@ function App() {
         <CommandPalette
           query={commandPaletteQuery}
           onQueryChange={setCommandPaletteQuery}
-          items={filteredCommandItems}
+          items={commandItems}
           onClose={() => setCommandPaletteOpen(false)}
         />
       )}
