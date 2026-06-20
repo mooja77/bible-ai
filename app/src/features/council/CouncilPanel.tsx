@@ -23,7 +23,9 @@ import { AddToWorkspaceMenu } from "../workspaces/AddToWorkspaceMenu";
 import { CopyAsMarkdownButton } from "./CouncilMarkdownExport";
 import { buildStudyPacketFiles } from "./studyPacket";
 import { AddToTheologyMenu } from "./AddToTheologyMenu";
-import { CouncilVoicePreview, CouncilRunningPanel } from "./CouncilVoicePanels";
+import { CouncilVoicePreview } from "./CouncilVoicePanels";
+import { CouncilRunMap } from "./CouncilRunMap";
+import { useCouncilRun } from "./useCouncilRun";
 import { CouncilVoiceMatrix } from "./CouncilVoiceMatrix";
 import { CouncilPositionComparison } from "./CouncilPositionComparison";
 import { CouncilRetrievalTrace } from "./CouncilRetrievalTrace";
@@ -97,6 +99,7 @@ export function CouncilPanel({
   const [startingView, setStartingView] = useState("");
   const [response, setResponse] = useState<CouncilResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const { runState, reset: resetRun, handleEvent: onCouncilProgress } = useCouncilRun();
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [sessions, setSessions] = useState<CouncilSessionSummary[]>([]);
@@ -177,18 +180,24 @@ export function CouncilPanel({
     setJudgment(null);
     setArgumentAnnotations([]);
     setLoading(true);
+    resetRun();
     try {
       const r = await withCouncilTimeout(
-        askCouncil(q, undefined, {
-          strategy,
-          include_cross_refs: includeCrossRefs,
-          translation_code: translationCode,
-          testament: testament === "all" ? null : testament,
-          book_id: bookId || null,
-          // Clamp to the supported range: the number input does not constrain
-          // typed values, and the backend rejects out-of-range limits.
-          evidence_limit: Math.min(120, Math.max(10, Math.round(evidenceLimit) || 60)),
-        }),
+        askCouncil(
+          q,
+          undefined,
+          {
+            strategy,
+            include_cross_refs: includeCrossRefs,
+            translation_code: translationCode,
+            testament: testament === "all" ? null : testament,
+            book_id: bookId || null,
+            // Clamp to the supported range: the number input does not constrain
+            // typed values, and the backend rejects out-of-range limits.
+            evidence_limit: Math.min(120, Math.max(10, Math.round(evidenceLimit) || 60)),
+          },
+          onCouncilProgress,
+        ),
       );
       if (requestId !== councilViewRequestId.current) return;
       setResponse(r);
@@ -308,7 +317,7 @@ export function CouncilPanel({
         </label>
         {loading ? (
           <div className="space-y-2">
-            <CouncilRunningPanel settings={settings} elapsed={elapsed} />
+            <CouncilRunMap runState={runState} elapsed={elapsed} />
             <button
               type="button"
               onClick={onCancelCouncil}

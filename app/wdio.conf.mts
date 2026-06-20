@@ -142,6 +142,7 @@ export const config: WebdriverIO.Config = {
       "./tests/e2e/empty-translation-column.spec.ts",
       "./tests/e2e/layout-maxscale.spec.ts",
       "./tests/e2e/contrast-light.spec.ts",
+      "./tests/e2e/council-run-map.spec.ts",
     ],
   ],
   maxInstances: 1,
