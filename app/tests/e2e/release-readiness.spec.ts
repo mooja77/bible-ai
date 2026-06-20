@@ -183,6 +183,10 @@ describe("Release readiness surfaces", () => {
     await restore.waitForClickable({ timeout: 10_000 });
     await restore.click();
 
+    const fullAnalysis = await $('[data-testid="council-full-analysis-toggle"]');
+    await fullAnalysis.waitForClickable({ timeout: 10_000 });
+    await fullAnalysis.click();
+
     const process = await $('[data-testid="council-process-view"]');
     await process.waitForDisplayed({ timeout: 10_000 });
     await expect(process).toHaveText("1/2 voices ran", { containing: true, ignoreCase: true });

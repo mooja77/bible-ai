@@ -107,6 +107,10 @@ describe("Council mock workflow", () => {
     const synthesis = await $("h2=Synthesis");
     await synthesis.waitForDisplayed({ timeout: 20_000 });
 
+    const fullAnalysis = await $('[data-testid="council-full-analysis-toggle"]');
+    await fullAnalysis.waitForClickable({ timeout: 10_000 });
+    await fullAnalysis.click();
+
     const trace = await $('[data-testid="council-retrieval-trace"]');
     await trace.waitForDisplayed({ timeout: 10_000 });
     await expect(trace).toHaveText("Acts 2:38", { containing: true, ignoreCase: true });
@@ -151,6 +155,10 @@ describe("Council mock workflow", () => {
       },
       { timeout: 10_000, timeoutMsg: "mock Council result did not render" },
     );
+
+    const fullAnalysis = await $('[data-testid="council-full-analysis-toggle"]');
+    await fullAnalysis.waitForClickable({ timeout: 10_000 });
+    await fullAnalysis.click();
 
     const processView = await $("h2=How the Council reached this");
     await processView.waitForDisplayed({ timeout: 10_000 });
@@ -295,6 +303,11 @@ describe("Council mock workflow", () => {
     await expect(restoredJudgment).toHaveText(
       expect.stringContaining("Mock consensus is strongest, but I want to review the exceptions."),
     );
+
+    const restoredFullAnalysis = await $('[data-testid="council-full-analysis-toggle"]');
+    await restoredFullAnalysis.waitForClickable({ timeout: 10_000 });
+    await restoredFullAnalysis.click();
+
     const restoredArgumentMaps = await $('[data-testid="council-argument-maps"]');
     await restoredArgumentMaps.waitForDisplayed({ timeout: 10_000 });
     const restoredAnnotation = await restoredArgumentMaps.$(
