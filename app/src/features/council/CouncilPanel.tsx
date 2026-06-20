@@ -357,42 +357,6 @@ export function CouncilPanel({
         />
       </div>
 
-      <CouncilHistory
-        sessions={sessions}
-        onSelect={onSelectSession}
-        onChanged={refreshSessions}
-      />
-
-      {error && (
-        <div data-testid="council-error" className="space-y-2">
-          <ErrorState message={error} title="The Council could not finish" />
-          <button
-            type="button"
-            onClick={() => onAsk()}
-            disabled={loading || !question.trim()}
-            className="btn-secondary px-3 py-1.5 text-sm"
-            data-testid="council-retry"
-          >
-            Try again
-          </button>
-        </div>
-      )}
-
-      {response?.sensitive_topic && (
-        <div
-          className="soft-card p-4 border border-amber-500/40 bg-amber-500/10"
-          data-testid="sensitive-topic-notice"
-          role="alert"
-        >
-          <p className="text-sm font-semibold text-amber-100">
-            If this is urgent, please reach out for real help.
-          </p>
-          <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">
-            {response.sensitive_topic.message}
-          </p>
-        </div>
-      )}
-
       {response && !response.sensitive_topic && (
         <>
           <CouncilVerdictCard response={response} />
@@ -549,6 +513,42 @@ export function CouncilPanel({
             </div>
           )}
         </>
+      )}
+
+      <CouncilHistory
+        sessions={sessions}
+        onSelect={onSelectSession}
+        onChanged={refreshSessions}
+      />
+
+      {error && (
+        <div data-testid="council-error" className="space-y-2">
+          <ErrorState message={error} title="The Council could not finish" />
+          <button
+            type="button"
+            onClick={() => onAsk()}
+            disabled={loading || !question.trim()}
+            className="btn-secondary px-3 py-1.5 text-sm"
+            data-testid="council-retry"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {response?.sensitive_topic && (
+        <div
+          className="soft-card p-4 border border-amber-500/40 bg-amber-500/10"
+          data-testid="sensitive-topic-notice"
+          role="alert"
+        >
+          <p className="text-sm font-semibold text-amber-100">
+            If this is urgent, please reach out for real help.
+          </p>
+          <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">
+            {response.sensitive_topic.message}
+          </p>
+        </div>
       )}
     </div>
   );
