@@ -343,8 +343,6 @@ impl SidecarState {
         }
     }
 
-    // wired into ask_council in the next task
-    #[allow(dead_code)]
     pub async fn request_streaming<F: FnMut(Value)>(
         &self,
         app: &AppHandle,

@@ -6,6 +6,7 @@ mod user_db;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
 use sidecar::{build_council_request, question_to_fts_query, SidecarState};
@@ -2878,6 +2879,7 @@ fn classify_sensitive_topic(question: &str) -> Option<&'static str> {
 #[allow(clippy::too_many_arguments)] // Tauri command: each arg is an invoke field.
 async fn ask_council(
     app: AppHandle,
+    on_progress: Channel<serde_json::Value>,
     state: tauri::State<'_, SidecarState>,
     user_state: tauri::State<'_, UserDbState>,
     question: String,
@@ -2898,10 +2900,32 @@ async fn ask_council(
     if question.len() > 2_000 {
         return Err("Council question is too long".to_string());
     }
+    let seq = std::sync::atomic::AtomicU64::new(0);
+    let emit = |kind: &str, payload: serde_json::Value| {
+        let n = seq.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        let mut ev = serde_json::json!({
+            "seq": n,
+            "ts": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0),
+            "kind": kind,
+        });
+        if let Some(obj) = payload.as_object() {
+            for (k, v) in obj {
+                ev[k] = v.clone();
+            }
+        }
+        let _ = on_progress.send(ev);
+    };
     // Pre-Council sensitive-topic routing: a crisis or sensitive disclosure must
     // never enter normal Council generation. Return a calm safety response
     // before any retrieval, provider call, or session persistence happens.
     if let Some(category) = classify_sensitive_topic(&question) {
+        emit(
+            "safety_checked",
+            serde_json::json!({ "status": "blocked", "category": category }),
+        );
         return Ok(serde_json::json!({
             "sensitive_topic": {
                 "category": category,
@@ -2909,6 +2933,7 @@ async fn ask_council(
             }
         }));
     }
+    emit("safety_checked", serde_json::json!({ "status": "clear" }));
     let mut settings = with_user_db(&app, &user_state, |conn| {
         user_db::get_app_settings(conn).map_err(|e| e.to_string())
     })?;
@@ -2962,6 +2987,14 @@ async fn ask_council(
         evidence_limit: limit,
     };
 
+    emit(
+        "run_started",
+        serde_json::json!({ "evidence_strategy": retrieval_options.strategy }),
+    );
+    emit(
+        "retrieval_started",
+        serde_json::json!({ "strategy": retrieval_options.strategy }),
+    );
     let (evidence_json, retrieval_mode, retrieval_fallback_reason) = retrieve_evidence(
         &app,
         &question,
@@ -2974,6 +3007,17 @@ async fn ask_council(
         return Err("no evidence found for the question in the corpus".to_string());
     }
 
+    if let Some(reason) = &retrieval_fallback_reason {
+        emit(
+            "retrieval_fallback",
+            serde_json::json!({ "reason": reason }),
+        );
+    }
+    emit(
+        "retrieval_done",
+        serde_json::json!({ "count": evidence_json.len(), "mode": retrieval_mode.clone() }),
+    );
+
     let evidence_count = evidence_json.len();
     let body = build_council_request(
         &question,
@@ -2981,7 +3025,16 @@ async fn ask_council(
         &selected_model,
         Some(&settings),
     );
-    let mut result = state.request(&app, "council", body).await?;
+    let mut result = state
+        .request_streaming(&app, "council", body, |event| {
+            let kind = event
+                .get("kind")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown")
+                .to_string();
+            emit(&kind, event);
+        })
+        .await?;
     // Surface how we retrieved the evidence so the UI can show it.
     result["retrieval_mode"] = serde_json::Value::String(retrieval_mode.clone());
     result["retrieval_fallback_reason"] = match &retrieval_fallback_reason {
@@ -3022,6 +3075,13 @@ async fn ask_council(
         }
     }
 
+    emit(
+        "run_complete",
+        serde_json::json!({
+            "session_id": result.get("session_id").cloned().unwrap_or(serde_json::Value::Null),
+            "synthesis_mode": result.get("synthesis_mode").cloned().unwrap_or(serde_json::Value::Null),
+        }),
+    );
     Ok(result)
 }
 
