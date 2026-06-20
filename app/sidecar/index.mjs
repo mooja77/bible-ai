@@ -13,6 +13,7 @@
  *   { "id": string, "type": "error", "error": string }
  */
 
+import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 import { runCouncil } from "./council.mjs";
 import { explainPassage } from "./explain.mjs";
@@ -26,6 +27,11 @@ const log = (...args) => console.error("[sidecar]", ...args);
 function send(msg) {
   // Single line per message — Rust reads with BufRead::lines().
   process.stdout.write(JSON.stringify(msg) + "\n");
+}
+
+/** Build a progress line correlated to a request id. Exported for testing. */
+export function councilProgressLine(id, event) {
+  return { id, type: "council_progress", event };
 }
 
 function envWithSettings(settings = {}) {
@@ -171,6 +177,7 @@ async function handle(msg) {
           evidence: msg.evidence ?? [],
           model: msg.model ?? "sonnet",
           settings: msg.settings ?? {},
+          onEvent: (event) => send(councilProgressLine(id, event)),
         });
         return { id, type: "council_result", result };
       }
@@ -204,7 +211,9 @@ async function main() {
   log("stdin closed, exiting");
 }
 
-main().catch((err) => {
-  log("fatal:", redactSecrets(err?.message ?? String(err)));
-  process.exit(1);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main().catch((err) => {
+    log("fatal:", redactSecrets(err?.message ?? String(err)));
+    process.exit(1);
+  });
+}
