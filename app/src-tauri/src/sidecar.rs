@@ -227,6 +227,8 @@ impl Sidecar {
 
     /// Send a request and read interleaved progress lines until the terminal
     /// result/error. `on_progress` is called for each `council_progress` event.
+    /// It runs synchronously inside the read loop, so it must do only cheap work
+    /// (e.g. pushing to a Tauri Channel) — it must not block or `.await`.
     pub async fn request_streaming<F: FnMut(Value)>(
         &mut self,
         kind: &str,
@@ -273,7 +275,8 @@ impl Sidecar {
                 SidecarLine::AppError(msg) => return Err(SidecarError::App(msg)),
                 SidecarLine::IdMismatch => {
                     return Err(SidecarError::Transport(format!(
-                        "sidecar response id mismatch: {buf}"
+                        "sidecar response id mismatch: {}",
+                        buf.trim()
                     )));
                 }
                 SidecarLine::Malformed(e) => {
@@ -315,6 +318,7 @@ impl SidecarState {
         if guard.is_none() {
             *guard = Some(Sidecar::spawn(app).await?);
         }
+        // Invariant: `guard` is Some here — set above or we returned early.
         let Some(sidecar) = guard.as_mut() else {
             return Err("sidecar was not initialized".to_string());
         };
@@ -352,6 +356,7 @@ impl SidecarState {
         if guard.is_none() {
             *guard = Some(Sidecar::spawn(app).await?);
         }
+        // Invariant: `guard` is Some here — set above or we returned early.
         let Some(sidecar) = guard.as_mut() else {
             return Err("sidecar was not initialized".to_string());
         };
