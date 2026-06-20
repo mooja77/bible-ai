@@ -73,6 +73,7 @@ import { NavigationShortcuts } from "./features/app-shell/NavigationShortcuts";
 import { CommandPalette, type CommandItem } from "./features/app-shell/CommandPalette";
 import { ModeButton } from "./features/app-shell/ModeButton";
 import { ModeIcon } from "./features/app-shell/ModeIcon";
+import { TopBar } from "./features/app-shell/TopBar";
 import { ReaderPlaceholder } from "./features/reader/ReaderPlaceholder";
 import { formatVerseId, parseReference } from "./lib/verse";
 import { settingsHasConfiguredAi } from "./lib/settings";
@@ -885,7 +886,7 @@ function App() {
   }, [commandItems, commandPaletteQuery]);
 
   return (
-    <div className="app-shell h-full flex">
+    <div className="app-shell h-full flex flex-col">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-amber-400 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-neutral-950"
@@ -898,75 +899,24 @@ function App() {
       >
         Skip to main content
       </a>
+      <TopBar
+        theme={theme}
+        onThemeToggle={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+        uiScale={uiScale}
+        canIncrease={canIncrease}
+        canDecrease={canDecrease}
+        onIncreaseUiScale={increaseUiScale}
+        onDecreaseUiScale={decreaseUiScale}
+        onOpenPalette={() => {
+          setCommandPaletteOpen(true);
+          setCommandPaletteQuery("");
+        }}
+        tourDismissed={tourDismissed}
+        onOpenTour={() => openTour(0)}
+      />
+      <div className="flex flex-1 overflow-hidden">
       <aside className="app-sidebar w-80 border-r border-neutral-800 flex flex-col">
         <div className="p-4 border-b border-neutral-800 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-lg font-semibold text-neutral-100">Bible AI</h1>
-              <p className="text-xs text-neutral-500 mt-0.5">Reader, Council, workspace</p>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-                className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
-                aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              >
-                {theme === "dark" ? "Light" : "Dark"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCommandPaletteOpen(true);
-                  setCommandPaletteQuery("");
-                }}
-                className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
-                aria-label="Open command palette"
-              >
-                Ctrl K
-              </button>
-            </div>
-          </div>
-
-          <div
-            className="flex items-center justify-between gap-2 text-xs text-neutral-400"
-            role="group"
-            aria-label="App text size"
-          >
-            <span>App text size</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={decreaseUiScale}
-                disabled={!canDecrease}
-                data-testid="ui-scale-dec"
-                className="meta-pill px-2 hover:text-neutral-100 disabled:opacity-40"
-                aria-label="Decrease app text size"
-                title="Decrease app text size"
-              >
-                A−
-              </button>
-              <span
-                data-testid="ui-scale-value"
-                className="w-10 text-center font-mono tabular-nums select-none"
-                aria-hidden="true"
-              >
-                {uiScale}%
-              </span>
-              <button
-                type="button"
-                onClick={increaseUiScale}
-                disabled={!canIncrease}
-                data-testid="ui-scale-inc"
-                className="meta-pill px-2 hover:text-neutral-100 disabled:opacity-40"
-                aria-label="Increase app text size"
-                title="Increase app text size"
-              >
-                A+
-              </button>
-            </div>
-          </div>
-
           <nav className="flex flex-col gap-0.5" aria-label="Main navigation">
             <ModeButton
               active={mode === "reader"}
@@ -1585,6 +1535,7 @@ function App() {
         )}
         </ErrorBoundary>
       </main>
+      </div>
 
       {selectedWord && (
         <StrongsPopup
