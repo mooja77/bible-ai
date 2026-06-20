@@ -49,6 +49,7 @@ import {
 } from "./lib/bible";
 import { BookList } from "./features/reader/BookList";
 import { ChapterGrid } from "./features/reader/ChapterGrid";
+import { BookNav } from "./features/reader/BookNav";
 import { ChapterReader, RangeActionBar } from "./features/reader/ChapterReader";
 import { InterleavedReader } from "./features/reader/InterleavedReader";
 import { TranslationPicker } from "./features/reader/TranslationPicker";
@@ -155,6 +156,7 @@ function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [bookNavOpen, setBookNavOpen] = useState(false);
 
   // Per-chapter user data (highlights + which verses have notes).
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -1013,6 +1015,7 @@ function App() {
         }}
         tourDismissed={tourDismissed}
         onOpenTour={() => openTour(0)}
+        onToggleBookNav={() => setBookNavOpen((v) => !v)}
       />
       <div className="flex flex-1 overflow-hidden">
       <aside className="app-sidebar w-80 border-r border-neutral-800 flex flex-col">
@@ -1578,6 +1581,20 @@ function App() {
           onClose={() => setSelectedWord(null)}
         />
       )}
+      <BookNav
+        open={bookNavOpen}
+        onClose={() => setBookNavOpen(false)}
+        books={books}
+        selectedBookId={selectedBook?.id ?? null}
+        selectedChapter={selectedChapter}
+        selectedBook={selectedBook}
+        onSelectBook={(b) => {
+          setSelectedBook(b);
+          setSelectedChapter(1);
+          setMode("reader");
+        }}
+        onSelectChapter={setSelectedChapter}
+      />
       {searchPanelOpen && (
         <SearchPanel
           onClose={() => setSearchPanelOpen(false)}

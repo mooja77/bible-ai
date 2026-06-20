@@ -10,6 +10,7 @@ interface TopBarProps {
   onOpenPalette: () => void;
   tourDismissed: boolean;
   onOpenTour: () => void;
+  onToggleBookNav: () => void;
 }
 
 /**
@@ -30,6 +31,7 @@ export function TopBar({
   onOpenPalette,
   tourDismissed,
   onOpenTour,
+  onToggleBookNav,
 }: TopBarProps) {
   return (
     <div
@@ -44,6 +46,15 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onToggleBookNav}
+          data-testid="book-nav-toggle"
+          className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
+          aria-label="Toggle book navigation"
+        >
+          Books
+        </button>
         {!tourDismissed && (
           <button
             type="button"
