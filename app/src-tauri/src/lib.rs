@@ -2913,6 +2913,9 @@ async fn ask_council(
         });
         if let Some(obj) = payload.as_object() {
             for (k, v) in obj {
+                if k == "seq" || k == "ts" || k == "kind" {
+                    continue;
+                }
                 ev[k] = v.clone();
             }
         }

@@ -175,6 +175,8 @@ test("emitMockSequence: emits voice_failed for a non-ok voice", () => {
   assert.equal(events[2].kind, "voice_started");
   assert.equal(events[3].kind, "voice_failed");
   assert.equal(events[3].category, "auth");
+  assert.equal(events[4].kind, "judged");
+  assert.equal(events[4].leader_label, "X");
 });
 
 test("mock mode emits an ordered progress event sequence", async () => {
