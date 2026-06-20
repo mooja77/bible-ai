@@ -36,6 +36,7 @@ import { CouncilConfidenceRationale } from "./CouncilConfidenceRationale";
 import { VoicesAuditTrail } from "./CouncilVoicesAudit";
 import { ErrorState } from "../../components/StateViews";
 import { ReasoningExplorer } from "./explorer/ReasoningExplorer";
+import { CouncilVerdictCard } from "./CouncilVerdictCard";
 
 /** Client-side backstop (5 min). The backend tolerates very long runs, so a
  *  stuck or unreachable provider can otherwise spin forever. The live elapsed
@@ -116,6 +117,7 @@ export function CouncilPanel({
   const [argumentAnnotations, setArgumentAnnotations] = useState<ArgumentAnnotation[]>([]);
   const [packetStatus, setPacketStatus] = useState<string | null>(null);
   const [showExplorer, setShowExplorer] = useState(false);
+  const [showFullAnalysis, setShowFullAnalysis] = useState(false);
   const councilViewRequestId = useRef(0);
   const sessionListRequestId = useRef(0);
 
@@ -182,6 +184,7 @@ export function CouncilPanel({
     setJudgment(null);
     setArgumentAnnotations([]);
     setShowExplorer(false);
+    setShowFullAnalysis(false);
     setLoading(true);
     resetRun();
     try {
@@ -265,6 +268,7 @@ export function CouncilPanel({
         setArgumentAnnotations([]);
         setSelectedPositionLabel(null);
         setShowExplorer(false);
+        setShowFullAnalysis(false);
         setError(null);
       }
     } catch (e) {
@@ -391,6 +395,7 @@ export function CouncilPanel({
 
       {response && !response.sensitive_topic && (
         <>
+          <CouncilVerdictCard response={response} />
           <div className="text-xs text-neutral-500 flex items-center gap-2 flex-wrap">
             {response.retrieval_mode && (
               <>
@@ -496,22 +501,6 @@ export function CouncilPanel({
             selectedPositionLabel={selectedPositionLabel}
             onJumpToVerse={onJumpToVerse}
           />
-          <CouncilProcessView response={response} />
-          <CouncilPositionComparison response={response} onJumpToVerse={onJumpToVerse} />
-          <CouncilVoiceMatrix
-            response={response}
-            selectedPositionLabel={selectedPositionLabel}
-            onSelectPosition={setSelectedPositionLabel}
-            onJumpToVerse={onJumpToVerse}
-          />
-          <CouncilRetrievalTrace response={response} onJumpToVerse={onJumpToVerse} />
-          <CouncilConfidenceRationale response={response} />
-          <CouncilResearchTrail response={response} />
-          <CouncilArgumentMaps
-            sessionId={activeSessionId}
-            response={response}
-            onAnnotationsChange={setArgumentAnnotations}
-          />
           <CouncilJudgmentPanel
             sessionId={activeSessionId}
             response={response}
@@ -519,17 +508,46 @@ export function CouncilPanel({
             onJudgmentChange={setJudgment}
             onAskFollowUp={onAskFollowUp}
           />
-          <CouncilSourceDrawer response={response} />
-          <VoicesAuditTrail
-            voices={response.voices}
-            manifest={response.manifest}
-            onJumpToVerse={onJumpToVerse}
-          />
-          <CouncilEvidenceAudit
-            evidence={response.retrieved_evidence ?? []}
-            synthesis={response.synthesis}
-            onJumpToVerse={onJumpToVerse}
-          />
+          <button
+            type="button"
+            className="btn-secondary px-3 py-1.5 text-sm"
+            data-testid="council-full-analysis-toggle"
+            aria-expanded={showFullAnalysis}
+            onClick={() => setShowFullAnalysis((v) => !v)}
+          >
+            {showFullAnalysis ? "Hide full analysis" : "Show full analysis (process, evidence audit, voice matrix…) →"}
+          </button>
+          {showFullAnalysis && (
+            <div data-testid="council-full-analysis" className="space-y-6">
+              <CouncilProcessView response={response} />
+              <CouncilPositionComparison response={response} onJumpToVerse={onJumpToVerse} />
+              <CouncilVoiceMatrix
+                response={response}
+                selectedPositionLabel={selectedPositionLabel}
+                onSelectPosition={setSelectedPositionLabel}
+                onJumpToVerse={onJumpToVerse}
+              />
+              <CouncilRetrievalTrace response={response} onJumpToVerse={onJumpToVerse} />
+              <CouncilConfidenceRationale response={response} />
+              <CouncilResearchTrail response={response} />
+              <CouncilArgumentMaps
+                sessionId={activeSessionId}
+                response={response}
+                onAnnotationsChange={setArgumentAnnotations}
+              />
+              <CouncilSourceDrawer response={response} />
+              <VoicesAuditTrail
+                voices={response.voices}
+                manifest={response.manifest}
+                onJumpToVerse={onJumpToVerse}
+              />
+              <CouncilEvidenceAudit
+                evidence={response.retrieved_evidence ?? []}
+                synthesis={response.synthesis}
+                onJumpToVerse={onJumpToVerse}
+              />
+            </div>
+          )}
         </>
       )}
     </div>
