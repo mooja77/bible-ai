@@ -50,6 +50,17 @@
   --color-amber-400: #6366f1;
   --color-amber-500: #6366f1;
 
+  /* Themeable accent (indigo in dark; gold in the light editorial theme).
+     Shared classes reference these instead of hardcoding indigo, so the
+     accent re-themes everywhere. */
+  --accent: #818cf8;
+  --accent-strong: #6366f1;
+  --accent-bg: rgba(99, 102, 241, 0.18);
+  --accent-bg-hover: rgba(99, 102, 241, 0.28);
+  --accent-border: rgba(99, 102, 241, 0.5);
+  --accent-ring: rgba(99, 102, 241, 0.15);
+  --accent-selection: rgba(129, 140, 248, 0.30);
+
   /* ---- Run-map / reasoning semantic palette (P2) ----------------------
      One color grammar reused across the run map, result, and explorer:
      support = emerald, challenge = rose, leader/verdict = gold, plus a
@@ -72,66 +83,70 @@
 }
 
 [data-theme="light"] {
-  --color-neutral-50: #0a0a0a;
-  --color-neutral-100: #171717;
-  --color-neutral-200: #262626;
-  --color-neutral-300: #404040;
-  --color-neutral-400: #525252;
-  /* 500/600 are foreground "muted"/"most-muted" text. A straight scale mirror
-     left them too light on a light background (neutral-500 ~3.8:1, neutral-600
-     ~2.5:1 — both fail WCAG AA for small text). Darken them so secondary and
-     tertiary captions stay readable; lower number still = more emphasis, so 500
-     stays darker than 600. (Verified by tests/e2e/contrast-light.spec.ts.) */
-  --color-neutral-500: #5c5c5c;
-  --color-neutral-600: #6b6b6b;
-  --color-neutral-700: #d4d4d4;
-  --color-neutral-800: #e5e5e5;
-  --color-neutral-900: #f5f5f5;
-  --color-neutral-950: #fafafa;
+  /* ---- "Calm Editorial" light theme (the default look) -------------------
+     Warm off-white paper, warm-ink text, and a muted-gold accent. The neutral
+     scale is inverted (low number = dark foreground, high number = light
+     surface) and warmed; the amber tokens are remapped to gold. AA-verified by
+     tests/e2e/contrast-light.spec.ts. */
+  --color-neutral-50: #1b1915;
+  --color-neutral-100: #23211c;
+  --color-neutral-200: #2e2b25;
+  --color-neutral-300: #423e36;
+  --color-neutral-400: #585347;
+  /* 500/600 are "muted"/"most-muted" captions — kept dark enough for AA on the
+     warm paper background (lower number = more emphasis = darker). */
+  --color-neutral-500: #5d584c;
+  --color-neutral-600: #6d6657;
+  --color-neutral-700: #ddd6c6;
+  --color-neutral-800: #e8e1d2;
+  --color-neutral-900: #f2ece0;
+  --color-neutral-950: #faf8f2;
 
-  --app-grad-a: #f3f4f6;
-  --app-grad-b: #e9ebef;
-  --app-grad-c: #f5f6f8;
-  --app-tint: rgba(99, 102, 241, 0.12);
-  --surface-sidebar: rgba(249, 250, 251, 0.94);
-  --surface-panel: rgba(255, 255, 255, 0.86);
-  --surface-card: rgba(255, 255, 255, 0.72);
-  --surface-card-hover: rgba(243, 244, 246, 0.92);
-  --surface-input: rgba(255, 255, 255, 0.92);
+  --app-grad-a: #faf9f5;
+  --app-grad-b: #f4f1ea;
+  --app-grad-c: #fbfaf6;
+  --app-tint: rgba(201, 161, 74, 0.10);
+  --surface-sidebar: rgba(250, 248, 242, 0.95);
+  --surface-panel: rgba(255, 255, 255, 0.90);
+  --surface-card: rgba(255, 255, 255, 0.78);
+  --surface-card-hover: rgba(247, 244, 237, 0.95);
+  --surface-input: rgba(255, 255, 255, 0.95);
   --surface-input-focus: #ffffff;
-  --surface-pill: rgba(243, 244, 246, 0.92);
-  --surface-btn2: rgba(255, 255, 255, 0.82);
-  --surface-btn2-hover: rgba(243, 244, 246, 0.96);
-  --surface-reader: rgba(255, 255, 255, 0.66);
-  --border-subtle: rgba(15, 23, 42, 0.14);
-  --border-strong: rgba(15, 23, 42, 0.32);
-  --sheen: rgba(255, 255, 255, 0.55);
-  --panel-shadow: rgba(15, 23, 42, 0.12);
-  --btn-primary-text: #3730a3;
+  --surface-pill: rgba(245, 242, 234, 0.95);
+  --surface-btn2: rgba(255, 255, 255, 0.88);
+  --surface-btn2-hover: rgba(246, 243, 235, 0.97);
+  --surface-reader: rgba(255, 254, 250, 0.70);
+  --border-subtle: rgba(60, 50, 28, 0.14);
+  --border-strong: rgba(60, 50, 28, 0.30);
+  --sheen: rgba(255, 255, 255, 0.60);
+  --panel-shadow: rgba(60, 50, 28, 0.10);
+  --btn-primary-text: #6a5215;
   --btn-danger-text: #b91c1c;
-  --scrollbar-thumb: #c4c8cf;
-  --scrollbar-track: #e9ebef;
+  --scrollbar-thumb: #d8d1c2;
+  --scrollbar-track: #efece3;
 
-  /* Accent text shades are light pastels tuned for dark surfaces. The
-     neutral scale and surface tokens above re-theme on their own, but raw
-     accent text utilities (text-amber-300, text-red-300, and so on) would
-     wash out on a light background. These shades are used only as
-     foreground (text and icons), so remapping the tokens darkens them
-     everywhere with no per-component edits, mirroring the inverted-neutral
-     approach. A lighter dark-mode shade (more emphasis) maps to a darker
-     light-mode value, preserving the emphasis hierarchy. amber-400 is left
-     unchanged because it is also used as a bg-amber-400 badge fill. */
-  --color-amber-100: #3730a3;
-  --color-amber-200: #4338ca;
-  --color-amber-300: #4f46e5;
-  --color-amber-400: #4f46e5;
-  --color-amber-500: #4f46e5;
+  /* Muted-gold accent (replaces dark-mode indigo). Used by the shared classes. */
+  --accent: #b8902f;
+  --accent-strong: #a87d1e;
+  --accent-bg: rgba(184, 144, 47, 0.14);
+  --accent-bg-hover: rgba(184, 144, 47, 0.22);
+  --accent-border: rgba(184, 144, 47, 0.48);
+  --accent-ring: rgba(184, 144, 47, 0.20);
+  --accent-selection: rgba(201, 161, 74, 0.28);
 
-  /* Run-map palette tuned for light surfaces (foreground use). */
+  /* amber-* utilities → gold. Low number = accent TEXT (dark gold, AA-safe);
+     amber-400 stays a brighter gold for badge/bar FILLS. */
+  --color-amber-100: #5a4612;
+  --color-amber-200: #6f561a;
+  --color-amber-300: #836620;
+  --color-amber-400: #c9a14a;
+  --color-amber-500: #b8902f;
+
+  /* Run-map palette tuned for the warm light surfaces (foreground use). */
   --c-support: #047857;
   --c-challenge: #be123c;
-  --c-leader: #b45309;
-  --c-stage-active: #4f46e5;
+  --c-leader: #9a7b1e;
+  --c-stage-active: #a87d1e;
   --c-stage-done: #047857;
   --c-stage-failed: #be123c;
 
@@ -166,7 +181,7 @@ body {
 }
 
 ::selection {
-  background: rgba(129, 140, 248, 0.30);
+  background: var(--accent-selection);
   color: var(--color-neutral-100);
 }
 
@@ -189,13 +204,13 @@ a:focus-visible,
 [tabindex]:focus-visible {
   /* Solid indigo for a clearly-visible, ≥3:1 focus indicator on both themes —
      WCAG 2.2 SC 2.4.13. */
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--accent-strong);
   outline-offset: 2px;
 }
 
 /* Style FTS snippet highlights — <mark> tags come from SQLite. */
 mark {
-  background: rgba(129, 140, 248, 0.30);
+  background: var(--accent-selection);
   color: var(--color-neutral-100);
   padding: 0 0.15em;
   border-radius: 3px;
@@ -214,9 +229,9 @@ mark {
 }
 
 .settings-input:focus {
-  border-color: rgba(129, 140, 248, 0.65);
+  border-color: var(--accent);
   background: var(--surface-input-focus);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px var(--accent-ring);
   outline: none;
 }
 
@@ -295,14 +310,14 @@ mark {
 }
 
 .btn-primary {
-  border: 1px solid rgba(99, 102, 241, 0.5);
-  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
   color: var(--btn-primary-text);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 0.28);
-  border-color: rgba(129, 140, 248, 0.7);
+  background: var(--accent-bg-hover);
+  border-color: var(--accent);
 }
 
 .btn-secondary {
