@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { runCouncil, resolveSynthesisMode, withTimeout, emitMockSequence } from "../council.mjs";
+import { runCouncil, resolveSynthesisMode, withTimeout, emitMockSequence, judgedEventPayload } from "../council.mjs";
 
 const EVIDENCE = [
   {
@@ -195,4 +195,24 @@ test("mock mode emits an ordered progress event sequence", async () => {
     assert.ok(events[i].seq > events[i - 1].seq, "seq must strictly increase");
   }
   assert.ok(events.every((e) => typeof e.ts === "number" && e.ts > 0));
+});
+
+test("judgedEventPayload picks the highest-weighted position", () => {
+  const synthesis = {
+    confidence: "medium",
+    positions: [
+      { label: "Minority", weight: 0.3 },
+      { label: "Leader", weight: 0.7 },
+    ],
+  };
+  assert.deepEqual(judgedEventPayload(synthesis), {
+    leader_label: "Leader",
+    leader_weight: 0.7,
+    confidence: "medium",
+  });
+});
+
+test("judgedEventPayload is null-safe for empty synthesis", () => {
+  assert.equal(judgedEventPayload(null), null);
+  assert.equal(judgedEventPayload({ positions: [] }), null);
 });

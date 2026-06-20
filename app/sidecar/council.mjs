@@ -52,15 +52,21 @@ function voiceTimeoutMs(env = process.env) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_VOICE_TIMEOUT_MS;
 }
 
-async function runOneVoice(provider, { question, evidence, env, model }) {
+async function runOneVoice(provider, { question, evidence, env, model, emit }) {
   const started = Date.now();
   const displayName = provider.displayName?.({ env, model }) ?? provider.display_name;
+  emit?.("voice_started", { provider: provider.name, display_name: displayName });
   try {
     const result = await withTimeout(
       provider.analyze({ question, evidence, env, model }),
       voiceTimeoutMs(env),
       displayName,
     );
+    emit?.("voice_done", {
+      provider: provider.name,
+      ms: Date.now() - started,
+      position_count: result?.positions?.length ?? 0,
+    });
     return {
       provider: provider.name,
       display_name: displayName,
@@ -73,6 +79,7 @@ async function runOneVoice(provider, { question, evidence, env, model }) {
     const error = redactSecrets(err?.message ?? String(err), env);
     log(`voice ${provider.name} failed:`, error);
     const { category, hint } = classifyProviderError(error, displayName);
+    emit?.("voice_failed", { provider: provider.name, category, hint });
     return {
       provider: provider.name,
       display_name: displayName,
@@ -402,6 +409,19 @@ function mockCouncilResult({ question, evidence, model }) {
   };
 }
 
+/** Derive the `judged` event payload from a synthesis result, or null. */
+export function judgedEventPayload(synthesis) {
+  const leader = [...(synthesis?.positions ?? [])].sort(
+    (a, b) => b.weight - a.weight,
+  )[0];
+  if (!leader) return null;
+  return {
+    leader_label: leader.label,
+    leader_weight: leader.weight,
+    confidence: synthesis?.confidence ?? null,
+  };
+}
+
 /**
  * Emit a progress-event sequence that exactly mirrors a finished council
  * result, so the stream can never diverge from what is returned. Pure: all
@@ -432,16 +452,8 @@ export function emitMockSequence(result, emit) {
       emit("synthesis_fallback", { reason: SYNTHESIS_FALLBACK_REASON });
     }
   }
-  const leader = [...(result.synthesis?.positions ?? [])].sort(
-    (a, b) => b.weight - a.weight,
-  )[0];
-  if (leader) {
-    emit("judged", {
-      leader_label: leader.label,
-      leader_weight: leader.weight,
-      confidence: result.synthesis?.confidence ?? null,
-    });
-  }
+  const judged = judgedEventPayload(result.synthesis);
+  if (judged) emit("judged", judged);
 }
 
 /**
@@ -503,7 +515,7 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
   log(`running ${available.length} voice(s):`, available.map((p) => p.name).join(", "));
 
   const voices = await Promise.all(
-    available.map((p) => runOneVoice(p, { question, evidence, env, model })),
+    available.map((p) => runOneVoice(p, { question, evidence, env, model, emit })),
   );
 
   const ok = voices.filter((v) => v.status === "ok" && v.result);
@@ -523,6 +535,7 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
     // Only one successful voice — no meaningful synthesis. Pass through.
     synthesis = ok[0].result;
   } else {
+    emit("synthesis_started", { voice_count: ok.length });
     try {
       synthesis = await synthesise({ question, successfulVoices: ok, model, env });
     } catch (err) {
@@ -532,9 +545,12 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
       );
       synthesis = ok[0].result;
       synthesisFailed = true;
+      emit("synthesis_fallback", { reason: SYNTHESIS_FALLBACK_REASON });
     }
   }
   synthesis = ensurePositionEvidence(synthesis, evidence);
+  const judged = judgedEventPayload(synthesis);
+  if (judged) emit("judged", judged);
 
   const synthesis_mode = resolveSynthesisMode({ okCount: ok.length, synthesisFailed });
   const response = { synthesis, voices, manifest, synthesis_mode };
