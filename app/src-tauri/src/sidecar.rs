@@ -39,12 +39,12 @@ impl SidecarError {
 }
 
 /// One classified line from the sidecar's stdout, relative to an expected id.
-// wired into the read loop in the next task
-#[allow(dead_code)]
 pub enum SidecarLine {
     /// An interleaved `council_progress` event payload.
     Progress(Value),
-    /// The terminal result payload (may be `Null` if the field is absent).
+    /// The terminal result payload. `Null` means the result field was absent
+    /// or JSON null; the read loop treats that as a transport error, since a
+    /// real `council_result` always carries a result object.
     Result(Value),
     /// A clean handler error — the process stays healthy.
     AppError(String),
@@ -55,8 +55,6 @@ pub enum SidecarLine {
 }
 
 /// Pure classification of a single stdout line. No I/O; unit-tested.
-// wired into the read loop in the next task
-#[allow(dead_code)]
 pub fn classify_sidecar_line(line: &str, expected_id: &str) -> SidecarLine {
     let v: Value = match serde_json::from_str(line.trim()) {
         Ok(v) => v,
@@ -227,7 +225,14 @@ impl Sidecar {
         })
     }
 
-    pub async fn request(&mut self, kind: &str, mut body: Value) -> Result<Value, SidecarError> {
+    /// Send a request and read interleaved progress lines until the terminal
+    /// result/error. `on_progress` is called for each `council_progress` event.
+    pub async fn request_streaming<F: FnMut(Value)>(
+        &mut self,
+        kind: &str,
+        mut body: Value,
+        mut on_progress: F,
+    ) -> Result<Value, SidecarError> {
         self.next_id += 1;
         let id = format!("r{}", self.next_id);
         body["id"] = Value::String(id.clone());
@@ -248,40 +253,48 @@ impl Sidecar {
             .await
             .map_err(|e| SidecarError::Transport(format!("sidecar stdin flush: {e}")))?;
 
-        let mut buf = String::new();
-        let n = self
-            .reader
-            .read_line(&mut buf)
-            .await
-            .map_err(|e| SidecarError::Transport(format!("sidecar stdout read: {e}")))?;
-        if n == 0 {
-            return Err(SidecarError::Transport(
-                "sidecar closed stdout before responding".to_string(),
-            ));
+        loop {
+            let mut buf = String::new();
+            let n = self
+                .reader
+                .read_line(&mut buf)
+                .await
+                .map_err(|e| SidecarError::Transport(format!("sidecar stdout read: {e}")))?;
+            if n == 0 {
+                return Err(SidecarError::Transport(
+                    "sidecar closed stdout before responding".to_string(),
+                ));
+            }
+            match classify_sidecar_line(buf.trim(), &id) {
+                SidecarLine::Progress(event) => {
+                    on_progress(event);
+                    continue;
+                }
+                SidecarLine::AppError(msg) => return Err(SidecarError::App(msg)),
+                SidecarLine::IdMismatch => {
+                    return Err(SidecarError::Transport(format!(
+                        "sidecar response id mismatch: {buf}"
+                    )));
+                }
+                SidecarLine::Malformed(e) => {
+                    return Err(SidecarError::Transport(format!(
+                        "sidecar: malformed response `{}`: {e}",
+                        buf.trim()
+                    )));
+                }
+                SidecarLine::Result(Value::Null) => {
+                    return Err(SidecarError::Transport(
+                        "sidecar response missing `result`".to_string(),
+                    ));
+                }
+                SidecarLine::Result(v) => return Ok(v),
+            }
         }
+    }
 
-        let resp: Value = serde_json::from_str(buf.trim()).map_err(|e| {
-            SidecarError::Transport(format!("sidecar: malformed response `{}`: {e}", buf.trim()))
-        })?;
-
-        if resp.get("id").and_then(Value::as_str) != Some(&id) {
-            return Err(SidecarError::Transport(format!(
-                "sidecar response id mismatch: {buf}"
-            )));
-        }
-        // A `{type:"error"}` reply is the handler reporting a failed request
-        // (bad input, no providers, all voices failed). The process is fine.
-        if resp.get("type").and_then(Value::as_str) == Some("error") {
-            return Err(SidecarError::App(
-                resp.get("error")
-                    .and_then(Value::as_str)
-                    .unwrap_or("unknown sidecar error")
-                    .to_string(),
-            ));
-        }
-        resp.get("result")
-            .cloned()
-            .ok_or_else(|| SidecarError::Transport("sidecar response missing `result`".to_string()))
+    /// Non-streaming request: ignores progress events.
+    pub async fn request(&mut self, kind: &str, body: Value) -> Result<Value, SidecarError> {
+        self.request_streaming(kind, body, |_| {}).await
     }
 }
 
@@ -316,6 +329,44 @@ impl SidecarState {
                 Err(err.into_message())
             }
             // No response within the deadline — assume the process is wedged.
+            Err(_) => {
+                *guard = None;
+                Err(format!(
+                    "sidecar request `{kind}` timed out after {}s",
+                    SIDECAR_REQUEST_TIMEOUT.as_secs()
+                ))
+            }
+        }
+    }
+
+    // wired into ask_council in the next task
+    #[allow(dead_code)]
+    pub async fn request_streaming<F: FnMut(Value)>(
+        &self,
+        app: &AppHandle,
+        kind: &str,
+        body: Value,
+        on_progress: F,
+    ) -> Result<Value, String> {
+        let mut guard = self.inner.lock().await;
+        if guard.is_none() {
+            *guard = Some(Sidecar::spawn(app).await?);
+        }
+        let Some(sidecar) = guard.as_mut() else {
+            return Err("sidecar was not initialized".to_string());
+        };
+        match tokio::time::timeout(
+            SIDECAR_REQUEST_TIMEOUT,
+            sidecar.request_streaming(kind, body, on_progress),
+        )
+        .await
+        {
+            Ok(Ok(value)) => Ok(value),
+            Ok(Err(err @ SidecarError::App(_))) => Err(err.into_message()),
+            Ok(Err(err @ SidecarError::Transport(_))) => {
+                *guard = None;
+                Err(err.into_message())
+            }
             Err(_) => {
                 *guard = None;
                 Err(format!(
@@ -443,15 +494,19 @@ pub fn build_council_request(
 
 #[cfg(test)]
 mod classify_tests {
-    use serde_json::Value;
     use super::{classify_sidecar_line, SidecarLine};
+    use serde_json::Value;
 
     #[test]
     fn progress_line_is_progress() {
-        let line = r#"{"id":"r1","type":"council_progress","event":{"kind":"voice_started","seq":1}}"#;
+        let line =
+            r#"{"id":"r1","type":"council_progress","event":{"kind":"voice_started","seq":1}}"#;
         match classify_sidecar_line(line, "r1") {
             SidecarLine::Progress(ev) => {
-                assert_eq!(ev.get("kind").and_then(|v: &Value| v.as_str()), Some("voice_started"));
+                assert_eq!(
+                    ev.get("kind").and_then(|v: &Value| v.as_str()),
+                    Some("voice_started")
+                );
             }
             _ => panic!("expected Progress"),
         }
@@ -460,7 +515,21 @@ mod classify_tests {
     #[test]
     fn result_line_is_result() {
         let line = r#"{"id":"r1","type":"council_result","result":{"ok":true}}"#;
-        assert!(matches!(classify_sidecar_line(line, "r1"), SidecarLine::Result(_)));
+        match classify_sidecar_line(line, "r1") {
+            SidecarLine::Result(v) => {
+                assert_eq!(v.get("ok").and_then(|x| x.as_bool()), Some(true));
+            }
+            _ => panic!("expected Result"),
+        }
+    }
+
+    #[test]
+    fn result_line_missing_result_is_null() {
+        let line = r#"{"id":"r1","type":"council_result"}"#;
+        assert!(matches!(
+            classify_sidecar_line(line, "r1"),
+            SidecarLine::Result(serde_json::Value::Null)
+        ));
     }
 
     #[test]
@@ -475,11 +544,17 @@ mod classify_tests {
     #[test]
     fn wrong_id_is_mismatch() {
         let line = r#"{"id":"r2","type":"council_result","result":{}}"#;
-        assert!(matches!(classify_sidecar_line(line, "r1"), SidecarLine::IdMismatch));
+        assert!(matches!(
+            classify_sidecar_line(line, "r1"),
+            SidecarLine::IdMismatch
+        ));
     }
 
     #[test]
     fn bad_json_is_malformed() {
-        assert!(matches!(classify_sidecar_line("not json", "r1"), SidecarLine::Malformed(_)));
+        assert!(matches!(
+            classify_sidecar_line("not json", "r1"),
+            SidecarLine::Malformed(_)
+        ));
     }
 }
