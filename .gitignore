@@ -40,3 +40,6 @@ Voice *.txt
 app/tests/e2e/_debug.*
 .mcp-check/
 .playwright-mcp/
+
+# Brainstorming visual-companion scratch (local mockups)
+.superpowers/
