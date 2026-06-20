@@ -250,6 +250,7 @@ export function CouncilPanel({
   const onSelectSession = async (id: number) => {
     const requestId = ++councilViewRequestId.current;
     setLoading(false);
+    resetRun();
     try {
       const stored = await getCouncilSession(id);
       if (requestId !== councilViewRequestId.current) return;
@@ -315,18 +316,18 @@ export function CouncilPanel({
             className="settings-input resize-y"
           />
         </label>
+        {(loading || runState.started) && (
+          <CouncilRunMap runState={runState} elapsed={elapsed} />
+        )}
         {loading ? (
-          <div className="space-y-2">
-            <CouncilRunMap runState={runState} elapsed={elapsed} />
-            <button
-              type="button"
-              onClick={onCancelCouncil}
-              data-testid="council-cancel"
-              className="btn-secondary px-3 py-1.5 text-sm"
-            >
-              Cancel
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onCancelCouncil}
+            data-testid="council-cancel"
+            className="btn-secondary px-3 py-1.5 text-sm"
+          >
+            Cancel
+          </button>
         ) : (
           <CouncilVoicePreview settings={settings} onOpenSettings={onOpenSettings} />
         )}
