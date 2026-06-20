@@ -79,6 +79,8 @@
   /* Motion tokens */
   --motion-fast: 140ms;
   --motion-base: 320ms;
+  --motion-fade: 110ms;
+  --motion-expand: 150ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -214,6 +216,36 @@ mark {
   color: var(--color-neutral-100);
   padding: 0 0.15em;
   border-radius: 3px;
+}
+
+/* Editorial reader heading bits. */
+.reader-kicker {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-amber-300);
+}
+
+.reader-chapter-rule {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-amber-400),
+    transparent
+  );
+  opacity: 0.6;
+}
+
+.reader-drop-cap::first-letter {
+  float: left;
+  font-family: var(--font-serif);
+  font-size: 3.6em;
+  line-height: 0.82;
+  padding-right: 0.06em;
+  color: var(--color-amber-400);
 }
 
 .settings-input {
