@@ -72,6 +72,7 @@ import { useGuidedTour } from "./features/onboarding/useGuidedTour";
 import { NavigationShortcuts } from "./features/app-shell/NavigationShortcuts";
 import { CommandPalette, type CommandItem } from "./features/app-shell/CommandPalette";
 import { ModeButton } from "./features/app-shell/ModeButton";
+import { ModeIcon } from "./features/app-shell/ModeIcon";
 import { ReaderPlaceholder } from "./features/reader/ReaderPlaceholder";
 import { formatVerseId, parseReference } from "./lib/verse";
 import { settingsHasConfiguredAi } from "./lib/settings";
@@ -971,36 +972,43 @@ function App() {
               active={mode === "reader"}
               onClick={() => selectMode("reader")}
               label="Reader"
+              icon={<ModeIcon mode="reader" />}
             />
             <ModeButton
               active={mode === "council"}
               onClick={() => selectMode("council")}
               label="Council"
+              icon={<ModeIcon mode="council" />}
             />
             <ModeButton
               active={mode === "theology"}
               onClick={() => selectMode("theology")}
               label="Theology"
+              icon={<ModeIcon mode="theology" />}
             />
             <ModeButton
               active={mode === "resources"}
               onClick={() => selectMode("resources")}
               label="Resources"
+              icon={<ModeIcon mode="resources" />}
             />
             <ModeButton
               active={mode === "workspaces"}
               onClick={() => selectMode("workspaces")}
               label="Workspaces"
+              icon={<ModeIcon mode="workspaces" />}
             />
             <ModeButton
               active={mode === "tags"}
               onClick={() => selectMode("tags")}
               label="Tags"
+              icon={<ModeIcon mode="tags" />}
             />
             <ModeButton
               active={mode === "settings"}
               onClick={() => selectMode("settings")}
               label="Settings"
+              icon={<ModeIcon mode="settings" />}
             />
           </nav>
 
