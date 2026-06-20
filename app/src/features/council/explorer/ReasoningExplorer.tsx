@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { CouncilResponse } from "../../../lib/bible";
 import {
@@ -22,6 +22,15 @@ export function ReasoningExplorer({ response }: { response: CouncilResponse }) {
   const current = stack[stack.length - 1];
   const push = (entity: ExplorerEntity) => setStack((s) => [...s, entity]);
   const goTo = (index: number) => setStack((s) => s.slice(0, index + 1));
+
+  // Keyboard/screen-reader focus management: the item a user activates unmounts
+  // when its level re-renders, dropping focus to <body>. Move focus into the new
+  // content region on every navigation (and on open) so the drill-down is
+  // navigable without a mouse and announced to assistive tech.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bodyRef.current?.focus();
+  }, [stack]);
 
   return (
     <section className="surface-panel rounded-lg p-4 space-y-3" data-testid="reasoning-explorer" aria-label="Reasoning explorer">
@@ -48,7 +57,13 @@ export function ReasoningExplorer({ response }: { response: CouncilResponse }) {
         <span className="text-emerald-400">▲ supports</span>
         <span className="text-red-400">▼ challenges</span>
       </div>
-      <div data-testid="re-body">
+      <div
+        data-testid="re-body"
+        ref={bodyRef}
+        tabIndex={-1}
+        aria-live="polite"
+        className="outline-none"
+      >
         {current.type === "outcome" && <OutcomeView response={response} onOpen={push} />}
         {current.type === "position" && <PositionView response={response} label={current.label} onOpen={push} />}
         {current.type === "verse" && <VerseView response={response} verseId={current.verseId} onOpen={push} />}
