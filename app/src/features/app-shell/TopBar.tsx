@@ -11,6 +11,7 @@ interface TopBarProps {
   tourDismissed: boolean;
   onOpenTour: () => void;
   onToggleBookNav: () => void;
+  onToggleNavDrawer: () => void;
 }
 
 /**
@@ -32,6 +33,7 @@ export function TopBar({
   tourDismissed,
   onOpenTour,
   onToggleBookNav,
+  onToggleNavDrawer,
 }: TopBarProps) {
   return (
     <div
@@ -54,6 +56,15 @@ export function TopBar({
           aria-label="Toggle book navigation"
         >
           Books
+        </button>
+        <button
+          type="button"
+          onClick={onToggleNavDrawer}
+          data-testid="nav-drawer-toggle"
+          className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
+          aria-label="Toggle navigation shortcuts"
+        >
+          Library
         </button>
         {!tourDismissed && (
           <button

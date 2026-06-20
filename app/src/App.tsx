@@ -70,6 +70,7 @@ import { TagBrowser } from "./features/tags/TagBrowser";
 import { GuidedTour, TOUR_STEPS } from "./features/onboarding/GuidedTour";
 import { useGuidedTour } from "./features/onboarding/useGuidedTour";
 import { NavigationShortcuts } from "./features/app-shell/NavigationShortcuts";
+import { NavigationDrawer } from "./features/app-shell/NavigationDrawer";
 import { CommandPalette, type CommandItem } from "./features/app-shell/CommandPalette";
 import { ModeButton } from "./features/app-shell/ModeButton";
 import { ModeIcon } from "./features/app-shell/ModeIcon";
@@ -157,6 +158,7 @@ function App() {
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [bookNavOpen, setBookNavOpen] = useState(false);
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false);
 
   // Per-chapter user data (highlights + which verses have notes).
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -1016,6 +1018,7 @@ function App() {
         tourDismissed={tourDismissed}
         onOpenTour={() => openTour(0)}
         onToggleBookNav={() => setBookNavOpen((v) => !v)}
+        onToggleNavDrawer={() => setNavDrawerOpen((v) => !v)}
       />
       <div className="flex flex-1 overflow-hidden">
       <aside className="app-sidebar w-80 border-r border-neutral-800 flex flex-col">
@@ -1594,6 +1597,67 @@ function App() {
           setMode("reader");
         }}
         onSelectChapter={setSelectedChapter}
+      />
+      <NavigationDrawer
+        open={navDrawerOpen}
+        onClose={() => setNavDrawerOpen(false)}
+        books={books}
+        bookmarks={bookmarks}
+        history={readingHistory}
+        savedSearches={savedSearches}
+        workspaces={workspaceShortcuts}
+        onJumpToVerse={jumpToVerse}
+        onJumpToChapter={(bookId, chapter, translationCodes) => {
+          const book = books.find((b) => b.id === bookId);
+          if (!book) return;
+          const codes = translationCodes
+            .split(",")
+            .map((c) => c.trim())
+            .filter((code) => translations.some((t) => t.code === code));
+          if (codes.length) setActiveTranslations(codes);
+          setSelectedBook(book);
+          setSelectedChapter(chapter);
+          setSearchQuery("");
+          setMode("reader");
+          setNavDrawerOpen(false);
+        }}
+        onRunSavedSearch={(s) => {
+          setSearchQuery(s.query);
+          setSearchFilterTranslation(s.translation_code ?? "all");
+          setSearchFilterTestament((s.testament ?? "all") as SearchTestamentFilter);
+          setSearchFilterBookId(s.book_id ?? 0);
+          setSearchPanelOpen(true);
+          setMode("reader");
+          setNavDrawerOpen(false);
+        }}
+        onRenameSavedSearch={async (search, title) => {
+          await updateSavedSearchTitle(search.id, title);
+          setSavedSearches((current) =>
+            current.map((s) =>
+              s.id === search.id
+                ? { ...s, title, updated_at: new Date().toISOString() }
+                : s,
+            ),
+          );
+          await refreshNavigationLists();
+        }}
+        onDeleteSavedSearch={async (search) => {
+          await deleteSavedSearch(search.id);
+          setSavedSearches((current) => current.filter((s) => s.id !== search.id));
+          await refreshNavigationLists();
+        }}
+        onOpenWorkspace={(workspaceId) => {
+          setWorkspaceFocusId(workspaceId);
+          setSearchQuery("");
+          setMode("workspaces");
+          setNavDrawerOpen(false);
+        }}
+        tags={tags}
+        bookmarkTags={bookmarkTags}
+        bookmarkTagFilter={bookmarkTagFilter}
+        onSetBookmarkTagFilter={setBookmarkTagFilter}
+        onAttachBookmarkTag={onAttachBookmarkTag}
+        onDetachBookmarkTag={onDetachBookmarkTag}
       />
       {searchPanelOpen && (
         <SearchPanel

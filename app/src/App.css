@@ -373,6 +373,11 @@ mark {
   to { transform: translateX(0); }
 }
 
+@keyframes nav-drawer-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 /* ---- Council process visualization -------------------------------------
    The active pipeline stage gently pulses; each helper card shows three
    bouncing dots ("thinking…"). These reassure the user that work is in
