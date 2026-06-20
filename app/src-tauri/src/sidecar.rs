@@ -38,6 +38,47 @@ impl SidecarError {
     }
 }
 
+/// One classified line from the sidecar's stdout, relative to an expected id.
+// wired into the read loop in the next task
+#[allow(dead_code)]
+pub enum SidecarLine {
+    /// An interleaved `council_progress` event payload.
+    Progress(Value),
+    /// The terminal result payload (may be `Null` if the field is absent).
+    Result(Value),
+    /// A clean handler error — the process stays healthy.
+    AppError(String),
+    /// The line's `id` did not match the in-flight request.
+    IdMismatch,
+    /// The line was not valid JSON.
+    Malformed(String),
+}
+
+/// Pure classification of a single stdout line. No I/O; unit-tested.
+// wired into the read loop in the next task
+#[allow(dead_code)]
+pub fn classify_sidecar_line(line: &str, expected_id: &str) -> SidecarLine {
+    let v: Value = match serde_json::from_str(line.trim()) {
+        Ok(v) => v,
+        Err(e) => return SidecarLine::Malformed(e.to_string()),
+    };
+    if v.get("id").and_then(Value::as_str) != Some(expected_id) {
+        return SidecarLine::IdMismatch;
+    }
+    match v.get("type").and_then(Value::as_str) {
+        Some("council_progress") => {
+            SidecarLine::Progress(v.get("event").cloned().unwrap_or(Value::Null))
+        }
+        Some("error") => SidecarLine::AppError(
+            v.get("error")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown sidecar error")
+                .to_string(),
+        ),
+        _ => SidecarLine::Result(v.get("result").cloned().unwrap_or(Value::Null)),
+    }
+}
+
 pub struct Sidecar {
     // Keep the Child alive so dropping Sidecar kills the process.
     _child: tokio::process::Child,
@@ -398,4 +439,47 @@ pub fn build_council_request(
         "model": model,
         "settings": settings,
     })
+}
+
+#[cfg(test)]
+mod classify_tests {
+    use serde_json::Value;
+    use super::{classify_sidecar_line, SidecarLine};
+
+    #[test]
+    fn progress_line_is_progress() {
+        let line = r#"{"id":"r1","type":"council_progress","event":{"kind":"voice_started","seq":1}}"#;
+        match classify_sidecar_line(line, "r1") {
+            SidecarLine::Progress(ev) => {
+                assert_eq!(ev.get("kind").and_then(|v: &Value| v.as_str()), Some("voice_started"));
+            }
+            _ => panic!("expected Progress"),
+        }
+    }
+
+    #[test]
+    fn result_line_is_result() {
+        let line = r#"{"id":"r1","type":"council_result","result":{"ok":true}}"#;
+        assert!(matches!(classify_sidecar_line(line, "r1"), SidecarLine::Result(_)));
+    }
+
+    #[test]
+    fn error_line_is_app_error() {
+        let line = r#"{"id":"r1","type":"error","error":"boom"}"#;
+        match classify_sidecar_line(line, "r1") {
+            SidecarLine::AppError(m) => assert_eq!(m, "boom"),
+            _ => panic!("expected AppError"),
+        }
+    }
+
+    #[test]
+    fn wrong_id_is_mismatch() {
+        let line = r#"{"id":"r2","type":"council_result","result":{}}"#;
+        assert!(matches!(classify_sidecar_line(line, "r1"), SidecarLine::IdMismatch));
+    }
+
+    #[test]
+    fn bad_json_is_malformed() {
+        assert!(matches!(classify_sidecar_line("not json", "r1"), SidecarLine::Malformed(_)));
+    }
 }
