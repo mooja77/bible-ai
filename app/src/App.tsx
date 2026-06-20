@@ -47,12 +47,9 @@ import {
   tagItem,
   untagItem,
 } from "./lib/bible";
-import { BookList } from "./features/reader/BookList";
-import { ChapterGrid } from "./features/reader/ChapterGrid";
 import { BookNav } from "./features/reader/BookNav";
 import { ChapterReader, RangeActionBar } from "./features/reader/ChapterReader";
 import { InterleavedReader } from "./features/reader/InterleavedReader";
-import { TranslationPicker } from "./features/reader/TranslationPicker";
 import { JumpBar } from "./features/reader/JumpBar";
 import { ReaderTopControls } from "./features/reader/ReaderTopControls";
 import type { ReaderLayout, ReaderDensity } from "./features/reader/types";
@@ -69,11 +66,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TagBrowser } from "./features/tags/TagBrowser";
 import { GuidedTour, TOUR_STEPS } from "./features/onboarding/GuidedTour";
 import { useGuidedTour } from "./features/onboarding/useGuidedTour";
-import { NavigationShortcuts } from "./features/app-shell/NavigationShortcuts";
 import { NavigationDrawer } from "./features/app-shell/NavigationDrawer";
 import { CommandPalette, type CommandItem } from "./features/app-shell/CommandPalette";
-import { ModeButton } from "./features/app-shell/ModeButton";
-import { ModeIcon } from "./features/app-shell/ModeIcon";
 import { TopBar } from "./features/app-shell/TopBar";
 import { ReaderPlaceholder } from "./features/reader/ReaderPlaceholder";
 import { formatVerseId, parseReference } from "./lib/verse";
@@ -749,6 +743,13 @@ function App() {
     if (nextMode !== "reader") referenceJumpRequestId.current += 1;
     setMode(nextMode);
     if (nextMode !== "reader") setSearchQuery("");
+    // Navigating to a mode dismisses any transient overlay so the chrome-less
+    // shell never strands a full-screen panel/drawer over the new view (the
+    // mode-nav now lives in the TopBar, behind these z-40 overlays).
+    setSearchPanelOpen(false);
+    setBookNavOpen(false);
+    setNavDrawerOpen(false);
+    setCommandPaletteOpen(false);
   };
 
   const updateSearchQuery = (nextQuery: string) => {
@@ -1004,6 +1005,8 @@ function App() {
         Skip to main content
       </a>
       <TopBar
+        mode={mode}
+        onSelectMode={selectMode}
         theme={theme}
         onThemeToggle={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
         uiScale={uiScale}
@@ -1020,77 +1023,30 @@ function App() {
         onToggleBookNav={() => setBookNavOpen((v) => !v)}
         onToggleNavDrawer={() => setNavDrawerOpen((v) => !v)}
       />
-      <div className="flex flex-1 overflow-hidden">
-      <aside className="app-sidebar w-80 border-r border-neutral-800 flex flex-col">
-        <div className="p-4 border-b border-neutral-800 space-y-3">
-          <nav className="flex flex-col gap-0.5" aria-label="Main navigation">
-            <ModeButton
-              active={mode === "reader"}
-              onClick={() => selectMode("reader")}
-              label="Reader"
-              icon={<ModeIcon mode="reader" />}
-            />
-            <ModeButton
-              active={mode === "council"}
-              onClick={() => selectMode("council")}
-              label="Council"
-              icon={<ModeIcon mode="council" />}
-            />
-            <ModeButton
-              active={mode === "theology"}
-              onClick={() => selectMode("theology")}
-              label="Theology"
-              icon={<ModeIcon mode="theology" />}
-            />
-            <ModeButton
-              active={mode === "resources"}
-              onClick={() => selectMode("resources")}
-              label="Resources"
-              icon={<ModeIcon mode="resources" />}
-            />
-            <ModeButton
-              active={mode === "workspaces"}
-              onClick={() => selectMode("workspaces")}
-              label="Workspaces"
-              icon={<ModeIcon mode="workspaces" />}
-            />
-            <ModeButton
-              active={mode === "tags"}
-              onClick={() => selectMode("tags")}
-              label="Tags"
-              icon={<ModeIcon mode="tags" />}
-            />
-            <ModeButton
-              active={mode === "settings"}
-              onClick={() => selectMode("settings")}
-              label="Settings"
-              icon={<ModeIcon mode="settings" />}
-            />
-          </nav>
-
-          <div
-            className={tourDismissed ? "flex items-center justify-between gap-2" : "soft-card p-3 space-y-2"}
-            data-testid="new-user-guide-prompt"
-          >
-            {!tourDismissed && (
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-neutral-100">New here?</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    Take a quick tour of the main workflow.
-                  </p>
-                </div>
+      {/* Onboarding prompts relocated out of the removed sidebar. They live at
+          the AppShell top level (below the TopBar, above the reader) so they
+          stay visible on every screen and keep their e2e testids. */}
+      {(!tourDismissed || showProviderSetupPrompt) && (
+        <div className="flex flex-wrap items-start gap-3 border-b border-neutral-800 px-4 py-2">
+          {!tourDismissed && (
+            <div
+              className="soft-card flex items-center gap-3 p-3"
+              data-testid="new-user-guide-prompt"
+            >
+              <div>
+                <p className="text-sm font-medium text-neutral-100">New here?</p>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  Take a quick tour of the main workflow.
+                </p>
               </div>
-            )}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openTour(0)}
-                className={tourDismissed ? "meta-pill hover:border-neutral-500 hover:text-neutral-200" : "btn-primary px-2.5 py-1 text-xs"}
-              >
-                {tourDismissed ? "Guide" : "Start guide"}
-              </button>
-              {!tourDismissed && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openTour(0)}
+                  className="btn-primary px-2.5 py-1 text-xs"
+                >
+                  Start guide
+                </button>
                 <button
                   type="button"
                   onClick={dismissTourPrompt}
@@ -1098,9 +1054,9 @@ function App() {
                 >
                   Hide
                 </button>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           {showProviderSetupPrompt && (
             <div className="soft-card p-3 space-y-3" data-testid="provider-setup-prompt">
@@ -1131,196 +1087,8 @@ function App() {
               </div>
             </div>
           )}
-
-          {/* Search (scope/strategy/filters/results) now lives in the
-              SearchPanel overlay — opened via "/" or ⌘K. */}
-
-          <div className="space-y-1">
-            <div className="flex gap-2">
-              <input
-                value={referenceInput}
-                onChange={(e) => {
-                  setReferenceInput(e.target.value);
-                  setReferenceError(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void jumpToReference();
-                }}
-                placeholder="Go to… e.g. John, John 3, or John 3:16"
-                className="settings-input text-xs"
-                aria-label="Jump to reference"
-              />
-              <button
-                type="button"
-                onClick={() => void jumpToReference()}
-                className="btn-secondary px-3 text-xs"
-              >
-                Go
-              </button>
-            </div>
-            {referenceError && <p className="text-xs text-red-300">{referenceError}</p>}
-          </div>
-
-          {/* Reader display controls (font, layout, translations) — hidden
-              outside the Reader; search and jump-to-reference stay global. */}
-          {mode === "reader" && (
-          <>
-          {/* Distinct from the global "App text size" control above: this
-              scales ONLY the verse text, so it is labelled "Reading text" and
-              styled to match the app-size pills so the two read as one family
-              of control rather than two confusing near-identical rows. */}
-          <div
-            className="flex items-center justify-between gap-2 text-xs text-neutral-400"
-            role="group"
-            aria-label="Reading text size"
-          >
-            <span>Reading text</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setReaderFontScale(fontScale - 0.1)}
-                className="meta-pill px-2 hover:text-neutral-100 disabled:opacity-40"
-                aria-label="Decrease reader font size"
-                title="Decrease reading text size"
-              >
-                A−
-              </button>
-              <span className="w-10 text-center font-mono tabular-nums select-none">
-                {Math.round(fontScale * 100)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => setReaderFontScale(fontScale + 0.1)}
-                className="meta-pill px-2 hover:text-neutral-100 disabled:opacity-40"
-                aria-label="Increase reader font size"
-                title="Increase reading text size"
-              >
-                A+
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <select
-              value={readerLayout}
-              onChange={(e) => setReaderLayoutSetting(e.target.value as ReaderLayout)}
-              className="settings-input text-xs"
-              aria-label="Reader layout"
-            >
-              <option value="columns">Columns</option>
-              <option value="interleaved">Interleaved</option>
-            </select>
-            <select
-              value={readerDensity}
-              onChange={(e) => setReaderDensitySetting(e.target.value as ReaderDensity)}
-              className="settings-input text-xs"
-              aria-label="Reader density"
-            >
-              <option value="comfortable">Comfortable</option>
-              <option value="compact">Compact</option>
-            </select>
-          </div>
-          <label className="flex items-center gap-2 text-xs text-neutral-400">
-            <input
-              type="checkbox"
-              checked={syncScroll}
-              onChange={(e) => setSyncScrollSetting(e.target.checked)}
-              className="accent-indigo-500"
-              aria-label="Sync reader scrolling"
-            />
-            Sync scroll
-          </label>
-          <TranslationPicker
-            translations={translations}
-            activeCodes={activeTranslations}
-            onToggle={toggleTranslation}
-          />
-          </>
-          )}
         </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
-          {mode === "reader" && (
-            <BookList
-              books={books}
-              selectedBookId={selectedBook?.id ?? null}
-              onSelect={(b) => {
-                setSelectedBook(b);
-                setSelectedChapter(1);
-                setMode("reader");
-              }}
-            />
-          )}
-          <NavigationShortcuts
-            books={books}
-            bookmarks={bookmarks}
-            history={readingHistory}
-            savedSearches={savedSearches}
-            workspaces={workspaceShortcuts}
-            onJumpToVerse={jumpToVerse}
-            onJumpToChapter={(bookId, chapter, translationCodes) => {
-              const book = books.find((b) => b.id === bookId);
-              if (!book) return;
-              const codes = translationCodes
-                .split(",")
-                .map((c) => c.trim())
-                .filter((code) => translations.some((t) => t.code === code));
-              if (codes.length) setActiveTranslations(codes);
-              setSelectedBook(book);
-              setSelectedChapter(chapter);
-              setSearchQuery("");
-              setMode("reader");
-            }}
-            onRunSavedSearch={(s) => {
-              setSearchQuery(s.query);
-              setSearchFilterTranslation(s.translation_code ?? "all");
-              setSearchFilterTestament((s.testament ?? "all") as SearchTestamentFilter);
-              setSearchFilterBookId(s.book_id ?? 0);
-              setSearchPanelOpen(true);
-              setMode("reader");
-            }}
-            onRenameSavedSearch={async (search, title) => {
-              await updateSavedSearchTitle(search.id, title);
-              setSavedSearches((current) =>
-                current.map((s) =>
-                  s.id === search.id
-                    ? { ...s, title, updated_at: new Date().toISOString() }
-                    : s,
-                ),
-              );
-              await refreshNavigationLists();
-            }}
-            onDeleteSavedSearch={async (search) => {
-              await deleteSavedSearch(search.id);
-              setSavedSearches((current) => current.filter((s) => s.id !== search.id));
-              await refreshNavigationLists();
-            }}
-            onOpenWorkspace={(workspaceId) => {
-              setWorkspaceFocusId(workspaceId);
-              setSearchQuery("");
-              setMode("workspaces");
-            }}
-            tags={tags}
-            bookmarkTags={bookmarkTags}
-            bookmarkTagFilter={bookmarkTagFilter}
-            onSetBookmarkTagFilter={setBookmarkTagFilter}
-            onAttachBookmarkTag={onAttachBookmarkTag}
-            onDetachBookmarkTag={onDetachBookmarkTag}
-          />
-        </div>
-
-        {selectedBook && mode === "reader" && (
-          <div className="border-t border-neutral-800 p-4">
-            <h3 className="nav-section-title mb-2">
-              {selectedBook.name} · Chapters
-            </h3>
-            <ChapterGrid
-              chapterCount={selectedBook.chapter_count}
-              selectedChapter={selectedChapter}
-              onSelect={setSelectedChapter}
-            />
-          </div>
-        )}
-      </aside>
+      )}
 
       <main
         id="main-content"
@@ -1573,7 +1341,6 @@ function App() {
         )}
         </ErrorBoundary>
       </main>
-      </div>
 
       {selectedWord && (
         <StrongsPopup

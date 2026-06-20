@@ -93,12 +93,16 @@ describe("Workspaces", () => {
     const reader = await $("button=Reader");
     await reader.waitForClickable({ timeout: 10_000 });
     await reader.click();
+    // Workspace shortcuts now live in the on-demand NavigationDrawer (WC1 shell).
+    await $('[data-testid="nav-drawer-toggle"]').click();
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ timeout: 5_000 });
     const shortcut = await $(`button=${title}`);
     await shortcut.waitForExist({ timeout: 10_000 });
     await shortcut.scrollIntoView();
     await shortcut.waitForDisplayed({ timeout: 10_000 });
     await shortcut.waitForClickable({ timeout: 10_000 });
     await shortcut.click();
+    // Opening a workspace from the drawer closes it and navigates.
     await created.waitForDisplayed({ timeout: 10_000 });
 
     await deleteCurrentWorkspace(title);
@@ -387,8 +391,11 @@ describe("Workspaces", () => {
     const resultsHeader = await runSidebarSearch("mercy");
 
     await $("button=Save").click();
-    const savedSearch = await $("button=mercy");
-    await savedSearch.waitForDisplayed({ timeout: 10_000 });
+    // The saved-search shortcut now lives in the NavigationDrawer, which is
+    // behind the full-screen SearchPanel overlay and can't be reached without
+    // closing the search flow. Saving from the drawer is covered end-to-end by
+    // the dedicated "renames, reruns, and deletes a saved search" test below;
+    // here we just continue adding the visible results to a workspace.
 
     const selectors = await $$('input[aria-label^="Select "]');
     expect(selectors.length).toBeGreaterThan(1);
@@ -631,11 +638,13 @@ describe("Workspaces", () => {
     await saveSearch.waitForClickable({ timeout: 10_000 });
     await saveSearch.click();
 
-    // Saved-search management lives in the sidebar (behind the overlay) — close
-    // the panel so its rename/rerun/delete controls become clickable.
+    // Saved-search management now lives in the NavigationDrawer (WC1 shell) —
+    // close the search overlay, then open the drawer to reach rename/rerun.
     await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
     await browser.keys("Escape");
     await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
+    await $('[data-testid="nav-drawer-toggle"]').click();
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ timeout: 5_000 });
 
     const savedSearch = await $(`button=${title}`);
     await savedSearch.waitForExist({ timeout: 10_000 });
@@ -667,7 +676,8 @@ describe("Workspaces", () => {
       { timeout: 10_000, timeoutMsg: "renamed saved search did not rerun original query" },
     );
 
-    // Clear the query and close the overlay so the sidebar delete control is usable.
+    // Clear the query and close the overlay, then reopen the drawer so the
+    // saved-search delete control is usable.
     await browser.execute(() => {
       const input = document.querySelector('input[type="search"]') as HTMLInputElement | null;
       if (!input) return;
@@ -679,11 +689,17 @@ describe("Workspaces", () => {
     await browser.execute(() => (document.activeElement as HTMLElement | null)?.blur());
     await browser.keys("Escape");
     await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
+    await $('[data-testid="nav-drawer-toggle"]').click();
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ timeout: 5_000 });
 
     const deleteButton = await $(`[aria-label="Delete saved search ${renamed}"]`);
     await deleteButton.waitForClickable({ timeout: 10_000 });
     await deleteButton.click();
     await renamedSearch.waitForDisplayed({ reverse: true, timeout: 10_000 });
+
+    // Close the drawer to leave a clean state for later tests.
+    await browser.keys("Escape");
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
   it("reorders workspace items", async () => {

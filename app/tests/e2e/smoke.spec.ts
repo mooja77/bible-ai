@@ -124,6 +124,11 @@ describe("Bible AI shell", () => {
   });
 
   it("populates the translation picker with the 6 ingested translations", async () => {
+    // The translation picker now lives in the reader's top controls (WC1 shell),
+    // so ensure we are in the Reader before asserting its rows.
+    const reader = await $("button=Reader");
+    await reader.waitForClickable({ timeout: 10_000 });
+    await reader.click();
     // Each checkbox row has its translation code in a <span> with text content.
     const codes = ["KJV", "ASV", "WEB", "YLT", "TR", "WLC"];
     for (const code of codes) {

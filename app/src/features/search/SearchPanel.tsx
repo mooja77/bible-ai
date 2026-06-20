@@ -100,7 +100,7 @@ export function SearchPanel({
       role="dialog"
       aria-modal="true"
       aria-label="Search"
-      className="fixed inset-0 z-40 bg-black/60 flex items-start justify-center px-4 pt-16 pb-8 search-panel"
+      className="fixed inset-x-0 bottom-0 top-12 z-40 bg-black/60 flex items-start justify-center px-4 pt-4 pb-8 search-panel"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}

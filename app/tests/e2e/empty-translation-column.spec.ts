@@ -17,6 +17,11 @@ describe("Empty translation columns", () => {
 
   async function setChecked(code: string, desired: boolean) {
     const box = await $(`[data-testid="translation-${code}"]`);
+    // The translation rows depend on the async translations load; on a cold
+    // start (this spec running first) that fetch can lag, so wait for existence
+    // generously, scroll into view, then toggle.
+    await box.waitForExist({ timeout: 20_000 });
+    await box.scrollIntoView();
     await box.waitForDisplayed({ timeout: 10_000 });
     if ((await box.isSelected()) !== desired) {
       await box.click();
@@ -28,6 +33,23 @@ describe("Empty translation columns", () => {
     for (const code of ALL_CODES) {
       await setChecked(code, codes.includes(code));
     }
+  }
+
+  // Book navigation now lives in the on-demand BookNav drawer (WC1 shell).
+  async function openBookNav() {
+    const nav = await $('[data-testid="book-nav"]');
+    if (await nav.isExisting()) return;
+    await $('[data-testid="book-nav-toggle"]').click();
+    await nav.waitForDisplayed({ timeout: 5_000 });
+  }
+
+  // The drawer overlays the main column; close it before touching main-area
+  // controls (translation checkboxes) or asserting the omission note.
+  async function closeBookNav() {
+    const nav = await $('[data-testid="book-nav"]');
+    if (!(await nav.isExisting())) return;
+    await browser.keys("Escape");
+    await nav.waitForDisplayed({ reverse: true, timeout: 5_000 });
   }
 
   async function headingIncludes(text: string) {
@@ -54,9 +76,11 @@ describe("Empty translation columns", () => {
 
     // Go to Genesis 1, where TR has no verses. Use the book list button (exact
     // text) so navigation does not race the controlled jump-input state.
+    await openBookNav();
     const genesis = await $("button=Genesis");
     await genesis.waitForClickable({ timeout: 10_000 });
     await genesis.click();
+    await closeBookNav();
     await headingIncludes("Genesis");
 
     // The omission note is shown and names TR (and only TR).
@@ -75,10 +99,19 @@ describe("Empty translation columns", () => {
   });
 
   it("shows every active translation when all have text for the chapter", async () => {
+    // Self-sufficient setup (do not depend on the previous test's end state):
+    // ensure the Reader is active and KJV+TR are the active set.
+    const reader = await $("button=Reader");
+    await reader.waitForClickable({ timeout: 10_000 });
+    await reader.click();
+    await setExactActive(["KJV", "TR"]);
+
     // John exists in both KJV and TR, so nothing is omitted.
+    await openBookNav();
     const john = await $("button=John");
     await john.waitForClickable({ timeout: 10_000 });
     await john.click();
+    await closeBookNav();
     await headingIncludes("John");
 
     const note = await $('[data-testid="absent-translations-note"]');

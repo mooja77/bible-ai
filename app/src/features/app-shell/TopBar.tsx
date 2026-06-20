@@ -1,5 +1,21 @@
+import type { Mode } from "../../lib/mode";
+import { ModeButton } from "./ModeButton";
+import { ModeIcon } from "./ModeIcon";
+
+const MODE_NAV: ReadonlyArray<{ mode: Mode; label: string }> = [
+  { mode: "reader", label: "Reader" },
+  { mode: "council", label: "Council" },
+  { mode: "theology", label: "Theology" },
+  { mode: "resources", label: "Resources" },
+  { mode: "workspaces", label: "Workspaces" },
+  { mode: "tags", label: "Tags" },
+  { mode: "settings", label: "Settings" },
+];
+
 interface TopBarProps {
   title?: string;
+  mode: Mode;
+  onSelectMode: (mode: Mode) => void;
   theme: "light" | "dark";
   onThemeToggle: () => void;
   uiScale: number;
@@ -22,6 +38,8 @@ interface TopBarProps {
  */
 export function TopBar({
   title,
+  mode,
+  onSelectMode,
   theme,
   onThemeToggle,
   uiScale,
@@ -46,6 +64,18 @@ export function TopBar({
           <span className="truncate text-xs text-neutral-400">{title}</span>
         ) : null}
       </div>
+
+      <nav className="flex items-center gap-0.5" aria-label="Main navigation">
+        {MODE_NAV.map(({ mode: m, label }) => (
+          <ModeButton
+            key={m}
+            active={mode === m}
+            onClick={() => onSelectMode(m)}
+            label={label}
+            icon={<ModeIcon mode={m} />}
+          />
+        ))}
+      </nav>
 
       <div className="flex items-center gap-1">
         <button

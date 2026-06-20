@@ -20,6 +20,9 @@ describe("Navigation shell", () => {
     const icon = await councilBtn.$("svg[aria-hidden='true']");
     expect(await icon.isExisting()).toBe(true);
 
-    expect((await councilBtn.getText()).trim()).toBe("Council");
+    // The label moved to an sr-only span + aria-label (icon-only TopBar nav), so
+    // the accessible name is the assertion. The `button=Council` text selector
+    // above still resolves because it matches on textContent (incl. sr-only).
+    expect(await councilBtn.getAttribute("aria-label")).toBe("Council");
   });
 });

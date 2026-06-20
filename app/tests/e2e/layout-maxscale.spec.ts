@@ -90,9 +90,15 @@ describe("Layout at maximum text size", () => {
     await stepUiScale("ui-scale-inc"); // saturate to the largest step
     await expect(await $('[data-testid="ui-scale-value"]')).toHaveText("140%");
 
-    // Reader with content.
+    // Reader with content. Book nav now lives in the on-demand BookNav drawer
+    // (WC1 shell); open it, pick Genesis, then close it so the overflow scan
+    // runs against the reader (not the transient drawer).
+    await $('[data-testid="book-nav-toggle"]').click();
+    await $('[data-testid="book-nav"]').waitForDisplayed({ timeout: 5_000 });
     const genesis = await $("button=Genesis");
     if (await genesis.isClickable()) await genesis.click();
+    await browser.keys("Escape");
+    await $('[data-testid="book-nav"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
     await browser.pause(600);
     expect(await layoutProblems()).toEqual([]);
 
