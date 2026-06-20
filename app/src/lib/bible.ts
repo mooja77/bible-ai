@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 
 export type Testament = "OT" | "NT" | "DC";
 
@@ -265,12 +265,35 @@ export interface CouncilRetrievalOptions {
   evidence_limit?: number;
 }
 
+export interface CouncilProgressEvent {
+  seq: number;
+  ts: number;
+  kind:
+    | "run_started"
+    | "safety_checked"
+    | "retrieval_started"
+    | "retrieval_fallback"
+    | "retrieval_done"
+    | "voice_started"
+    | "voice_done"
+    | "voice_failed"
+    | "synthesis_started"
+    | "synthesis_fallback"
+    | "judged"
+    | "run_complete";
+  [key: string]: unknown;
+}
+
 export const askCouncil = (
   question: string,
   model?: string,
   options: CouncilRetrievalOptions = {},
-) =>
-  invoke<CouncilResponse>("ask_council", {
+  onProgress?: (event: CouncilProgressEvent) => void,
+) => {
+  const channel = new Channel<CouncilProgressEvent>();
+  if (onProgress) channel.onmessage = onProgress;
+  return invoke<CouncilResponse>("ask_council", {
+    onProgress: channel,
     question,
     model,
     retrievalStrategy: options.strategy,
@@ -282,6 +305,7 @@ export const askCouncil = (
     endVerseId: options.end_verse_id,
     evidenceLimit: options.evidence_limit,
   });
+};
 
 export interface PassageExplanation {
   citation: string;

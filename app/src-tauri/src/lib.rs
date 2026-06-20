@@ -2989,7 +2989,7 @@ async fn ask_council(
 
     emit(
         "run_started",
-        serde_json::json!({ "evidence_strategy": retrieval_options.strategy }),
+        serde_json::json!({ "strategy": retrieval_options.strategy }),
     );
     emit(
         "retrieval_started",
