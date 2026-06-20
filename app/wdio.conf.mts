@@ -143,6 +143,7 @@ export const config: WebdriverIO.Config = {
       "./tests/e2e/layout-maxscale.spec.ts",
       "./tests/e2e/contrast-light.spec.ts",
       "./tests/e2e/council-run-map.spec.ts",
+      "./tests/e2e/reasoning-explorer.spec.ts",
     ],
   ],
   maxInstances: 1,

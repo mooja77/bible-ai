@@ -35,6 +35,7 @@ import { CouncilResultView } from "./CouncilResultView";
 import { CouncilConfidenceRationale } from "./CouncilConfidenceRationale";
 import { VoicesAuditTrail } from "./CouncilVoicesAudit";
 import { ErrorState } from "../../components/StateViews";
+import { ReasoningExplorer } from "./explorer/ReasoningExplorer";
 
 /** Client-side backstop (5 min). The backend tolerates very long runs, so a
  *  stuck or unreachable provider can otherwise spin forever. The live elapsed
@@ -114,6 +115,7 @@ export function CouncilPanel({
   const [judgment, setJudgment] = useState<CouncilJudgment | null>(null);
   const [argumentAnnotations, setArgumentAnnotations] = useState<ArgumentAnnotation[]>([]);
   const [packetStatus, setPacketStatus] = useState<string | null>(null);
+  const [showExplorer, setShowExplorer] = useState(false);
   const councilViewRequestId = useRef(0);
   const sessionListRequestId = useRef(0);
 
@@ -179,6 +181,7 @@ export function CouncilPanel({
     setActiveSessionId(null);
     setJudgment(null);
     setArgumentAnnotations([]);
+    setShowExplorer(false);
     setLoading(true);
     resetRun();
     try {
@@ -261,6 +264,7 @@ export function CouncilPanel({
         setJudgment(null);
         setArgumentAnnotations([]);
         setSelectedPositionLabel(null);
+        setShowExplorer(false);
         setError(null);
       }
     } catch (e) {
@@ -473,6 +477,18 @@ export function CouncilPanel({
               Note: {response.retrieval_fallback_reason}
             </p>
           )}
+          <div className="space-y-2">
+            <button
+              type="button"
+              className="btn-secondary px-3 py-1.5 text-sm"
+              data-testid="trace-reasoning-toggle"
+              aria-expanded={showExplorer}
+              onClick={() => setShowExplorer((v) => !v)}
+            >
+              {showExplorer ? "Hide the reasoning" : "Trace the reasoning →"}
+            </button>
+            {showExplorer ? <ReasoningExplorer response={response} /> : null}
+          </div>
           <CouncilResultView
             result={response.synthesis}
             heading="Synthesis"
