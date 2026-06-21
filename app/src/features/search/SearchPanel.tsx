@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 import type {
   Book,
   ItemTag,
@@ -86,6 +87,8 @@ export function SearchPanel({
   setNoteTagFilter,
 }: Props) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useFocusTrap(rootRef, true);
 
   // Auto-focus the search input on open.
   useEffect(() => {

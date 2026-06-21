@@ -100,6 +100,7 @@ export function TopBar({
           <button
             type="button"
             onClick={onOpenTour}
+            aria-label="Open guided tour"
             className="meta-pill hover:border-neutral-500 hover:text-neutral-200"
           >
             Start guide

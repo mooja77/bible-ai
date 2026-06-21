@@ -4,6 +4,7 @@ interface TriggerProps {
   onClick: () => void;
   translations: Translation[];
   activeTranslations: string[];
+  open: boolean;
 }
 
 /**
@@ -15,6 +16,7 @@ export function TranslationSwitcherButton({
   onClick,
   translations,
   activeTranslations,
+  open,
 }: TriggerProps) {
   const primaryCode = activeTranslations[0] ?? "—";
   const primary = translations.find((t) => t.code === primaryCode);
@@ -25,6 +27,9 @@ export function TranslationSwitcherButton({
       onClick={onClick}
       data-testid="translation-switcher-trigger"
       title={primary?.name ?? "Select translation"}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-label={`Switch translation — ${primaryCode}${extra > 0 ? ` +${extra} more` : ""}`}
       className="btn-secondary flex items-center gap-2 px-3 py-1 text-sm"
     >
       <span className="font-mono text-xs">{primaryCode}</span>
