@@ -29,9 +29,11 @@ export function DoctrineMap({
   const hasMapItems = relations.length > 0 || subtopics.length > 0;
 
   return (
-    <section className="soft-card p-3 space-y-3" data-testid="doctrine-map">
+    <section className="space-y-3" data-testid="doctrine-map">
+      <div className="editorial-rule" aria-hidden="true" />
+      <span className="section-kicker">Doctrine map</span>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-neutral-200">Doctrine map</h3>
+        <h3 className="editorial-section-h2">Doctrine map</h3>
         <span className="text-xs text-neutral-600">
           {relations.length} relation{relations.length === 1 ? "" : "s"} · {subtopics.length} subtopic
           {subtopics.length === 1 ? "" : "s"}
@@ -105,7 +107,7 @@ export function TheologyEvidenceSection({
   return (
     <section className="border border-neutral-900 rounded px-3 py-2">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-xs tracking-wider text-neutral-500">{title}</h4>
+        <h4 className="section-kicker">{title}</h4>
         <span className="text-xs text-neutral-600">{links.length}</span>
       </div>
       <ul className="mt-2 space-y-2">
