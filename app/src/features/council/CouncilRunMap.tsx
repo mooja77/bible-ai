@@ -120,13 +120,16 @@ function RunCanvas({ runState }: { runState: CouncilRunState }) {
       ctx.lineTo(x2, y2);
       ctx.stroke();
       if (flow > 0) {
-        for (let k = 0; k < 2; k += 1) {
-          const p = (((t / 1100) + k / 2) % 1 + 1) % 1;
+        const count = 3;
+        for (let k = 0; k < count; k += 1) {
+          const p = (((t / 1000) + k / count) % 1 + 1) % 1;
           const px = lerp(x1, x2, p);
           const py = lerp(y1, y2, p);
-          ctx.fillStyle = withAlpha(color, 0.9 * flow);
+          // Fade each particle in/out across its travel so motion reads clearly.
+          const fade = Math.sin(p * Math.PI);
+          ctx.fillStyle = withAlpha(color, (0.45 + 0.5 * flow) * fade);
           ctx.beginPath();
-          ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+          ctx.arc(px, py, 2.6, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -160,15 +163,18 @@ function RunCanvas({ runState }: { runState: CouncilRunState }) {
       const vBot = h * 0.8;
       const voiceY = (i: number) => (vc <= 1 ? yc : lerp(vTop, vBot, i / (vc - 1)));
 
+      // A path stays gently "alive" (slow particle flow) once it's established,
+      // so there is always visible motion — not only during the brief run.
+      const established = retrDone || vc > 0;
       // Edges: question → evidence
       edge(
         xQuestion,
         yc,
         xEvidence,
         yc,
-        retrActive || retrDone || vc > 0 ? 1 : 0.2,
+        retrActive || established ? 1 : 0.2,
         ACCENT,
-        retrActive ? 1 : 0,
+        retrActive ? 1 : established ? 0.4 : 0,
         t,
       );
       // Edges: evidence → each voice, and voice → synthesis
@@ -176,30 +182,52 @@ function RunCanvas({ runState }: { runState: CouncilRunState }) {
         const vy = voiceY(i);
         const vColor = v.status === "failed" ? FAIL : VOICE[i % VOICE.length];
         const inLit = v.status === "done" || v.status === "failed" ? 1 : voicesActive ? 0.6 : 0.2;
-        edge(xEvidence, yc, xVoice, vy, inLit, vColor, v.status === "active" ? 1 : 0, t);
+        const inFlow = v.status === "active" ? 1 : v.status === "done" ? 0.4 : 0;
+        edge(xEvidence, yc, xVoice, vy, inLit, vColor, inFlow, t);
         const outLit = synthDone || verdictDone ? (v.status === "done" ? 1 : 0.12) : synthActive && v.status === "done" ? 0.8 : 0.12;
-        edge(xVoice, vy, xSynth, yc, outLit, v.status === "done" ? DONE : LINE, synthActive && v.status === "done" ? 1 : 0, t);
+        const outFlow = synthActive && v.status === "done" ? 1 : verdictDone && v.status === "done" ? 0.4 : 0;
+        edge(xVoice, vy, xSynth, yc, outLit, v.status === "done" ? DONE : LINE, outFlow, t);
       });
       // Edge: synthesis → verdict
-      edge(xSynth, yc, xVerdict, yc, verdictDone ? 1 : synthActive ? 0.4 : 0.12, INK, verdictDone ? 0.6 : 0, t);
+      edge(xSynth, yc, xVerdict, yc, verdictDone ? 1 : synthActive ? 0.4 : 0.12, INK, verdictDone ? 0.5 : synthActive ? 0.7 : 0, t);
 
-      // Nodes
-      node(xQuestion, yc, 5, safetyFailed ? FAIL : ACCENT, s.started && !retrDone ? pulse(420) : 0.15);
+      // Nodes — lit nodes "breathe" gently so the map stays alive after the run.
+      const breathe = (base: number, amp: number, speed: number) => base + amp * pulse(speed);
+      node(
+        xQuestion,
+        yc,
+        5.5,
+        safetyFailed ? FAIL : ACCENT,
+        s.started && !retrDone ? pulse(420) : established ? breathe(0.2, 0.12, 1500) : 0.15,
+      );
       node(
         xEvidence,
         yc,
-        5.5,
-        retrDone || vc > 0 ? DONE : ACCENT,
-        retrActive ? pulse(360) : 0.1,
+        6,
+        established ? DONE : ACCENT,
+        retrActive ? pulse(360) : established ? breathe(0.24, 0.14, 1400) : 0.1,
       );
       voices.forEach((v, i) => {
         const vy = voiceY(i);
         const vColor = v.status === "failed" ? FAIL : VOICE[i % VOICE.length];
-        const glow = v.status === "active" ? pulse(300) : v.status === "done" ? 0.25 : 0;
-        node(xVoice, vy, v.status === "failed" ? 3.5 : 5, vColor, glow);
+        const glow =
+          v.status === "active" ? pulse(300) : v.status === "done" ? breathe(0.26, 0.18, 1150) : 0;
+        node(xVoice, vy, v.status === "failed" ? 4 : 6, vColor, glow);
       });
-      node(xSynth, yc, 6, synthDone || verdictDone ? INK : ACCENT, synthActive ? pulse(320) : verdictDone ? 0.3 : 0.08);
-      node(xVerdict, yc, verdictDone ? 7 : 4, verdictDone ? INK : LINE, verdictDone ? 0.4 + 0.2 * pulse(800) : 0);
+      node(
+        xSynth,
+        yc,
+        6.5,
+        synthDone || verdictDone ? INK : ACCENT,
+        synthActive ? pulse(320) : synthDone || verdictDone ? breathe(0.24, 0.14, 1250) : 0.08,
+      );
+      node(
+        xVerdict,
+        yc,
+        verdictDone ? 8 : 4,
+        verdictDone ? INK : LINE,
+        verdictDone ? breathe(0.5, 0.28, 900) : 0,
+      );
 
       raf = requestAnimationFrame(draw);
     };
