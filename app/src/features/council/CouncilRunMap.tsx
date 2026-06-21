@@ -35,6 +35,15 @@ function StageRow({ id, status, note, elapsed }: { id: StageId; status: StageSta
   );
 }
 
+/**
+ * Decorative real-time process canvas (aria-hidden — the accessible truth is the
+ * stage grid + voice pills + verdict below). Reads the live CouncilRunState each
+ * frame and renders the council as a left→right flow:
+ *   question → evidence → voice nodes → synthesis → verdict
+ * Nodes light up and particles travel along edges exactly as the real backend
+ * events advance each stage; concurring voices stay lit at the verdict, dropped
+ * (failed) voices fade — making agreement vs. conflict visible.
+ */
 function RunCanvas({ runState }: { runState: CouncilRunState }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef(runState);
@@ -55,31 +64,143 @@ function RunCanvas({ runState }: { runState: CouncilRunState }) {
     resize();
     window.addEventListener("resize", resize);
 
+    // Pull theme colours from CSS tokens (warm gold/indigo in light/dark).
+    const css = getComputedStyle(canvas);
+    const tok = (name: string, fb: string) => css.getPropertyValue(name).trim() || fb;
+    const VOICE = [
+      tok("--c-voice-a", "#1a4fa8"),
+      tok("--c-voice-b", "#0d6e5a"),
+      tok("--c-voice-c", "#7a5a00"),
+      tok("--c-voice-d", "#8a1f5e"),
+    ];
+    const ACCENT = tok("--accent", "#b8902f");
+    const DONE = tok("--c-support", "#047857");
+    const FAIL = "#c0392b";
+    const INK = tok("--c-leader", ACCENT);
+    const LINE = "rgba(140,140,150,0.30)";
+
+    const lerp = (a: number, b: number, p: number) => a + (b - a) * p;
+    const withAlpha = (hex: string, a: number) => {
+      const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+      if (!m) return hex;
+      const n = parseInt(m[1], 16);
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    };
+
+    const node = (x: number, y: number, r: number, color: string, glow: number) => {
+      if (glow > 0) {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r + 10 * glow);
+        g.addColorStop(0, withAlpha(color, 0.55 * glow));
+        g.addColorStop(1, withAlpha(color, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r + 10 * glow, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    const edge = (
+      x1: number,
+      y1: number,
+      x2: number,
+      y2: number,
+      lit: number,
+      color: string,
+      flow: number,
+      t: number,
+    ) => {
+      ctx.strokeStyle = lit > 0 ? withAlpha(color, 0.18 + 0.5 * lit) : LINE;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      if (flow > 0) {
+        for (let k = 0; k < 2; k += 1) {
+          const p = (((t / 1100) + k / 2) % 1 + 1) % 1;
+          const px = lerp(x1, x2, p);
+          const py = lerp(y1, y2, p);
+          ctx.fillStyle = withAlpha(color, 0.9 * flow);
+          ctx.beginPath();
+          ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    };
+
     const draw = (t: number) => {
+      const s = stateRef.current;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
+      const yc = h / 2;
       ctx.clearRect(0, 0, w, h);
-      const stages = STAGE_ORDER;
-      const n = stages.length;
-      const activeIdx = stages.findIndex((s) => stateRef.current.stages[s] === "active");
-      const doneCount = stages.filter((s) => stateRef.current.stages[s] === "done").length;
-      const y = h / 2;
-      ctx.strokeStyle = "rgba(129,140,248,0.18)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(8, y);
-      ctx.lineTo(w - 8, y);
-      ctx.stroke();
-      const progress = (activeIdx >= 0 ? activeIdx : doneCount) / Math.max(1, n - 1);
-      const gx = 8 + (w - 16) * Math.min(1, progress);
-      const pulse = 4 + Math.sin(t / 240) * 2;
-      const grd = ctx.createRadialGradient(gx, y, 0, gx, y, 16);
-      grd.addColorStop(0, "rgba(129,140,248,0.9)");
-      grd.addColorStop(1, "rgba(129,140,248,0)");
-      ctx.fillStyle = grd;
-      ctx.beginPath();
-      ctx.arc(gx, y, 12 + pulse, 0, Math.PI * 2);
-      ctx.fill();
+      const pulse = (speed: number) => 0.5 + 0.5 * Math.sin(t / speed);
+
+      const xQuestion = w * 0.07;
+      const xEvidence = w * 0.28;
+      const xVoice = w * 0.54;
+      const xSynth = w * 0.78;
+      const xVerdict = w * 0.94;
+
+      const safetyFailed = s.stages.safety === "failed";
+      const retrActive = s.stages.retrieval === "active";
+      const retrDone = s.stages.retrieval === "done";
+      const voicesActive = s.stages.voices === "active";
+      const synthActive = s.stages.synthesis === "active";
+      const synthDone = s.stages.synthesis === "done";
+      const verdictDone = s.stages.verdict === "done";
+
+      const voices = s.voices;
+      const vc = voices.length;
+      const vTop = h * 0.2;
+      const vBot = h * 0.8;
+      const voiceY = (i: number) => (vc <= 1 ? yc : lerp(vTop, vBot, i / (vc - 1)));
+
+      // Edges: question → evidence
+      edge(
+        xQuestion,
+        yc,
+        xEvidence,
+        yc,
+        retrActive || retrDone || vc > 0 ? 1 : 0.2,
+        ACCENT,
+        retrActive ? 1 : 0,
+        t,
+      );
+      // Edges: evidence → each voice, and voice → synthesis
+      voices.forEach((v, i) => {
+        const vy = voiceY(i);
+        const vColor = v.status === "failed" ? FAIL : VOICE[i % VOICE.length];
+        const inLit = v.status === "done" || v.status === "failed" ? 1 : voicesActive ? 0.6 : 0.2;
+        edge(xEvidence, yc, xVoice, vy, inLit, vColor, v.status === "active" ? 1 : 0, t);
+        const outLit = synthDone || verdictDone ? (v.status === "done" ? 1 : 0.12) : synthActive && v.status === "done" ? 0.8 : 0.12;
+        edge(xVoice, vy, xSynth, yc, outLit, v.status === "done" ? DONE : LINE, synthActive && v.status === "done" ? 1 : 0, t);
+      });
+      // Edge: synthesis → verdict
+      edge(xSynth, yc, xVerdict, yc, verdictDone ? 1 : synthActive ? 0.4 : 0.12, INK, verdictDone ? 0.6 : 0, t);
+
+      // Nodes
+      node(xQuestion, yc, 5, safetyFailed ? FAIL : ACCENT, s.started && !retrDone ? pulse(420) : 0.15);
+      node(
+        xEvidence,
+        yc,
+        5.5,
+        retrDone || vc > 0 ? DONE : ACCENT,
+        retrActive ? pulse(360) : 0.1,
+      );
+      voices.forEach((v, i) => {
+        const vy = voiceY(i);
+        const vColor = v.status === "failed" ? FAIL : VOICE[i % VOICE.length];
+        const glow = v.status === "active" ? pulse(300) : v.status === "done" ? 0.25 : 0;
+        node(xVoice, vy, v.status === "failed" ? 3.5 : 5, vColor, glow);
+      });
+      node(xSynth, yc, 6, synthDone || verdictDone ? INK : ACCENT, synthActive ? pulse(320) : verdictDone ? 0.3 : 0.08);
+      node(xVerdict, yc, verdictDone ? 7 : 4, verdictDone ? INK : LINE, verdictDone ? 0.4 + 0.2 * pulse(800) : 0);
+
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
@@ -89,7 +210,7 @@ function RunCanvas({ runState }: { runState: CouncilRunState }) {
     };
   }, []);
 
-  return <canvas ref={ref} className="w-full h-10" data-testid="runmap-canvas" aria-hidden="true" />;
+  return <canvas ref={ref} className="w-full h-44" data-testid="runmap-canvas" aria-hidden="true" />;
 }
 
 export function CouncilRunMap({ runState, elapsed }: { runState: CouncilRunState; elapsed: number }) {
