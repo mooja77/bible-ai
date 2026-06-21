@@ -764,12 +764,12 @@ export function SettingsPanel({
             }
           />
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="action-strip">
           <button
             type="button"
             onClick={() => void runChecks("all providers")}
             disabled={checking}
-            className="btn-secondary px-3 py-1.5 text-sm"
+            className="btn-ghost px-3 py-1.5 text-sm"
           >
             Test all providers
           </button>
@@ -777,7 +777,7 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("Anthropic")}
             disabled={checking || !hasAnthropicKey}
-            className="btn-secondary px-3 py-1.5 text-sm"
+            className="btn-ghost px-3 py-1.5 text-sm"
           >
             Test Anthropic
           </button>
@@ -785,7 +785,7 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("Google")}
             disabled={checking || !hasGoogleKey}
-            className="btn-secondary px-3 py-1.5 text-sm"
+            className="btn-ghost px-3 py-1.5 text-sm"
           >
             Test Google
           </button>
@@ -793,7 +793,7 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("OpenAI")}
             disabled={checking || !hasOpenAiKey}
-            className="btn-secondary px-3 py-1.5 text-sm"
+            className="btn-ghost px-3 py-1.5 text-sm"
           >
             Test OpenAI
           </button>
@@ -801,7 +801,7 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("Gateway")}
             disabled={checking || !hasGateway}
-            className="btn-secondary px-3 py-1.5 text-sm"
+            className="btn-ghost px-3 py-1.5 text-sm"
           >
             Test Gateway
           </button>
@@ -809,7 +809,7 @@ export function SettingsPanel({
             type="button"
             onClick={() => void runChecks("Ollama")}
             disabled={checking}
-            className="btn-secondary px-3 py-1.5 text-sm"
+            className="btn-ghost px-3 py-1.5 text-sm"
           >
             Test Ollama
           </button>
