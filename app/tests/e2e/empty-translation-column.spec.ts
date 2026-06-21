@@ -73,6 +73,16 @@ describe("Empty translation columns", () => {
     await nav.waitForDisplayed({ reverse: true, timeout: 5_000 });
   }
 
+  // Compare is opt-in (single primary column by default). The multi-column
+  // layout + absent-translation note only render once Compare is enabled.
+  async function enableCompare() {
+    const toggle = await $('[data-testid="reader-compare-toggle"]');
+    await toggle.waitForDisplayed({ timeout: 10_000 });
+    if ((await toggle.getAttribute("aria-pressed")) !== "true") {
+      await toggle.click();
+    }
+  }
+
   async function headingIncludes(text: string) {
     await browser.waitUntil(
       async () =>
@@ -104,6 +114,9 @@ describe("Empty translation columns", () => {
     await closeBookNav();
     await headingIncludes("Genesis");
 
+    // Turn on Compare so the multi-column layout + omission note render.
+    await enableCompare();
+
     // The omission note is shown and names TR (and only TR).
     const note = await $('[data-testid="absent-translations-note"]');
     await note.waitForDisplayed({ timeout: 10_000 });
@@ -134,6 +147,9 @@ describe("Empty translation columns", () => {
     await john.click();
     await closeBookNav();
     await headingIncludes("John");
+
+    // Compare on: both KJV and TR have text in John, so nothing is omitted.
+    await enableCompare();
 
     const note = await $('[data-testid="absent-translations-note"]');
     await note.waitForDisplayed({ reverse: true, timeout: 10_000 });

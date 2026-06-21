@@ -136,6 +136,9 @@ function App() {
   const settingsSaveChain = useRef<Promise<void>>(Promise.resolve());
   const [fontScale, setFontScale] = useState(1);
   const [readerLayout, setReaderLayout] = useState<ReaderLayout>("columns");
+  // Compare is an opt-in: even with several translations active, the reader
+  // lands on a single calm primary column until the user turns Compare on.
+  const [compareMode, setCompareMode] = useState(false);
   const [readerDensity, setReaderDensity] = useState<ReaderDensity>("comfortable");
   const [syncScroll, setSyncScroll] = useState(true);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -1025,7 +1028,7 @@ function App() {
       {/* Onboarding prompts relocated out of the removed sidebar. They live at
           the AppShell top level (below the TopBar, above the reader) so they
           stay visible on every screen and keep their e2e testids. */}
-      {(!tourDismissed || showProviderSetupPrompt) && (
+      {mode === "reader" && (!tourDismissed || showProviderSetupPrompt) && (
         <div className="flex flex-wrap items-start gap-3 border-b border-neutral-800 px-4 py-2">
           {!tourDismissed && (
             <div
@@ -1120,6 +1123,8 @@ function App() {
             onFontScaleChange={setReaderFontScale}
             readerLayout={readerLayout}
             onReaderLayoutChange={setReaderLayoutSetting}
+            compareMode={compareMode}
+            onCompareModeChange={setCompareMode}
             readerDensity={readerDensity}
             onReaderDensityChange={setReaderDensitySetting}
             syncScroll={syncScroll}
@@ -1233,7 +1238,7 @@ function App() {
           />
         ) : (
           <>
-            {absentActive.length > 0 && (
+            {compareMode && absentActive.length > 0 && (
               <p
                 data-testid="absent-translations-note"
                 className="px-6 pt-4 text-sm text-neutral-500"
@@ -1241,7 +1246,7 @@ function App() {
                 No text in this chapter for {absentActive.map((t) => t.code).join(", ")}.
               </p>
             )}
-            {presentActive.length === 1 ? (
+            {presentActive.length === 1 || !compareMode ? (
               <ChapterReader
                 bookName={selectedBook.name}
                 chapter={selectedChapter}
