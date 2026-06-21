@@ -258,6 +258,77 @@ mark {
   color: var(--color-amber-400);
 }
 
+/* ---- WC4 peripheral-screen editorial vocabulary ----------------------- */
+.editorial-page-header {
+  padding-bottom: 1.25rem;
+}
+.editorial-page-header h1 {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--color-neutral-100);
+  margin: 0.125rem 0 0;
+}
+.editorial-page-header p {
+  font-size: 0.875rem;
+  color: var(--color-neutral-500);
+  margin-top: 0.5rem;
+  max-width: 52ch;
+  line-height: 1.65;
+}
+.section-kicker {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-amber-300);
+  display: block;
+}
+.editorial-section-h2 {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  font-weight: 400;
+  color: var(--color-neutral-200);
+  letter-spacing: 0;
+  margin: 0;
+}
+.editorial-rule {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border-subtle) 20%, var(--border-subtle) 80%, transparent);
+  opacity: 0.55;
+  margin: 1.25rem 0;
+  border: none;
+}
+.action-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+.action-strip .btn-ghost {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+}
+.topic-pill-active {
+  background: var(--accent-bg);
+  color: var(--color-amber-100);
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+}
+.topic-pill-idle {
+  color: var(--color-neutral-400);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+.topic-pill-idle:hover {
+  color: var(--color-neutral-200);
+  background: var(--surface-card-hover);
+}
+
 .settings-input {
   width: 100%;
   border: 1px solid var(--border-subtle);
