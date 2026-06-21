@@ -1,4 +1,5 @@
-import { useEffect, type ComponentProps } from "react";
+import { useEffect, useRef, type ComponentProps } from "react";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 import { NavigationShortcuts } from "./NavigationShortcuts";
 
 type NavigationShortcutsProps = ComponentProps<typeof NavigationShortcuts>;
@@ -16,6 +17,9 @@ type NavigationDrawerProps = NavigationShortcutsProps & {
  * Escape. All NavigationShortcuts props are forwarded verbatim.
  */
 export function NavigationDrawer({ open, onClose, ...shortcutsProps }: NavigationDrawerProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  useFocusTrap(dialogRef, true);
+
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -35,12 +39,14 @@ export function NavigationDrawer({ open, onClose, ...shortcutsProps }: Navigatio
         aria-hidden="true"
       />
       <div
+        ref={dialogRef}
         data-testid="nav-drawer"
         role="dialog"
+        aria-modal="true"
         aria-label="Navigation shortcuts"
         className="nav-drawer surface-panel absolute right-0 top-12 bottom-0 z-10 flex w-[300px] flex-col overflow-y-auto border-l border-neutral-800 p-4"
         style={{
-          animation: "nav-drawer-slide-in 150ms cubic-bezier(0,0,0.2,1)",
+          animation: "nav-drawer-slide-in var(--motion-expand) var(--ease-out) both",
         }}
       >
         <NavigationShortcuts {...shortcutsProps} />

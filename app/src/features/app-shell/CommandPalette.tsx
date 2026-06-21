@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 
 export type CommandItem = {
   id: string;
@@ -69,7 +70,10 @@ export function CommandPalette({
   onClose: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useFocusTrap(dialogRef, true);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -133,9 +137,16 @@ export function CommandPalette({
       }}
     >
       <div
+        ref={dialogRef}
         className="surface-panel w-full max-w-xl rounded-lg overflow-hidden shadow-2xl"
         style={{
           animation: "command-palette-in 110ms cubic-bezier(0,0,0.2,1)",
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onClose();
+          }
         }}
       >
         <style>

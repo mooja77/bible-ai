@@ -74,6 +74,7 @@ export function ReaderBar({
         <TranslationSwitcherButton
           translations={translations}
           activeTranslations={activeTranslations}
+          open={translationPopoverOpen}
           onClick={() => {
             setSettingsPopoverOpen(false);
             setTranslationPopoverOpen((v) => !v);
@@ -120,6 +121,8 @@ export function ReaderBar({
         <button
           type="button"
           aria-label="Reading settings"
+          aria-haspopup="dialog"
+          aria-expanded={settingsPopoverOpen}
           onClick={() => {
             setTranslationPopoverOpen(false);
             setSettingsPopoverOpen((v) => !v);

@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Book } from "../../lib/bible";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 import { BookList } from "./BookList";
 import { ChapterGrid } from "./ChapterGrid";
 
@@ -30,6 +31,9 @@ export function BookNav({
   onSelectBook,
   onSelectChapter,
 }: BookNavProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  useFocusTrap(dialogRef, true);
+
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -49,12 +53,14 @@ export function BookNav({
         aria-hidden="true"
       />
       <div
+        ref={dialogRef}
         data-testid="book-nav"
         role="dialog"
+        aria-modal="true"
         aria-label="Book navigation"
         className="book-nav surface-panel absolute left-0 top-12 bottom-0 z-10 flex w-[260px] flex-col border-r border-neutral-800"
         style={{
-          animation: "book-nav-slide-in 150ms cubic-bezier(0,0,0.2,1)",
+          animation: "book-nav-slide-in var(--motion-expand) var(--ease-out) both",
         }}
       >
         <div className="flex-1 overflow-y-auto p-4">

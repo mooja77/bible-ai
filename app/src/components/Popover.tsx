@@ -89,7 +89,7 @@ export function Popover({
       tabIndex={-1}
       onMouseDown={(event) => event.stopPropagation()}
       className={
-        "surface-panel absolute left-0 top-full z-50 mt-2 rounded-lg p-4 shadow-lg outline-none " +
+        "surface-panel popover-enter absolute left-0 top-full z-50 mt-2 rounded-lg p-4 shadow-lg outline-none " +
         (className ?? "")
       }
     >
