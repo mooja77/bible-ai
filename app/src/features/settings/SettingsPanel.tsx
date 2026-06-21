@@ -415,15 +415,19 @@ export function SettingsPanel({
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-      <header>
+      <header className="editorial-page-header">
+        <span className="section-kicker mb-1 block">Configuration</span>
         <h1 className="text-2xl font-semibold text-neutral-100">Settings</h1>
         <p className="text-sm text-neutral-500 mt-1">
           Connect local AI, user-owned subscriptions, managed gateway access, and reader defaults for this machine.
         </p>
       </header>
 
-      <section className="surface-panel rounded-lg p-4 space-y-4">
-        <h2 className="text-sm tracking-wider text-neutral-400">Council</h2>
+      <section className="space-y-5 pt-6">
+        <div>
+          <span className="section-kicker">Council voices</span>
+          <h2 className="editorial-section-h2">Council</h2>
+        </div>
         <div
           className="soft-card p-4 space-y-4 border-amber-500/20"
           data-testid="provider-setup-guide"
@@ -663,10 +667,13 @@ export function SettingsPanel({
         </div>
       </section>
 
-      <section className="surface-panel rounded-lg p-4 space-y-4">
+      <div className="editorial-rule" aria-hidden="true" />
+
+      <section className="space-y-5 pt-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-sm tracking-wider text-neutral-400">
+            <span className="section-kicker">Diagnostics</span>
+            <h2 className="editorial-section-h2">
               Provider Status
             </h2>
             <p className="text-xs text-neutral-500 mt-1">
@@ -809,8 +816,13 @@ export function SettingsPanel({
         </div>
       </section>
 
-      <section className="surface-panel rounded-lg p-4 space-y-4">
-        <h2 className="text-sm tracking-wider text-neutral-400">User Data</h2>
+      <div className="editorial-rule" aria-hidden="true" />
+
+      <section className="space-y-5 pt-6">
+        <div>
+          <span className="section-kicker">Data management</span>
+          <h2 className="editorial-section-h2">User Data</h2>
+        </div>
         <p className="text-xs text-neutral-500">
           JSON backups include user-authored data and resource source metadata. Provider secrets and
           imported resource entry bodies are excluded.
@@ -942,9 +954,9 @@ export function SettingsPanel({
           {moduleStatus && <span className="text-xs text-neutral-400">{moduleStatus}</span>}
         </div>
         <div className="border-t border-neutral-800 pt-4 space-y-2">
-          <h3 className="text-xs tracking-wider text-neutral-500">
+          <span className="section-kicker mb-2 block">
             Installed Modules
-          </h3>
+          </span>
           {installedModules.length === 0 ? (
             <p className="text-xs text-neutral-500">No modules installed.</p>
           ) : (
@@ -979,9 +991,9 @@ export function SettingsPanel({
           )}
         </div>
         <div className="border-t border-neutral-800 pt-4 space-y-3">
-          <h3 className="text-xs tracking-wider text-neutral-500">
+          <span className="section-kicker mb-2 block">
             Topic Browser
-          </h3>
+          </span>
           <div className="flex flex-wrap items-center gap-2">
             {moduleTopics.length > 0 ? (
               <select
@@ -1076,8 +1088,12 @@ export function SettingsPanel({
       </div>
 
       {(diagnostics || diagnosticError) && (
-        <section className="surface-panel rounded-lg p-4 space-y-3">
-          <h2 className="text-sm tracking-wider text-neutral-400">Diagnostics</h2>
+        <section className="space-y-5 pt-6">
+          <div className="editorial-rule" aria-hidden="true" />
+          <div>
+            <span className="section-kicker">Setup checks</span>
+            <h2 className="editorial-section-h2">Diagnostics</h2>
+          </div>
           {diagnosticError ? (
             <p className="text-sm text-red-300">{diagnosticError}</p>
           ) : diagnostics ? (

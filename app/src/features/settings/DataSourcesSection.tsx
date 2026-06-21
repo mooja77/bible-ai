@@ -24,11 +24,13 @@ export function DataSourcesSection({
 }) {
   return (
       <section
-        className="surface-panel rounded-lg p-4 space-y-4"
+        className="space-y-5 pt-6"
         data-testid="data-sources-screen"
       >
+        <div className="editorial-rule" aria-hidden="true" />
         <div>
-          <h2 className="text-sm tracking-wider text-neutral-400">
+          <span className="section-kicker">Corpus</span>
+          <h2 className="editorial-section-h2">
             Data Sources
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -57,9 +59,9 @@ export function DataSourcesSection({
         </ul>
         {resourceSources.length > 0 && (
           <div className="border-t border-neutral-800 pt-3">
-            <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
+            <span className="section-kicker mb-2 block">
               Open Resource Library
-            </h3>
+            </span>
             <ul className="grid gap-2">
               {resourceSources.map((source) => {
                 const metadata = resourceSourceMetadata(source);
@@ -107,9 +109,9 @@ export function DataSourcesSection({
           </div>
         )}
         <div className="border-t border-neutral-800 pt-3">
-          <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
+          <span className="section-kicker mb-2 block">
             Candidate Sources
-          </h3>
+          </span>
           <ul className="grid gap-2">
             {DEFERRED_DATA_SOURCES.map((source) => (
               <li key={source.name} className="border border-neutral-900 rounded px-3 py-2">

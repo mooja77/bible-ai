@@ -39,11 +39,13 @@ const SOURCE_ATTRIBUTIONS = [
 export function LicenseAttributionSection() {
   return (
       <section
-        className="surface-panel rounded-lg p-4 space-y-4"
+        className="space-y-5 pt-6"
         data-testid="license-attribution-screen"
       >
+        <div className="editorial-rule" aria-hidden="true" />
         <div>
-          <h2 className="text-sm tracking-wider text-neutral-400">
+          <span className="section-kicker">Disclosures</span>
+          <h2 className="editorial-section-h2">
             License & Attribution
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -87,11 +89,13 @@ export function LicenseAttributionSection() {
 export function AboutDistributionSection() {
   return (
       <section
-        className="surface-panel rounded-lg p-4 space-y-4"
+        className="space-y-5 pt-6"
         data-testid="about-distribution-screen"
       >
+        <div className="editorial-rule" aria-hidden="true" />
         <div>
-          <h2 className="text-sm tracking-wider text-neutral-400">
+          <span className="section-kicker">Release</span>
+          <h2 className="editorial-section-h2">
             About & Distribution
           </h2>
           <p className="text-xs text-neutral-500 mt-1">
@@ -105,9 +109,9 @@ export function AboutDistributionSection() {
           <InfoBlock label="Public release gate" value="Complete clean-profile installer QA and multi-provider Council QA before publishing." />
         </div>
         <div className="border-t border-neutral-800 pt-3">
-          <h3 className="text-xs tracking-wider text-neutral-500 mb-2">
+          <span className="section-kicker mb-2 block">
             Release Notes
-          </h3>
+          </span>
           <ul className="list-disc list-inside text-xs text-neutral-400 space-y-1">
             <li>Council transparency views explain ranking, disagreement, evidence, and provider failures.</li>
             <li>Workspaces export saved studies, Council answers, notes, and search results.</li>
