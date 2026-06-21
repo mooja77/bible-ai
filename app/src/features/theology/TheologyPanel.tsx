@@ -48,6 +48,14 @@ import {
   type GuidedTemplateSlug,
 } from "./theologyGuided";
 
+const CONFIDENCE_STEPS = [
+  { value: 0, label: "Uncertain" },
+  { value: 25, label: "Leaning" },
+  { value: 50, label: "Moderate" },
+  { value: 75, label: "Confident" },
+  { value: 100, label: "Settled" },
+] as const;
+
 export function TheologyPanel({
   onAskCouncil,
   onOpenGuide,
@@ -625,69 +633,73 @@ export function TheologyPanel({
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={save}
-                  disabled={saving}
-                  className="btn-primary px-3 py-1.5 text-sm"
-                >
-                  {saving ? "Saving..." : "Save conclusion"}
-                </button>
-                <button
-                  type="button"
-                  onClick={copyMarkdown}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  {exported ? "Copied" : "Copy Markdown"}
-                </button>
-                <button
-                  type="button"
-                  onClick={copyFullMarkdown}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Copy Full Theology
-                </button>
-                <button
-                  type="button"
-                  onClick={copyTopicTreeMarkdown}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Copy Topic + Subtopics
-                </button>
-                <button
-                  type="button"
-                  onClick={savePdf}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Save PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={saveFullPdf}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Save Full PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={saveTopicTreePdf}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Save Topic + Subtopics PDF
-                </button>
-                {onAskCouncil && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {onAskCouncil && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAskCouncil(
+                          `Discuss the doctrine of ${selectedTopic.title}. Compare major biblical arguments, disputed interpretations, key passages, unresolved questions, and what evidence would change each position.`,
+                        )
+                      }
+                      className="btn-secondary px-3 py-1.5 text-sm"
+                    >
+                      Ask Council
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() =>
-                      onAskCouncil(
-                        `Discuss the doctrine of ${selectedTopic.title}. Compare major biblical arguments, disputed interpretations, key passages, unresolved questions, and what evidence would change each position.`,
-                      )
-                    }
-                    className="btn-secondary px-3 py-1.5 text-sm"
+                    onClick={save}
+                    disabled={saving}
+                    className="btn-primary px-3 py-1.5 text-sm"
                   >
-                    Ask Council
+                    {saving ? "Saving..." : "Save conclusion"}
                   </button>
-                )}
+                  <div className="action-strip">
+                    <button
+                      type="button"
+                      onClick={copyMarkdown}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      {exported ? "Copied" : "Copy Markdown"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyFullMarkdown}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Copy Full Theology
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyTopicTreeMarkdown}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Copy Topic + Subtopics
+                    </button>
+                    <button
+                      type="button"
+                      onClick={savePdf}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Save PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveFullPdf}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Save Full PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveTopicTreePdf}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Save Topic + Subtopics PDF
+                    </button>
+                  </div>
+                </div>
               </div>
               {savedPdfPath && (
                 <p className="text-xs text-neutral-500">Saved PDF: {savedPdfPath}</p>
@@ -927,25 +939,32 @@ export function TheologyPanel({
               />
 
               <div className="soft-card p-3 space-y-2">
-                <label
-                  className="text-xs tracking-wider text-neutral-500"
-                  htmlFor="theology-confidence"
-                >
-                  Confidence
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="theology-confidence"
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={conclusion.confidence ?? 50}
-                    onChange={(e) => updateConclusion({ confidence: Number(e.target.value) })}
-                    className="w-full"
-                  />
-                  <span className="w-14 text-right text-sm text-neutral-300">
-                    {conclusion.confidence ?? 50}%
-                  </span>
+                <span className="section-kicker">Confidence</span>
+                <div className="flex gap-1" role="group" aria-label="Theology confidence">
+                  {CONFIDENCE_STEPS.map(({ value, label }) => {
+                    const current = conclusion.confidence ?? 50;
+                    const nearest = CONFIDENCE_STEPS.reduce((a, b) =>
+                      Math.abs(b.value - current) < Math.abs(a.value - current) ? b : a,
+                    );
+                    const active = nearest.value === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-label={`Theology confidence: ${label}`}
+                        aria-pressed={active}
+                        onClick={() => updateConclusion({ confidence: value })}
+                        className={
+                          "flex-1 rounded px-2 py-1.5 text-xs transition " +
+                          (active
+                            ? "bg-[var(--accent-bg)] text-amber-200 border border-[var(--accent-border)]"
+                            : "btn-ghost")
+                        }
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
