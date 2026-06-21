@@ -18,6 +18,15 @@ async function openTranslationSwitcher() {
   await t.click();
   await $('[data-testid="translation-switcher-popover"]').waitForDisplayed({ timeout: 5_000 });
 }
+// Compare is opt-in (single primary column by default); enable it so a second
+// translation's column / interleaved view / word tokens render.
+async function enableCompare() {
+  const toggle = await $('[data-testid="reader-compare-toggle"]');
+  await toggle.waitForDisplayed({ timeout: 8_000 });
+  if ((await toggle.getAttribute("aria-pressed")) !== "true") {
+    await toggle.click();
+  }
+}
 
 describe("Reader interactions", () => {
   it("opens the verse panel when a verse number is clicked", async () => {
@@ -432,6 +441,7 @@ describe("Reader interactions", () => {
       await wlcLabel.click();
     }
     await browser.keys("Escape");
+    await enableCompare();
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });
@@ -669,6 +679,7 @@ describe("Reader interactions", () => {
       await asvLabel.click();
     }
     await browser.keys("Escape");
+    await enableCompare();
 
     await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
@@ -716,6 +727,7 @@ describe("Reader interactions", () => {
       await wlcLabel.click();
     }
     await browser.keys("Escape");
+    await enableCompare();
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });
@@ -751,6 +763,7 @@ describe("Reader interactions", () => {
       await wlcLabel.click();
     }
     await browser.keys("Escape");
+    await enableCompare();
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });

@@ -18,6 +18,8 @@ interface Props {
   onFontScaleChange: (next: number) => void;
   readerLayout: ReaderLayout;
   onReaderLayoutChange: (next: ReaderLayout) => void;
+  compareMode: boolean;
+  onCompareModeChange: (next: boolean) => void;
   readerDensity: ReaderDensity;
   onReaderDensityChange: (next: ReaderDensity) => void;
   syncScroll: boolean;
@@ -46,6 +48,8 @@ export function ReaderBar({
   onFontScaleChange,
   readerLayout,
   onReaderLayoutChange,
+  compareMode,
+  onCompareModeChange,
   readerDensity,
   onReaderDensityChange,
   syncScroll,
@@ -58,6 +62,8 @@ export function ReaderBar({
 }: Props) {
   const [translationPopoverOpen, setTranslationPopoverOpen] = useState(false);
   const [settingsPopoverOpen, setSettingsPopoverOpen] = useState(false);
+  // Compare is only meaningful with more than one translation active.
+  const canCompare = activeTranslations.length > 1;
 
   return (
     <div
@@ -92,6 +98,30 @@ export function ReaderBar({
           />
         </Popover>
       </span>
+
+      {/* Compare is opt-in: shown only when 2+ translations are active, off by
+          default so the reader lands on a single calm primary column. */}
+      {canCompare && (
+        <button
+          type="button"
+          data-testid="reader-compare-toggle"
+          aria-pressed={compareMode}
+          onClick={() => onCompareModeChange(!compareMode)}
+          title={
+            compareMode
+              ? "Comparing translations side by side"
+              : "Compare translations side by side"
+          }
+          className={
+            "whitespace-nowrap rounded-md px-3 py-1 text-sm transition " +
+            (compareMode
+              ? "border border-[var(--accent-border)] bg-[var(--accent-bg)] text-amber-100"
+              : "btn-secondary")
+          }
+        >
+          Compare
+        </button>
+      )}
 
       {/* Always-rendered slim jump input (never display:none) */}
       <div className="flex min-w-0 flex-1 items-center gap-2">

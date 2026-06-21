@@ -89,8 +89,9 @@ export function TranslationSwitcherPopover({
       </ul>
       {compare && (
         <p className="mt-2 border-t border-[var(--border-subtle)] pt-2 text-xs text-neutral-500">
-          Compare: {activeTranslations.length} translations active. Choose the
-          column/interleaved layout in Reading settings.
+          {activeTranslations.length} translations active. Use the Compare button
+          to view them side by side; pick the column or interleaved layout in
+          Reading settings.
         </p>
       )}
     </div>
