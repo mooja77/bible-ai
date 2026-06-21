@@ -48,6 +48,14 @@ import {
   type GuidedTemplateSlug,
 } from "./theologyGuided";
 
+const CONFIDENCE_STEPS = [
+  { value: 0, label: "Uncertain" },
+  { value: 25, label: "Leaning" },
+  { value: 50, label: "Moderate" },
+  { value: 75, label: "Confident" },
+  { value: 100, label: "Settled" },
+] as const;
+
 export function TheologyPanel({
   onAskCouncil,
   onOpenGuide,
@@ -512,13 +520,14 @@ export function TheologyPanel({
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-      <header className="surface-panel rounded-lg px-5 py-4">
+      <div className="editorial-page-header mb-6">
+        <span className="section-kicker">Systematic theology</span>
         <h1 className="text-2xl font-semibold text-neutral-100">Theology</h1>
         <p className="text-sm text-neutral-500 mt-1">
           Build a living systematic theology from Scripture, Council sessions, resources,
           workspaces, and your own conclusions.
         </p>
-      </header>
+      </div>
 
       {error && (
         <div className="border border-red-900/60 bg-red-950/40 rounded p-3 text-sm text-red-300">
@@ -527,8 +536,8 @@ export function TheologyPanel({
       )}
 
       <div className="grid xl:grid-cols-[18rem_1fr_16rem] lg:grid-cols-[18rem_1fr] gap-4">
-        <aside className="surface-panel rounded-lg p-3 space-y-2">
-          <h2 className="text-xs tracking-wider text-neutral-500">Doctrine Topics</h2>
+        <aside className="space-y-3 border-r border-[var(--border-subtle)] pr-4">
+          <span className="section-kicker">Topics</span>
           <div className="soft-card p-2 space-y-2" data-testid="create-theology-topic">
             <input
               value={topicDraft.title}
@@ -583,10 +592,8 @@ export function TheologyPanel({
                   onClick={() => setSelectedTopicId(topic.id)}
                   aria-label={`Select theology topic ${topic.title}`}
                   className={
-                    "w-full text-left rounded px-3 py-2 border transition " +
-                    (topic.id === selectedTopicId
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-neutral-100"
-                      : "border-neutral-800 bg-neutral-950/40 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200")
+                    "w-full text-left px-3 py-2 transition " +
+                    (topic.id === selectedTopicId ? "topic-pill-active" : "topic-pill-idle")
                   }
                 >
                   <span className="block text-sm font-medium">{topic.title}</span>
@@ -626,78 +633,84 @@ export function TheologyPanel({
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={save}
-                  disabled={saving}
-                  className="btn-primary px-3 py-1.5 text-sm"
-                >
-                  {saving ? "Saving..." : "Save conclusion"}
-                </button>
-                <button
-                  type="button"
-                  onClick={copyMarkdown}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  {exported ? "Copied" : "Copy Markdown"}
-                </button>
-                <button
-                  type="button"
-                  onClick={copyFullMarkdown}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Copy Full Theology
-                </button>
-                <button
-                  type="button"
-                  onClick={copyTopicTreeMarkdown}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Copy Topic + Subtopics
-                </button>
-                <button
-                  type="button"
-                  onClick={savePdf}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Save PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={saveFullPdf}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Save Full PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={saveTopicTreePdf}
-                  className="btn-secondary px-3 py-1.5 text-sm"
-                >
-                  Save Topic + Subtopics PDF
-                </button>
-                {onAskCouncil && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {onAskCouncil && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAskCouncil(
+                          `Discuss the doctrine of ${selectedTopic.title}. Compare major biblical arguments, disputed interpretations, key passages, unresolved questions, and what evidence would change each position.`,
+                        )
+                      }
+                      className="btn-secondary px-3 py-1.5 text-sm"
+                    >
+                      Ask Council
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() =>
-                      onAskCouncil(
-                        `Discuss the doctrine of ${selectedTopic.title}. Compare major biblical arguments, disputed interpretations, key passages, unresolved questions, and what evidence would change each position.`,
-                      )
-                    }
-                    className="btn-secondary px-3 py-1.5 text-sm"
+                    onClick={save}
+                    disabled={saving}
+                    className="btn-primary px-3 py-1.5 text-sm"
                   >
-                    Ask Council
+                    {saving ? "Saving..." : "Save conclusion"}
                   </button>
-                )}
+                  <div className="action-strip">
+                    <button
+                      type="button"
+                      onClick={copyMarkdown}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      {exported ? "Copied" : "Copy Markdown"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyFullMarkdown}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Copy Full Theology
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyTopicTreeMarkdown}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Copy Topic + Subtopics
+                    </button>
+                    <button
+                      type="button"
+                      onClick={savePdf}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Save PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveFullPdf}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Save Full PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveTopicTreePdf}
+                      className="btn-ghost px-3 py-1.5 text-sm"
+                    >
+                      Save Topic + Subtopics PDF
+                    </button>
+                  </div>
+                </div>
               </div>
               {savedPdfPath && (
                 <p className="text-xs text-neutral-500">Saved PDF: {savedPdfPath}</p>
               )}
 
               {editingTopic && (
-                <div className="soft-card p-3 space-y-2" data-testid="edit-theology-topic">
+                <div className="space-y-2" data-testid="edit-theology-topic">
+                  <div className="editorial-rule" aria-hidden="true" />
+                  <span className="section-kicker">Topic details</span>
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-neutral-200">Topic details</h3>
+                    <h3 className="editorial-section-h2">Topic details</h3>
                     <button
                       type="button"
                       onClick={saveTopic}
@@ -747,9 +760,11 @@ export function TheologyPanel({
                 </div>
               )}
 
-              <section className="soft-card p-3 space-y-3" data-testid="theology-study-prompts">
+              <section className="space-y-3" data-testid="theology-study-prompts">
+                <div className="editorial-rule" aria-hidden="true" />
+                <span className="section-kicker">Study prompts</span>
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-neutral-200">Key study questions</h3>
+                  <h3 className="editorial-section-h2">Key study questions</h3>
                   <span className="text-xs text-neutral-600">
                     {studyPrompts.length} prompt{studyPrompts.length === 1 ? "" : "s"}
                   </span>
@@ -782,9 +797,11 @@ export function TheologyPanel({
                 </div>
               </section>
 
-              <div className="soft-card p-3 space-y-2" data-testid="theology-subtopics">
+              <div className="space-y-2" data-testid="theology-subtopics">
+                <div className="editorial-rule" aria-hidden="true" />
+                <span className="section-kicker">Doctrine structure</span>
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-neutral-200">Subtopics</h3>
+                  <h3 className="editorial-section-h2">Subtopics</h3>
                   <span className="text-xs text-neutral-600">{selectedSubtopics.length} linked</span>
                 </div>
                 {selectedSubtopics.length === 0 ? (
@@ -810,9 +827,11 @@ export function TheologyPanel({
                 )}
               </div>
 
-              <div className="soft-card p-3 space-y-3" data-testid="doctrine-relations">
+              <div className="space-y-3" data-testid="doctrine-relations">
+                <div className="editorial-rule" aria-hidden="true" />
+                <span className="section-kicker">Doctrine map</span>
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-neutral-200">
+                  <h3 className="editorial-section-h2">
                     Doctrine links and tensions
                   </h3>
                   <span className="text-xs text-neutral-600">
@@ -920,25 +939,32 @@ export function TheologyPanel({
               />
 
               <div className="soft-card p-3 space-y-2">
-                <label
-                  className="text-xs tracking-wider text-neutral-500"
-                  htmlFor="theology-confidence"
-                >
-                  Confidence
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="theology-confidence"
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={conclusion.confidence ?? 50}
-                    onChange={(e) => updateConclusion({ confidence: Number(e.target.value) })}
-                    className="w-full"
-                  />
-                  <span className="w-14 text-right text-sm text-neutral-300">
-                    {conclusion.confidence ?? 50}%
-                  </span>
+                <span className="section-kicker">Confidence</span>
+                <div className="flex gap-1" role="group" aria-label="Theology confidence">
+                  {CONFIDENCE_STEPS.map(({ value, label }) => {
+                    const current = conclusion.confidence ?? 50;
+                    const nearest = CONFIDENCE_STEPS.reduce((a, b) =>
+                      Math.abs(b.value - current) < Math.abs(a.value - current) ? b : a,
+                    );
+                    const active = nearest.value === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-label={`Theology confidence: ${label}`}
+                        aria-pressed={active}
+                        onClick={() => updateConclusion({ confidence: value })}
+                        className={
+                          "flex-1 rounded px-2 py-1.5 text-xs transition " +
+                          (active
+                            ? "bg-[var(--accent-bg)] text-amber-200 border border-[var(--accent-border)]"
+                            : "btn-ghost")
+                        }
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -955,9 +981,11 @@ export function TheologyPanel({
                 />
               </div>
 
-              <div className="soft-card p-3 space-y-3" data-testid="theology-positions">
+              <div className="space-y-3" data-testid="theology-positions">
+                <div className="editorial-rule" aria-hidden="true" />
+                <span className="section-kicker">Positions</span>
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-neutral-200">Major positions</h3>
+                  <h3 className="editorial-section-h2">Major positions</h3>
                   <span className="text-xs text-neutral-600">{positions.length} saved</span>
                 </div>
                 {positions.length > 0 && (
@@ -1024,9 +1052,11 @@ export function TheologyPanel({
                 )}
               </div>
 
-              <div className="soft-card p-3">
+              <div className="space-y-2">
+                <div className="editorial-rule" aria-hidden="true" />
+                <span className="section-kicker">Evidence</span>
                 <div className="flex items-center justify-between gap-3 mb-2">
-                  <h3 className="text-sm font-semibold text-neutral-200">Linked evidence</h3>
+                  <h3 className="editorial-section-h2">Linked evidence</h3>
                   <span className="text-xs text-neutral-600">{evidenceLinkCount} links</span>
                 </div>
                 {evidenceLinkCount === 0 ? (
@@ -1086,10 +1116,12 @@ export function TheologyPanel({
               </div>
 
               {guided && (
-                <div className="soft-card p-3 space-y-3" data-testid="guided-study-runner">
+                <div className="space-y-3" data-testid="guided-study-runner">
+                  <div className="editorial-rule" aria-hidden="true" />
+                  <span className="section-kicker">Guided study</span>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-neutral-200">Guided study</h3>
+                      <h3 className="editorial-section-h2">Guided study</h3>
                       <p className="text-sm text-neutral-500 mt-1">
                         {guidedTemplate.description}
                       </p>
@@ -1295,9 +1327,11 @@ export function TheologyPanel({
                 </div>
               )}
               {guidedSessions.length > 0 && (
-                <section className="soft-card p-3 space-y-3" data-testid="guided-study-history">
+                <section className="space-y-3" data-testid="guided-study-history">
+                  <div className="editorial-rule" aria-hidden="true" />
+                  <span className="section-kicker">Guided study</span>
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-neutral-200">
+                    <h3 className="editorial-section-h2">
                       Guided study history
                     </h3>
                     <span className="text-xs text-neutral-600">
@@ -1378,9 +1412,9 @@ export function TheologyPanel({
           )}
         </section>
 
-        <aside className="surface-panel rounded-lg p-4 space-y-4 lg:col-span-2 xl:col-span-1" data-testid="theology-progress">
+        <aside className="space-y-4 pl-4 border-l border-[var(--border-subtle)] lg:col-span-2 xl:col-span-1" data-testid="theology-progress">
           <div>
-            <h2 className="text-xs tracking-wider text-neutral-500">My Theology</h2>
+            <span className="section-kicker">My Theology</span>
             <p className="text-sm text-neutral-300 mt-2">
               {progress.started}/{progress.total} topics started
             </p>

@@ -179,12 +179,13 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-      <header className="surface-panel rounded-lg px-5 py-4">
+      <div className="editorial-page-header mb-6">
+        <span className="section-kicker">Open resources</span>
         <h1 className="text-2xl font-semibold text-neutral-100">Resources</h1>
         <p className="text-sm text-neutral-500 mt-1">
           Search open and public-domain study resources with visible source, license, and attribution.
         </p>
-      </header>
+      </div>
 
       {status && (
         <div className="soft-card px-3 py-2 text-sm text-neutral-300" data-testid="resource-status">
@@ -192,7 +193,8 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
         </div>
       )}
 
-      <section className="surface-panel rounded-lg p-4 space-y-3">
+      <div className="mb-4">
+        <label className="section-kicker mb-2 block">Filter</label>
         <div className="grid md:grid-cols-[1fr_14rem_12rem_12rem_14rem] gap-2">
           <input
             type="search"
@@ -255,7 +257,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
             ))}
           </select>
         </div>
-      </section>
+      </div>
 
       <div className="grid lg:grid-cols-[22rem_1fr] gap-4">
         <aside className="surface-panel rounded-lg p-3 space-y-2" data-testid="resource-results">
@@ -305,7 +307,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
                     className={
                       "w-full text-left rounded border px-3 py-2 " +
                       (selected?.id === entry.id
-                        ? "border-emerald-500/50 bg-emerald-500/10"
+                        ? "border-[var(--accent-border)] bg-[var(--accent-bg)]"
                         : "border-neutral-900 bg-neutral-950/30 hover:border-neutral-700")
                     }
                   >
@@ -334,7 +336,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
                 </p>
               </div>
               <div className="soft-card p-3" data-testid="resource-citation">
-                <h3 className="text-xs tracking-wider text-neutral-500">Citation</h3>
+                <span className="section-kicker">Citation</span>
                 <p className="text-sm text-neutral-300 mt-1">{selectedCitation}</p>
                 {relatedScriptureRefs.length > 0 && (
                   <div className="mt-3">
@@ -354,11 +356,11 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
                   </div>
                 )}
               </div>
-              <p className="text-sm leading-relaxed text-neutral-300 whitespace-pre-wrap">
+              <p className="font-serif text-base leading-relaxed text-neutral-300 whitespace-pre-wrap">
                 {selected.body}
               </p>
               <div className="soft-card p-3">
-                <h3 className="text-xs tracking-wider text-neutral-500">Attribution</h3>
+                <span className="section-kicker">Attribution</span>
                 <p className="text-sm text-neutral-300 mt-1">{selected.attribution}</p>
                 {selectedShareAlikeRequirements && (
                   <p className="text-xs text-amber-200 mt-2">
@@ -366,7 +368,7 @@ export function ResourcesPanel({ onOpenDataSources, onAskCouncil }: ResourcesPan
                   </p>
                 )}
               </div>
-              <div className="soft-card p-3 flex flex-wrap items-end gap-2">
+              <div className="action-strip soft-card p-3 flex flex-wrap items-end gap-2">
                 <label className="space-y-1">
                   <span className="block text-xs tracking-wider text-neutral-500">
                     Theology topic

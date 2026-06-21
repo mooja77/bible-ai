@@ -21,11 +21,15 @@ describe("Browse by tag", () => {
     await bookmarkLabel.waitForDisplayed({ timeout: 5_000 });
     await bookmarkLabel.setValue(label);
     await (await $("button=Bookmark")).click();
-    const shortcut = await $(`button=${label}`);
-    await shortcut.waitForDisplayed({ timeout: 10_000 });
     await $('button[aria-label="Close verse panel"]').click();
 
-    // Tag the bookmark in the sidebar.
+    // Bookmarks/shortcuts now live in the on-demand NavigationDrawer (WC1 shell).
+    await $('[data-testid="nav-drawer-toggle"]').click();
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ timeout: 5_000 });
+    const shortcut = await $(`button=${label}`);
+    await shortcut.waitForDisplayed({ timeout: 10_000 });
+
+    // Tag the bookmark in the drawer.
     const tagName = `browse${Date.now()}`;
     const li = await (await $(`button=${label}`)).parentElement();
     await li.$('[data-testid="bookmark-add-tag"]').click();
@@ -34,6 +38,10 @@ describe("Browse by tag", () => {
     await tagInput.setValue(tagName);
     await browser.keys("Enter");
     await $(`[data-testid="bookmark-tag-chip"]*=${tagName}`).waitForDisplayed({ timeout: 10_000 });
+
+    // Close the drawer so the Tags-mode button + view are unobstructed.
+    await browser.keys("Escape");
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
 
     // Open the Tags view, select the tag, see the item.
     await (await $("button=Tags")).click();

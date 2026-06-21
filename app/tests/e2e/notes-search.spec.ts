@@ -73,6 +73,10 @@ describe("Note search", () => {
     await closeBtn.click();
     await panelHeader.waitForDisplayed({ reverse: true, timeout: 3_000 });
 
+    // Search now lives in the SearchPanel overlay — open it via "/".
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
+
     // Type the distinctive word into the search box.
     const searchInput = await $('input[type="search"]');
     await searchInput.waitForDisplayed({ timeout: 5_000 });
@@ -115,5 +119,9 @@ describe("Note search", () => {
     const scriptureScope = await $('[data-testid="search-scope-scripture"]');
     await scriptureScope.waitForClickable({ timeout: 5_000 });
     await scriptureScope.click();
+
+    // Close the search overlay so subsequent specs start with a clean shell.
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 });

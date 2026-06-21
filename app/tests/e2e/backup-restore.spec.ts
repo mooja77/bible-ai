@@ -37,9 +37,17 @@ describe("Backup and restore", () => {
 
     await waitForBackupStatus("Imported 1", "backup JSON import did not complete");
 
+    // Bookmarks/shortcuts now live in the on-demand NavigationDrawer (WC1 shell).
+    await $('[data-testid="nav-drawer-toggle"]').click();
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ timeout: 5_000 });
+
     const imported = await $(`button=${bookmarkLabel}`);
     await imported.waitForDisplayed({ timeout: 10_000 });
     await expect(imported).toBeDisplayed();
+
+    // Close the drawer to leave a clean state for later tests.
+    await browser.keys("Escape");
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
   it("creates a SQLite backup and restores from that backup path", async () => {

@@ -319,6 +319,7 @@ export function WorkspacesPanel({
     <div className="h-full flex">
       <aside className="app-sidebar w-80 border-r border-neutral-800 p-4 overflow-y-auto">
         <header className="mb-4">
+          <span className="section-kicker">Your study</span>
           <h1 className="text-2xl font-semibold text-neutral-100">Workspaces</h1>
           <p className="text-sm text-neutral-500 mt-1">Saved passages, searches, and Council work.</p>
         </header>
@@ -366,8 +367,8 @@ export function WorkspacesPanel({
                 className={
                   "w-full text-left rounded px-3 py-2 text-sm " +
                   (selectedId === w.id
-                    ? "bg-neutral-800 text-neutral-100"
-                    : "hover:bg-neutral-900 text-neutral-300")
+                    ? "bg-[var(--accent-bg)] text-[var(--color-neutral-100)] border border-[var(--accent-border)]"
+                    : "text-neutral-300 hover:bg-neutral-900")
                 }
               >
                 <span className="block truncate">{w.title}</span>
@@ -393,7 +394,7 @@ export function WorkspacesPanel({
           </div>
         ) : (
           <div className="max-w-4xl mx-auto space-y-6">
-            <header className="border-b border-neutral-800 pb-4 flex items-start justify-between gap-4">
+            <header className="pb-5 flex items-start justify-between gap-4">
               <div className="flex-1 space-y-3">
                 <h2 className="text-2xl font-semibold text-neutral-100">{workspace.title}</h2>
                 <div className="grid gap-2 max-w-xl">
@@ -421,7 +422,7 @@ export function WorkspacesPanel({
                     <button
                       type="button"
                       onClick={saveWorkspaceDetails}
-                      className="btn-secondary px-3 py-1.5 text-sm"
+                      className="btn-primary px-3 py-1.5 text-sm"
                     >
                       Save Details
                     </button>
@@ -431,46 +432,46 @@ export function WorkspacesPanel({
                   </div>
                 </div>
               </div>
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="action-strip flex flex-wrap justify-end gap-2">
                 <button
                   type="button"
                   onClick={copyMarkdown}
-                  className="btn-secondary px-3 py-1.5 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   {copied ? "Copied" : "Copy Markdown"}
                 </button>
                 <button
                   type="button"
                   onClick={saveMarkdown}
-                  className="btn-secondary px-3 py-1.5 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   Save Markdown
                 </button>
                 <button
                   type="button"
                   onClick={saveMarkdownAs}
-                  className="btn-secondary px-3 py-1.5 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   Save As...
                 </button>
                 <button
                   type="button"
                   onClick={saveHtml}
-                  className="btn-secondary px-3 py-1.5 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   Save HTML
                 </button>
                 <button
                   type="button"
                   onClick={savePdf}
-                  className="btn-secondary px-3 py-1.5 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   Save PDF
                 </button>
                 <button
                   type="button"
                   onClick={() => setPreviewOpen((x) => !x)}
-                  className="btn-secondary px-3 py-1.5 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   {previewOpen ? "Hide Preview" : "Preview Markdown"}
                 </button>
@@ -484,19 +485,20 @@ export function WorkspacesPanel({
                     await refreshList();
                     onChanged?.();
                   }}
-                  className="btn-danger px-3 py-1.5 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   Delete
                 </button>
                 <button
                   type="button"
                   onClick={archiveWorkspace}
-                  className="btn-secondary px-3 py-1.5 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   Archive
                 </button>
               </div>
             </header>
+            <div className="editorial-rule mt-4" aria-hidden="true" />
             {savedPath && (
               <p className="text-xs text-neutral-500" data-testid="workspace-save-status">
                 Saved export {savedPath}
@@ -504,9 +506,9 @@ export function WorkspacesPanel({
             )}
 
             <section className="soft-card p-4">
-              <h3 className="text-sm tracking-wider text-neutral-400 mb-3">
+              <span className="section-kicker mb-2 block">
                 Workspace Note
-              </h3>
+              </span>
               <div className="grid gap-2">
                 <input
                   aria-label="Workspace note title"
@@ -528,7 +530,7 @@ export function WorkspacesPanel({
                     type="button"
                     onClick={addWorkspaceNote}
                     disabled={!noteBody.trim() || addingNote}
-                    className="btn-secondary px-3 py-1.5 text-sm"
+                    className="btn-primary px-3 py-1.5 text-sm"
                   >
                     Add Note
                   </button>
@@ -556,9 +558,9 @@ export function WorkspacesPanel({
                 </div>
                 {previewOpen && (
                   <section className="surface-panel rounded-lg p-4">
-                    <h3 className="text-sm tracking-wider text-neutral-400 mb-3">
+                    <span className="section-kicker mb-2 block">
                       Markdown Preview
-                    </h3>
+                    </span>
                     <pre
                       data-testid="markdown-preview"
                       className="max-h-96 overflow-auto whitespace-pre-wrap text-sm text-neutral-200 leading-relaxed"

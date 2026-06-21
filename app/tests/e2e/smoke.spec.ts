@@ -124,12 +124,29 @@ describe("Bible AI shell", () => {
   });
 
   it("populates the translation picker with the 6 ingested translations", async () => {
+    // The translation picker now lives in the reader's translation-switcher
+    // popover (WC2 ReaderBar), so ensure we are in the Reader and open it before
+    // asserting its rows.
+    const reader = await $("button=Reader");
+    await reader.waitForClickable({ timeout: 10_000 });
+    await reader.click();
+
+    const trigger = await $('[data-testid="translation-switcher-trigger"]');
+    await trigger.waitForClickable({ timeout: 10_000 });
+    await trigger.click();
+    const popover = await $('[data-testid="translation-switcher-popover"]');
+    await popover.waitForDisplayed({ timeout: 10_000 });
+
     // Each checkbox row has its translation code in a <span> with text content.
     const codes = ["KJV", "ASV", "WEB", "YLT", "TR", "WLC"];
     for (const code of codes) {
-      const label = await $(`span=${code}`);
+      const label = await popover.$(`span=${code}`);
       await label.waitForExist({ timeout: 10_000 });
     }
+
+    // Leave the popover closed for subsequent tests.
+    await browser.keys("Escape");
+    await popover.waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
   it("renders a chapter of Genesis by default", async () => {
@@ -142,11 +159,23 @@ describe("Bible AI shell", () => {
   });
 
   it("has a search input focusable via the `/` shortcut", async () => {
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
     const search = await $('input[type="search"]');
     await expect(search).toBeDisplayed();
+    // The `/` shortcut opens the panel AND focuses the search input.
+    const focused = await browser.execute(
+      () => document.activeElement === document.querySelector('input[type="search"]'),
+    );
+    expect(focused).toBe(true);
+    // Leave the panel closed for subsequent tests.
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
   it("links selected Search results directly to Theology", async () => {
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
     const search = await $('input[type="search"]');
     await search.waitForDisplayed({ timeout: 5_000 });
     await search.setValue("God");
@@ -170,6 +199,9 @@ describe("Bible AI shell", () => {
 
     await $('[aria-label="Clear search"]').click();
     await resultsHeader.waitForDisplayed({ reverse: true, timeout: 10_000 });
+    // Close the search overlay so the sidebar mode nav is clickable again.
+    await browser.keys("Escape");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
     const theology = await $("button=Theology");
     await theology.click();
     await expect(await $("body")).toHaveText("Search: God", { containing: true, ignoreCase: true });

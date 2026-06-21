@@ -91,8 +91,15 @@ describe("Light-mode text contrast (WCAG AA)", () => {
       await browser.pause(500);
     }
 
+    // Book nav now lives in the on-demand BookNav drawer (WC1 shell). Open it,
+    // pick Genesis, close it, so the reader shows verse text for the contrast
+    // sweep. (The reader also defaults to Genesis, so this is belt-and-braces.)
+    await $('[data-testid="book-nav-toggle"]').click();
+    await $('[data-testid="book-nav"]').waitForDisplayed({ timeout: 5_000 });
     const genesis = await $("button=Genesis");
     if (await genesis.isClickable()) await genesis.click();
+    await browser.keys("Escape");
+    await $('[data-testid="book-nav"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
     await browser.pause(600);
     const failures: Array<{ screen: string; items: unknown[] }> = [];
     for (const screen of ["Reader", "Council", "Settings", "Theology", "Resources"]) {

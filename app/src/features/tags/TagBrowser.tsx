@@ -42,9 +42,9 @@ export function TagBrowser({ onJumpToVerse }: { onJumpToVerse: (verseId: number)
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-6" data-testid="tag-browser">
-      <header className="surface-panel rounded-lg px-4 py-3 mb-4">
-        <p className="text-xs tracking-wider text-neutral-500">Study organization</p>
-        <h2 className="text-xl font-semibold text-neutral-100">Tags</h2>
+      <header className="editorial-page-header mb-6">
+        <span className="section-kicker">Study organization</span>
+        <h1>Tags</h1>
       </header>
 
       {tagCounts.length === 0 ? (
@@ -63,9 +63,7 @@ export function TagBrowser({ onJumpToVerse }: { onJumpToVerse: (verseId: number)
                 aria-pressed={selectedTagId === t.id}
                 className={
                   "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-sm transition-colors " +
-                  (selectedTagId === t.id
-                    ? "bg-amber-500/10 text-amber-200"
-                    : "text-neutral-300 hover:bg-neutral-900/60")
+                  (selectedTagId === t.id ? "topic-pill-active" : "topic-pill-idle")
                 }
               >
                 <span className="truncate">{t.name}</span>

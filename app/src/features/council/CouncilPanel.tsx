@@ -36,7 +36,7 @@ import { CouncilConfidenceRationale } from "./CouncilConfidenceRationale";
 import { VoicesAuditTrail } from "./CouncilVoicesAudit";
 import { ErrorState } from "../../components/StateViews";
 import { ReasoningExplorer } from "./explorer/ReasoningExplorer";
-import { CouncilVerdictCard } from "./CouncilVerdictCard";
+import { CouncilCanvas } from "./CouncilCanvas";
 
 /** Client-side backstop (5 min). The backend tolerates very long runs, so a
  *  stuck or unreachable provider can otherwise spin forever. The live elapsed
@@ -359,7 +359,11 @@ export function CouncilPanel({
 
       {response && !response.sensitive_topic && (
         <>
-          <CouncilVerdictCard response={response} />
+          <CouncilCanvas
+            response={response}
+            question={question}
+            onOpenExplorer={() => setShowExplorer(true)}
+          />
           <div className="text-xs text-neutral-500 flex items-center gap-2 flex-wrap">
             {response.retrieval_mode && (
               <>

@@ -6,6 +6,19 @@
 
 import { browser, $, $$, expect } from "@wdio/globals";
 
+async function openReadingSettings() {
+  const t = await $('button[aria-label="Reading settings"]');
+  await t.waitForClickable({ timeout: 8_000 });
+  await t.click();
+  await $('[data-testid="reading-settings-popover"]').waitForDisplayed({ timeout: 5_000 });
+}
+async function openTranslationSwitcher() {
+  const t = await $('[data-testid="translation-switcher-trigger"]');
+  await t.waitForClickable({ timeout: 8_000 });
+  await t.click();
+  await $('[data-testid="translation-switcher-popover"]').waitForDisplayed({ timeout: 5_000 });
+}
+
 describe("Reader interactions", () => {
   it("opens the verse panel when a verse number is clicked", async () => {
     const reader = await $("button=Reader");
@@ -115,9 +128,14 @@ describe("Reader interactions", () => {
     await bookmark.waitForClickable({ timeout: 5_000 });
     await bookmark.click();
 
+    // Bookmarks/shortcuts now live in the on-demand NavigationDrawer (WC1 shell).
+    await $('[data-testid="nav-drawer-toggle"]').click();
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ timeout: 5_000 });
     const shortcut = await $(`button=${label}`);
     await shortcut.waitForDisplayed({ timeout: 10_000 });
     await expect(shortcut).toBeDisplayed();
+    await browser.keys("Escape");
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
 
     const closeBtn = await $('button[aria-label="Close verse panel"]');
     await closeBtn.click();
@@ -143,11 +161,15 @@ describe("Reader interactions", () => {
     await bookmark.waitForClickable({ timeout: 5_000 });
     await bookmark.click();
 
+    // Close the verse panel so the drawer shortcut is the clear target.
+    await $('button[aria-label="Close verse panel"]').click();
+
+    // Bookmarks/shortcuts now live in the on-demand NavigationDrawer (WC1 shell).
+    await $('[data-testid="nav-drawer-toggle"]').click();
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ timeout: 5_000 });
+
     const shortcut = await $(`button=${label}`);
     await shortcut.waitForDisplayed({ timeout: 10_000 });
-
-    // Close the verse panel so the sidebar shortcut is the clear target.
-    await $('button[aria-label="Close verse panel"]').click();
 
     // Open the bookmark's tag input, add a tag.
     const tagName = `topic${Date.now()}`;
@@ -171,6 +193,10 @@ describe("Reader interactions", () => {
 
     // Clear the filter to leave clean state for later tests.
     await (await $('[data-testid="bookmark-tag-filter"]')).$("button=Clear").click();
+
+    // Close the drawer to leave a clean state for later tests.
+    await browser.keys("Escape");
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
   it("explains a verse from the verse panel", async () => {
@@ -182,8 +208,10 @@ describe("Reader interactions", () => {
     await jumpInput.waitForDisplayed({ timeout: 5_000 });
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "columns");
+    await browser.keys("Escape");
 
     const firstVerse = await $('button[aria-label="Verse 1 actions"]');
     await firstVerse.waitForClickable({ timeout: 10_000 });
@@ -223,7 +251,14 @@ describe("Reader interactions", () => {
       { timeout: 10_000, timeoutMsg: "sample module did not install" },
     );
 
+    // Jump-to-reference now lives in the reader (WC1 shell), not the old global
+    // sidebar — return to the Reader before using it.
+    const readerNav = await $("button=Reader");
+    await readerNav.waitForClickable({ timeout: 10_000 });
+    await readerNav.click();
+
     const jumpInput = await $('input[aria-label="Jump to reference"]');
+    await jumpInput.waitForDisplayed({ timeout: 5_000 });
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
 
@@ -384,15 +419,19 @@ describe("Reader interactions", () => {
       await clearVisibleRangeBar("Genesis 1:1-3");
     }
 
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "columns");
+    await browser.keys("Escape");
 
+    await openTranslationSwitcher();
     const wlcCheckbox = await $('[data-testid="translation-WLC"]');
     await wlcCheckbox.waitForDisplayed({ timeout: 10_000 });
     if (!(await wlcCheckbox.isSelected())) {
       const wlcLabel = await wlcCheckbox.parentElement();
       await wlcLabel.click();
     }
+    await browser.keys("Escape");
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });
@@ -407,6 +446,9 @@ describe("Reader interactions", () => {
   });
 
   it("returns FTS search results and navigates on click", async () => {
+    // Search now lives in the SearchPanel overlay — open it via "/".
+    await browser.keys("/");
+    await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
     const searchInput = await $('input[type="search"]');
     await searchInput.waitForDisplayed({ timeout: 5_000 });
     await searchInput.click();
@@ -502,9 +544,14 @@ describe("Reader interactions", () => {
     await bookmark.click();
     const bookmarkStatus = await $("span=Range bookmarked");
     await bookmarkStatus.waitForDisplayed({ timeout: 5_000 });
+    // Range-bookmark shortcut now lives in the on-demand NavigationDrawer.
+    await $('[data-testid="nav-drawer-toggle"]').click();
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ timeout: 5_000 });
     const shortcut = await $("button=Genesis 1:1-3");
     await shortcut.waitForDisplayed({ timeout: 10_000 });
     await expect(shortcut).toBeDisplayed();
+    await browser.keys("Escape");
+    await $('[data-testid="nav-drawer"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
 
     const clear = await rangeBar.$("button=Clear");
     await clear.waitForClickable({ timeout: 5_000 });
@@ -614,17 +661,21 @@ describe("Reader interactions", () => {
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
 
+    await openTranslationSwitcher();
     const asvCheckbox = await $('[data-testid="translation-ASV"]');
     await asvCheckbox.waitForDisplayed({ timeout: 10_000 });
     if (!(await asvCheckbox.isSelected())) {
       const asvLabel = await asvCheckbox.parentElement();
       await asvLabel.click();
     }
+    await browser.keys("Escape");
 
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "interleaved");
     const density = await $('select[aria-label="Reader density"]');
     await density.selectByAttribute("value", "compact");
+    await browser.keys("Escape");
 
     const interleaved = await $('[data-testid="interleaved-reader"]');
     await interleaved.waitForDisplayed({ timeout: 10_000 });
@@ -652,15 +703,19 @@ describe("Reader interactions", () => {
     await jumpInput.waitForDisplayed({ timeout: 5_000 });
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "columns");
+    await browser.keys("Escape");
 
+    await openTranslationSwitcher();
     const wlcCheckbox = await $('[data-testid="translation-WLC"]');
     await wlcCheckbox.waitForDisplayed({ timeout: 10_000 });
     if (!(await wlcCheckbox.isSelected())) {
       const wlcLabel = await wlcCheckbox.parentElement();
       await wlcLabel.click();
     }
+    await browser.keys("Escape");
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });
@@ -683,15 +738,19 @@ describe("Reader interactions", () => {
     await jumpInput.waitForDisplayed({ timeout: 5_000 });
     await jumpInput.setValue("Genesis 1:1");
     await $("button=Go").click();
+    await openReadingSettings();
     const layout = await $('select[aria-label="Reader layout"]');
     await layout.selectByAttribute("value", "columns");
+    await browser.keys("Escape");
 
+    await openTranslationSwitcher();
     const wlcCheckbox = await $('[data-testid="translation-WLC"]');
     await wlcCheckbox.waitForDisplayed({ timeout: 10_000 });
     if (!(await wlcCheckbox.isSelected())) {
       const wlcLabel = await wlcCheckbox.parentElement();
       await wlcLabel.click();
     }
+    await browser.keys("Escape");
 
     const token = await $('[data-testid="word-token"]');
     await token.waitForClickable({ timeout: 10_000 });

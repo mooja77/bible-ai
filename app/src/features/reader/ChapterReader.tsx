@@ -170,14 +170,18 @@ export function ChapterReader({
         }
       >
         {showChapterHeading && (
-          <h1
-            className={
-              "font-semibold text-neutral-100 " +
-              (density === "compact" ? "text-2xl" : "text-3xl")
-            }
-          >
-            {bookName} {chapter}
-          </h1>
+          <>
+            <p className="reader-kicker mb-1">{bookName}</p>
+            <h1
+              className={
+                "font-serif font-semibold text-neutral-100 " +
+                (density === "compact" ? "text-2xl" : "text-3xl")
+              }
+            >
+              {bookName} {chapter}
+            </h1>
+            <div className="reader-chapter-rule mt-3" aria-hidden="true" />
+          </>
         )}
         <div className="flex flex-wrap items-center gap-2 mt-2">
           <span className="meta-pill">{translationCode}</span>
@@ -269,6 +273,8 @@ export function ChapterReader({
                       {t.surface}
                     </button>
                   ))
+                ) : v.verse === 1 ? (
+                  <span className="reader-drop-cap">{v.text}{" "}</span>
                 ) : (
                   <>{v.text}{" "}</>
                 )}

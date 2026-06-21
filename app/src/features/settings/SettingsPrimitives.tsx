@@ -27,7 +27,7 @@ export function SetupPathButton({
         "text-left rounded-md border px-3 py-2 transition-colors " +
         (active
           ? "border-amber-500/45 bg-amber-500/12 text-amber-100"
-          : "border-neutral-800 bg-neutral-950/35 text-neutral-300 hover:border-neutral-600")
+          : "border-[var(--border-subtle)] bg-transparent text-neutral-300 hover:border-neutral-600")
       }
     >
       <span className="block text-sm font-medium">{label}</span>
