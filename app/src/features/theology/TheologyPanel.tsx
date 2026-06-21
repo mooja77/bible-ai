@@ -1414,7 +1414,7 @@ export function TheologyPanel({
 
         <aside className="space-y-4 pl-4 border-l border-[var(--border-subtle)] lg:col-span-2 xl:col-span-1" data-testid="theology-progress">
           <div>
-            <span className="section-kicker">Progress</span>
+            <span className="section-kicker">My Theology</span>
             <p className="text-sm text-neutral-300 mt-2">
               {progress.started}/{progress.total} topics started
             </p>
