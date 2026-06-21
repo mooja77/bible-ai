@@ -124,7 +124,7 @@ export function CouncilRunMap({ runState, elapsed }: { runState: CouncilRunState
         <div className="soft-card px-3 py-2" data-testid="runmap-verdict">
           <span className="text-sm font-semibold text-amber-300">{runState.verdict.leader_label}</span>
           <span className="ml-2 text-xs text-neutral-500">
-            {Math.round(runState.verdict.leader_weight * 100)}% · {runState.verdict.confidence} confidence
+            {runState.verdict.confidence} confidence
           </span>
         </div>
       ) : null}
