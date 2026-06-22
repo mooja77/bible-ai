@@ -464,6 +464,69 @@ export function CouncilReasoningCanvas({
             <p className="reasoning-note">The Council did not reach a result.</p>
           )}
         </Band>
+
+        {(response.grounding || response.judge || response.scope) && (
+          <Band step={6} kicker="Verification" title="How this was checked">
+            <div className="reasoning-verify">
+              {response.scope?.positions?.length ? (
+                <p className="reasoning-note">
+                  <span className="reasoning-verify-label">Scope</span> —{" "}
+                  {response.scope.positions.length}{" "}
+                  {response.scope.positions.length === 1 ? "position" : "positions"} considered:{" "}
+                  {response.scope.positions.map((p) => p.label).join(" · ")}
+                </p>
+              ) : null}
+              {response.grounding && (
+                <p className="reasoning-note">
+                  <span className="reasoning-verify-label">Grounding</span> —{" "}
+                  {response.grounding.hard_fail ? (
+                    <span className="reasoning-verify-warn">
+                      {response.grounding.out_of_corpus_verse_ids.length} citation(s) could not be grounded in
+                      the retrieved evidence
+                    </span>
+                  ) : (
+                    <span className="reasoning-verify-ok">
+                      all {response.grounding.cited_count} citations are grounded in the retrieved evidence
+                    </span>
+                  )}
+                  {response.grounding.regen_attempts
+                    ? ` (repaired in ${response.grounding.regen_attempts} pass${response.grounding.regen_attempts === 1 ? "" : "es"})`
+                    : ""}
+                </p>
+              )}
+              {response.judge?.available ? (
+                <p className="reasoning-note">
+                  <span className="reasoning-verify-label">Independent check</span> —{" "}
+                  {response.judge.parsed ? (
+                    <>
+                      a different model family ({response.judge.judge_provider}) judged this{" "}
+                      <span
+                        className={
+                          "reasoning-verify-" +
+                          (response.judge.verdict === "sound"
+                            ? "ok"
+                            : response.judge.verdict === "unsound"
+                              ? "warn"
+                              : "mixed")
+                        }
+                      >
+                        {response.judge.verdict}
+                      </span>
+                      {response.judge.notes ? ` — ${response.judge.notes}` : ""}
+                    </>
+                  ) : (
+                    "the cross-family check could not be completed"
+                  )}
+                </p>
+              ) : response.judge ? (
+                <p className="reasoning-note reasoning-faint">
+                  No cross-family check available — configure a second provider family for an
+                  independent review.
+                </p>
+              ) : null}
+            </div>
+          </Band>
+        )}
       </div>
 
       {focus && (

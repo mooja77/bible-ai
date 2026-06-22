@@ -390,6 +390,42 @@ function mockCouncilResult({ question, evidence, model }) {
       },
     ],
   };
+  // Synthetic verification blocks so the grounding floor, cross-family judge, and
+  // scope surfaces render through the normal UI path in mock mode.
+  const mockCitedIds = evidenceClassification.map((c) => c.verse_id).filter(Boolean);
+  const mockVerification = {
+    grounding: {
+      hard_fail: false,
+      citation_accuracy: 1,
+      out_of_corpus_verse_ids: [],
+      violations: [],
+      uncited_positions: [],
+      cited_count: mockCitedIds.length,
+      in_corpus_count: mockCitedIds.length,
+      regen_attempts: 0,
+    },
+    judge: {
+      available: true,
+      parsed: true,
+      judge_provider: "mock-gpt",
+      judge_family: "openai",
+      grounding_faithful: true,
+      balance_preserved: true,
+      ungrounded_claims: [],
+      overreach: [],
+      verdict: "sound",
+      notes:
+        "Mock cross-family judge: every cited verse is present in the evidence and the minority view is preserved.",
+    },
+    scope: {
+      available: true,
+      positions: result.positions.map((p) => ({
+        label: p.label,
+        description: (p.summary ?? "").slice(0, 160),
+      })),
+    },
+  };
+
   // Dev-only: BIBLE_AI_MOCK_VOICES>1 synthesizes several voices (some converging
   // on the consensus, one dissenting) so the multi-voice agreement/conflict
   // cluster can be designed + verified. Default is 1, so the e2e mock (which sets
@@ -416,6 +452,7 @@ function mockCouncilResult({ question, evidence, model }) {
       })),
       manifest: defs.map((d) => ({ name: d.provider, display_name: d.display_name, available: true })),
       synthesis_mode: "consensus",
+      ...mockVerification,
     };
   }
   return {
@@ -438,6 +475,7 @@ function mockCouncilResult({ question, evidence, model }) {
       },
     ],
     synthesis_mode: "consensus",
+    ...mockVerification,
   };
 }
 

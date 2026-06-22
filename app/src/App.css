@@ -730,6 +730,31 @@ mark {
   font-size: 0.75rem;
   color: var(--color-neutral-500);
 }
+/* Verification band — grounding floor + cross-family judge + scope */
+.reasoning-verify {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.reasoning-verify-label {
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--accent);
+}
+.reasoning-verify-ok {
+  color: var(--c-support);
+  font-weight: 500;
+}
+.reasoning-verify-warn {
+  color: var(--c-challenge);
+  font-weight: 500;
+}
+.reasoning-verify-mixed {
+  color: var(--accent);
+  font-weight: 500;
+}
 .reasoning-faint {
   font-size: 0.6875rem;
   color: var(--color-neutral-500);
