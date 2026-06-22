@@ -22,6 +22,7 @@ copyFileAlways(join(appRoot, "sidecar", "package.json"), join(debugSidecar, "pac
 copyFileAlways(join(appRoot, "sidecar", "package-lock.json"), join(debugSidecar, "package-lock.json"));
 
 replaceDirectory(join(appRoot, "sidecar", "providers"), join(debugSidecar, "providers"));
+replaceDirectory(join(appRoot, "sidecar", "grounded"), join(debugSidecar, "grounded"));
 copyDirectoryIfMissingOrChanged(
   join(appRoot, "sidecar", "node"),
   join(debugSidecar, "node"),

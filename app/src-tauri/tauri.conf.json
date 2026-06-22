@@ -33,6 +33,7 @@
       "../sidecar/council.mjs": "sidecar/council.mjs",
       "../sidecar/explain.mjs": "sidecar/explain.mjs",
       "../sidecar/providers": "sidecar/providers",
+      "../sidecar/grounded": "sidecar/grounded",
       "../sidecar/package.json": "sidecar/package.json",
       "../sidecar/package-lock.json": "sidecar/package-lock.json",
       "../sidecar/node": "sidecar/node",

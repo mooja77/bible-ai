@@ -37,6 +37,7 @@ const fileArtifacts = [
 const directoryArtifacts = [
   ["app_bundle", appBundle],
   ["sidecar_providers", resources ? join(resources, "sidecar", "providers") : null],
+  ["sidecar_grounded", resources ? join(resources, "sidecar", "grounded") : null],
   ["sidecar_dependencies", resources ? join(resources, "sidecar", "node_modules") : null],
 ];
 const forbiddenArtifacts = [["sidecar_tests", resources ? join(resources, "sidecar", "tests") : null]];
