@@ -48,6 +48,7 @@ function envWithSettings(settings = {}) {
   if (settings.anthropic_model) env.ANTHROPIC_MODEL = settings.anthropic_model;
   if (settings.claude_model) env.CLAUDE_MODEL = settings.claude_model;
   if (settings.ollama_host) env.OLLAMA_HOST = settings.ollama_host;
+  if (settings.ollama_voice_model) env.OLLAMA_VOICE_MODEL = settings.ollama_voice_model;
   return env;
 }
 
