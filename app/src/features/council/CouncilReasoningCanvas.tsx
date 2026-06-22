@@ -469,7 +469,8 @@ export function CouncilReasoningCanvas({
           response.judge ||
           response.scope ||
           response.independence ||
-          response.soft_layer?.available) && (
+          response.soft_layer?.available ||
+          response.kill_test?.available) && (
           <Band step={6} kicker="Verification" title="How this was checked">
             <div className="reasoning-verify">
               {response.scope?.positions?.length ? (
@@ -584,6 +585,26 @@ export function CouncilReasoningCanvas({
                       : ""}
                   </p>
                 )}
+              {response.kill_test?.available && response.kill_test.parsed && (
+                <p className="reasoning-note">
+                  <span className="reasoning-verify-label">Kill-test</span> —{" "}
+                  {response.kill_test.survives && response.kill_test.severity !== "fatal" ? (
+                    <span className="reasoning-verify-ok">
+                      withstood the strongest counter-case
+                      {response.kill_test.severity && response.kill_test.severity !== "none"
+                        ? ` (${response.kill_test.severity} objection)`
+                        : ""}
+                    </span>
+                  ) : (
+                    <span className="reasoning-verify-warn">
+                      a {response.kill_test.severity ?? "serious"} objection landed
+                    </span>
+                  )}
+                  {response.kill_test.strongest_counter
+                    ? ` — ${response.kill_test.strongest_counter}`
+                    : ""}
+                </p>
+              )}
             </div>
           </Band>
         )}

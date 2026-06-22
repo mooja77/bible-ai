@@ -29,6 +29,7 @@ import { runCrossFamilyJudge } from "./grounded/cross-family-judge.mjs";
 import { runScope } from "./grounded/scope.mjs";
 import { buildIndependenceReport } from "./grounded/independence.mjs";
 import { buildSoftLayer } from "./grounded/soft-layer.mjs";
+import { runKillTest } from "./grounded/kill-test.mjs";
 
 const log = (...args) => console.error("[council]", ...args);
 
@@ -426,6 +427,19 @@ function mockCouncilResult({ question, evidence, model }) {
         description: (p.summary ?? "").slice(0, 160),
       })),
     },
+    kill_test: {
+      available: true,
+      parsed: true,
+      skeptic_provider: "mock-gpt",
+      skeptic_family: "openai",
+      target_label: result.positions[0]?.label ?? "",
+      survives: true,
+      severity: "minor",
+      strongest_counter:
+        "Mock kill-test: the minority reading is the strongest counter, but it does not overturn the leading position.",
+      vulnerable_claim: "Mock mode: the leading position leans on a single primary citation.",
+      notes: "Mock adversarial pass — the position survives with a minor qualification.",
+    },
   };
 
   // Dev-only: BIBLE_AI_MOCK_VOICES>1 synthesizes several voices (some converging
@@ -464,6 +478,7 @@ function mockCouncilResult({ question, evidence, model }) {
         grounding: mockVerification.grounding,
         judge: mockVerification.judge,
         independence: mockIndependence,
+        killTest: mockVerification.kill_test,
       }),
     };
   }
@@ -496,6 +511,7 @@ function mockCouncilResult({ question, evidence, model }) {
       grounding: mockVerification.grounding,
       judge: mockVerification.judge,
       independence: buildIndependenceReport(result, soloVoices),
+      killTest: mockVerification.kill_test,
     }),
   };
 }
@@ -898,10 +914,27 @@ export async function runCouncil({
   const independence = buildIndependenceReport(synthesis, voices);
   // ------------------------------------------------------------------------
 
+  // --- CHANNEL B: kill-test skeptic (adversarial; flags + feeds confidence) -
+  // A hostile-but-fair skeptic mounts the strongest case AGAINST the leading
+  // position. If the strongest attack lands, that read-down flows into the soft
+  // layer's calibrated confidence. Fail-soft: no provider / bad result → skipped.
+  // A result property (like the independence grapher), surfaced in the completed
+  // canvas — not a live stage. The lead voice is "claude"; the skeptic prefers a
+  // different family.
+  const kill_test = await runKillTest({
+    synthesizerName: "claude",
+    providers: available,
+    question,
+    evidence,
+    synthesis,
+    env,
+  });
+  // ------------------------------------------------------------------------
+
   // --- CHANNEL B: soft layer (deterministic; ranks/flags only) -------------
-  // Compose grounding + judge + independence + inter-voice entropy into honest
-  // calibrated confidence + an integrity checklist. Advisory only.
-  const soft_layer = buildSoftLayer({ synthesis, voices, grounding, judge, independence });
+  // Compose grounding + judge + independence + inter-voice entropy + the
+  // kill-test into honest calibrated confidence + an integrity checklist.
+  const soft_layer = buildSoftLayer({ synthesis, voices, grounding, judge, independence, killTest: kill_test });
   // ------------------------------------------------------------------------
 
   const judged = judgedEventPayload(synthesis);
@@ -917,6 +950,7 @@ export async function runCouncil({
     judge,
     scope,
     independence,
+    kill_test,
     soft_layer,
   };
   if (synthesis_mode !== "consensus") {

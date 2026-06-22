@@ -241,6 +241,8 @@ export interface CouncilResponse {
   independence?: CouncilIndependence;
   /** Channel B — soft layer: calibrated confidence, inter-voice entropy, integrity checklist. */
   soft_layer?: CouncilSoftLayer;
+  /** Channel B — kill-test: an adversarial skeptic's strongest case against the leading view. */
+  kill_test?: CouncilKillTest;
   /** Present when a sensitive/crisis prompt was routed away from the Council
    *  before any generation. When set, the normal result is not produced. */
   sensitive_topic?: { category: string; message: string } | null;
@@ -324,6 +326,20 @@ export interface CouncilSoftLayer {
   tick?: CouncilTickCheck[];
   tick_passed?: number;
   tick_total?: number;
+}
+
+export interface CouncilKillTest {
+  available: boolean;
+  parsed?: boolean;
+  skeptic_provider?: string;
+  skeptic_family?: string;
+  target_label?: string;
+  survives?: boolean;
+  severity?: "none" | "minor" | "serious" | "fatal";
+  strongest_counter?: string;
+  vulnerable_claim?: string;
+  notes?: string;
+  reason?: string;
 }
 
 export interface RetrievedEvidence {
