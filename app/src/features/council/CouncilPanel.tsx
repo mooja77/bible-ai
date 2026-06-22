@@ -24,7 +24,7 @@ import { CopyAsMarkdownButton } from "./CouncilMarkdownExport";
 import { buildStudyPacketFiles } from "./studyPacket";
 import { AddToTheologyMenu } from "./AddToTheologyMenu";
 import { CouncilVoicePreview } from "./CouncilVoicePanels";
-import { CouncilRunMap } from "./CouncilRunMap";
+import { CouncilRunCanvas } from "./CouncilRunCanvas";
 import { CouncilReasoningCanvas } from "./CouncilReasoningCanvas";
 import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { useCouncilRun } from "./useCouncilRun";
@@ -329,8 +329,8 @@ export function CouncilPanel({
             className="settings-input resize-y"
           />
         </label>
-        {(loading || runState.started) && (
-          <CouncilRunMap runState={runState} elapsed={elapsed} />
+        {(loading || runState.started) && !response && (
+          <CouncilRunCanvas runState={runState} question={question} elapsed={elapsed} />
         )}
         {loading ? (
           <button

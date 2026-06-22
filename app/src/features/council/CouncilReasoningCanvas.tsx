@@ -54,15 +54,22 @@ function Band({
   step,
   kicker,
   title,
+  runmapStage,
+  status,
   children,
 }: {
   step: number;
   kicker: string;
   title: string;
+  runmapStage?: string;
+  status?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="reasoning-band">
+    <div
+      className="reasoning-band"
+      {...(runmapStage ? { "data-testid": `runmap-stage-${runmapStage}`, "data-status": status } : {})}
+    >
       <span className="reasoning-band-node" aria-hidden="true">
         {String(step).padStart(2, "0")}
       </span>
@@ -150,9 +157,9 @@ export function CouncilReasoningCanvas({
         </button>
       </header>
 
-      <div className="reasoning-timeline" key={revealKey}>
+      <div className="reasoning-timeline" data-testid="council-run-map" key={revealKey}>
         {/* 01 · Evidence gathered */}
-        <Band step={1} kicker="Evidence gathered" title="What scriptures were weighed">
+        <Band step={1} kicker="Evidence gathered" title="What scriptures were weighed" runmapStage="retrieval" status="done">
           {evidence.length === 0 ? (
             <p className="reasoning-note">No scripture was retrieved for this question.</p>
           ) : (
@@ -200,7 +207,7 @@ export function CouncilReasoningCanvas({
           {noVoices ? (
             <p className="reasoning-note">No voice completed an analysis.</p>
           ) : (
-            <ul className="flex flex-wrap gap-1.5">
+            <ul className="flex flex-wrap gap-1.5" data-testid="runmap-voices">
               {okVoices.map((v) => {
                 const count = v.result?.positions?.length ?? 0;
                 return (
@@ -320,9 +327,9 @@ export function CouncilReasoningCanvas({
         </Band>
 
         {/* 05 · Outcome + confidence (the climax) */}
-        <Band step={5} kicker="Outcome" title={leader?.label ?? "No result"}>
+        <Band step={5} kicker="Outcome" title={leader?.label ?? "No result"} runmapStage="verdict" status="done">
           {leader ? (
-            <div className="space-y-4">
+            <div className="space-y-4" data-testid="runmap-verdict">
               {leaderEvidence.support.length > 0 ? (
                 <div className="reasoning-verdict">
                   Because{" "}
