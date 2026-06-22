@@ -84,7 +84,7 @@ const BAND_RANK = { contested: 0, low: 1, moderate: 2, high: 3 };
 /**
  * Calibrate the stated confidence DOWN for the soft-layer signals. Advisory.
  */
-export function calibrateConfidence({ stated, leaderIndependence, grounding, judge, entropy }) {
+export function calibrateConfidence({ stated, leaderIndependence, grounding, judge, entropy, killTest }) {
   const statedScore = LEVEL_SCORE[stated] ?? 2;
   let score = statedScore;
   const reasons = [];
@@ -92,6 +92,15 @@ export function calibrateConfidence({ stated, leaderIndependence, grounding, jud
   if (grounding?.hard_fail) {
     score -= 2;
     reasons.push("the grounding floor flagged ungrounded citations");
+  }
+  if (killTest?.available && killTest?.parsed) {
+    if (killTest.severity === "fatal") {
+      score -= 2;
+      reasons.push("an adversarial kill-test found a fatal objection to the leading view");
+    } else if (killTest.severity === "serious") {
+      score -= 1;
+      reasons.push("an adversarial kill-test found a serious objection to the leading view");
+    }
   }
   if (judge?.available && judge?.parsed) {
     if (judge.verdict === "unsound") {
@@ -178,7 +187,7 @@ function buildTick({ synthesis, leader, leaderIndependence, grounding, judge, en
  * grounding / judge / independence reports already on the response with
  * inter-voice entropy into calibrated confidence + an integrity checklist.
  */
-export function buildSoftLayer({ synthesis, voices, grounding, judge, independence }) {
+export function buildSoftLayer({ synthesis, voices, grounding, judge, independence, killTest }) {
   const positions = Array.isArray(synthesis?.positions) ? synthesis.positions : [];
   if (positions.length === 0) {
     return { available: false };
@@ -195,6 +204,7 @@ export function buildSoftLayer({ synthesis, voices, grounding, judge, independen
     grounding,
     judge,
     entropy: entropy.value,
+    killTest,
   });
   const tick = buildTick({ synthesis, leader, leaderIndependence, grounding, judge, entropy });
   const tick_passed = tick.filter((c) => c.pass).length;

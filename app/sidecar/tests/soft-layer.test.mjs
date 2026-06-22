@@ -77,6 +77,23 @@ test("calibrateConfidence leaves a clean high alone", () => {
   assert.deepEqual(c.reasons, []);
 });
 
+test("calibrateConfidence reads down for a fatal kill-test", () => {
+  const base = {
+    stated: "high",
+    grounding: { hard_fail: false },
+    judge: { available: true, parsed: true, verdict: "sound" },
+    leaderIndependence: { independence: "independent" },
+    entropy: 0,
+  };
+  const fatal = calibrateConfidence({ ...base, killTest: { available: true, parsed: true, severity: "fatal" } });
+  assert.equal(fatal.calibrated, "low"); // high(3) − 2 = 1 → low
+  assert.ok(fatal.reasons.some((r) => /kill-test/.test(r)));
+  const serious = calibrateConfidence({ ...base, killTest: { available: true, parsed: true, severity: "serious" } });
+  assert.equal(serious.calibrated, "moderate"); // 3 − 1 = 2
+  const survived = calibrateConfidence({ ...base, killTest: { available: true, parsed: true, severity: "none" } });
+  assert.equal(survived.calibrated, "high"); // no penalty
+});
+
 test("buildSoftLayer assembles entropy + confidence + a full tick checklist", () => {
   const synthesis = {
     confidence: "high",
