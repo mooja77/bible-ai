@@ -26,6 +26,7 @@ import {
 } from "./providers/_shared.mjs";
 import { runGroundingFloor, buildRegenNote } from "./grounded/grounding-floor.mjs";
 import { runCrossFamilyJudge } from "./grounded/cross-family-judge.mjs";
+import { runScope } from "./grounded/scope.mjs";
 
 const log = (...args) => console.error("[council]", ...args);
 
@@ -54,13 +55,13 @@ function voiceTimeoutMs(env = process.env) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_VOICE_TIMEOUT_MS;
 }
 
-async function runOneVoice(provider, { question, evidence, env, model, emit }) {
+async function runOneVoice(provider, { question, evidence, env, model, emit, scopedPositions }) {
   const started = Date.now();
   const displayName = provider.displayName?.({ env, model }) ?? provider.display_name;
   emit?.("voice_started", { provider: provider.name, display_name: displayName });
   try {
     const result = await withTimeout(
-      provider.analyze({ question, evidence, env, model }),
+      provider.analyze({ question, evidence, env, model, scopedPositions }),
       voiceTimeoutMs(env),
       displayName,
     );
@@ -581,8 +582,23 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
 
   log(`running ${available.length} voice(s):`, available.map((p) => p.name).join(", "));
 
+  // --- STAGE: SCOPE — enumerate the candidate positions before analysis, so
+  // every voice addresses the same frame (coverage + cleaner clustering). ----
+  emit("scope_started", {});
+  const scope = await runScope({ question, model, env });
+  emit("scope_done", { available: scope.available, position_count: scope.positions.length });
+
   const voices = await Promise.all(
-    available.map((p) => runOneVoice(p, { question, evidence, env, model, emit })),
+    available.map((p) =>
+      runOneVoice(p, {
+        question,
+        evidence,
+        env,
+        model,
+        emit,
+        scopedPositions: scope.positions,
+      }),
+    ),
   );
 
   const ok = voices.filter((v) => v.status === "ok" && v.result);
@@ -702,7 +718,7 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
   if (judged) emit("judged", judged);
 
   const synthesis_mode = resolveSynthesisMode({ okCount: ok.length, synthesisFailed });
-  const response = { synthesis, voices, manifest, synthesis_mode, grounding, judge };
+  const response = { synthesis, voices, manifest, synthesis_mode, grounding, judge, scope };
   if (synthesis_mode !== "consensus") {
     response.synthesis_voice = ok[0].display_name;
   }

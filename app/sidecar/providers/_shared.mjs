@@ -105,7 +105,7 @@ Rules:
 
 Same schema as an individual voice: a single JSON object, no prose, no fences, with "positions", "dissent_notes", "unresolved_tensions", "synthesis", "confidence", "confidence_rationale", "evidence_classification", and "research_trail". Per rule 14, always include "research_trail" — carry forward or infer the question-framing, retrieval, evidence, voice, synthesis, and limitation events from the visible voice outputs.`;
 
-export function buildVoicePrompt({ question, evidence }) {
+export function buildVoicePrompt({ question, evidence, scopedPositions }) {
   const lines = [
     `Disputed question: ${question}`,
     "",
@@ -116,6 +116,17 @@ export function buildVoicePrompt({ question, evidence }) {
     lines.push(
       `  [${e.translation_code}] ${e.book_name} ${e.chapter}:${e.verse} (verse_id ${e.verse_id})  —  ${e.text}`,
     );
+  }
+  if (Array.isArray(scopedPositions) && scopedPositions.length > 0) {
+    lines.push(
+      "",
+      "Candidate positions identified during scoping. Address EACH one (confirm, refine, or reject it from the evidence), and add any defensible position scoping missed — do not be limited to this list:",
+    );
+    for (const p of scopedPositions) {
+      const label = typeof p?.label === "string" ? p.label : String(p ?? "");
+      const desc = typeof p?.description === "string" && p.description ? `: ${p.description}` : "";
+      lines.push(`  - ${label}${desc}`);
+    }
   }
   lines.push(
     "",

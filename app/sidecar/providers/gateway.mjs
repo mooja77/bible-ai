@@ -58,7 +58,7 @@ function gatewayTimeoutMs(env = process.env) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
 }
 
-async function callGateway({ question, evidence, env = process.env }) {
+async function callGateway({ question, evidence, env = process.env, scopedPositions }) {
   // Bound the request: a hung gateway would otherwise never settle and
   // stall the whole council until the sidecar's outer deadline.
   const controller = new AbortController();
@@ -78,7 +78,7 @@ async function callGateway({ question, evidence, env = process.env }) {
         question,
         evidence,
         system_prompt: VOICE_SYSTEM_PROMPT,
-        user_prompt: buildVoicePrompt({ question, evidence }),
+        user_prompt: buildVoicePrompt({ question, evidence, scopedPositions }),
       }),
     });
     text = await resp.text();
@@ -109,7 +109,7 @@ export const gateway = {
     }
   },
   isAvailable: (env = process.env) => !!configuredUrl(env),
-  async analyze({ question, evidence, env }) {
-    return callGateway({ question, evidence, env });
+  async analyze({ question, evidence, env, scopedPositions }) {
+    return callGateway({ question, evidence, env, scopedPositions });
   },
 };

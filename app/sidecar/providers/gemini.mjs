@@ -106,8 +106,8 @@ export const gemini = {
   display_name: `Gemini (${resolveModel()})`,
   displayName: ({ env = process.env } = {}) => `Gemini (${resolveModel(env)})`,
   isAvailable: (env) => !!env.GOOGLE_API_KEY,
-  async analyze({ question, evidence, env }) {
-    const userPrompt = buildVoicePrompt({ question, evidence });
+  async analyze({ question, evidence, env, scopedPositions }) {
+    const userPrompt = buildVoicePrompt({ question, evidence, scopedPositions });
     const text = await callGemini({
       apiKey: env.GOOGLE_API_KEY,
       systemPrompt: VOICE_SYSTEM_PROMPT,
