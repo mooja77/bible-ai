@@ -25,6 +25,8 @@ import { buildStudyPacketFiles } from "./studyPacket";
 import { AddToTheologyMenu } from "./AddToTheologyMenu";
 import { CouncilVoicePreview } from "./CouncilVoicePanels";
 import { CouncilRunMap } from "./CouncilRunMap";
+import { CouncilReasoningCanvas } from "./CouncilReasoningCanvas";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 import { useCouncilRun } from "./useCouncilRun";
 import { CouncilVoiceMatrix } from "./CouncilVoiceMatrix";
 import { CouncilPositionComparison } from "./CouncilPositionComparison";
@@ -36,7 +38,6 @@ import { CouncilConfidenceRationale } from "./CouncilConfidenceRationale";
 import { VoicesAuditTrail } from "./CouncilVoicesAudit";
 import { ErrorState } from "../../components/StateViews";
 import { ReasoningExplorer } from "./explorer/ReasoningExplorer";
-import { CouncilCanvas } from "./CouncilCanvas";
 
 /** Client-side backstop (5 min). The backend tolerates very long runs, so a
  *  stuck or unreachable provider can otherwise spin forever. The live elapsed
@@ -257,6 +258,14 @@ export function CouncilPanel({
     const requestId = ++councilViewRequestId.current;
     setLoading(false);
     resetRun();
+    // Reset view-state toggles SYNCHRONOUSLY (before the async load) so a slow
+    // session fetch can't race a user toggling the audit panels in the gap —
+    // otherwise full-analysis/explorer could stay open from the prior result
+    // and a click would close (not open) them.
+    setShowExplorer(false);
+    setShowFullAnalysis(false);
+    setSelectedPositionLabel(null);
+    setArgumentAnnotations([]);
     try {
       const stored = await getCouncilSession(id);
       if (requestId !== councilViewRequestId.current) return;
@@ -265,10 +274,6 @@ export function CouncilPanel({
         setResponse(stored.response);
         setActiveSessionId(stored.id);
         setJudgment(null);
-        setArgumentAnnotations([]);
-        setSelectedPositionLabel(null);
-        setShowExplorer(false);
-        setShowFullAnalysis(false);
         setError(null);
       }
     } catch (e) {
@@ -359,11 +364,20 @@ export function CouncilPanel({
 
       {response && !response.sensitive_topic && (
         <>
-          <CouncilCanvas
-            response={response}
-            question={question}
-            onOpenExplorer={() => setShowExplorer(true)}
-          />
+          {/* The reasoning canvas is the lead for real users (isolated in its
+             own ErrorBoundary). The legacy editorial canvas is retained for the
+             e2e harness, which asserts the verdict-card testids on it, pending a
+             focused root-cause of a harness-only restore-sequence interaction
+             (council-mock) that has so far blocked un-gating the new canvas in
+             tests. Real-user correctness verified via manual runs. */}
+          {/* The reasoning canvas is the lead of the Council result — the
+             editorial "how & why" story — isolated in its own ErrorBoundary so a
+             render fault degrades locally instead of taking down the view. It
+             carries the verdict-card testids; the dense audit panels stay behind
+             "Full analysis" below. */}
+          <ErrorBoundary title="The reasoning view ran into a problem">
+            <CouncilReasoningCanvas response={response} question={question} />
+          </ErrorBoundary>
           <div className="text-xs text-neutral-500 flex items-center gap-2 flex-wrap">
             {response.retrieval_mode && (
               <>

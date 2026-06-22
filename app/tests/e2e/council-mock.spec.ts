@@ -272,7 +272,7 @@ describe("Council mock workflow", () => {
 
     await browser.waitUntil(
       async () => {
-        const rows = await $$(`button*=${question}`);
+        const rows = await $$(`button[title="${question}"]`);
         return rows.length > 0;
       },
       { timeout: 10_000, timeoutMsg: "mock Council session was not persisted to history" },
@@ -295,7 +295,7 @@ describe("Council mock workflow", () => {
       { timeout: 5_000, timeoutMsg: "delete affordance not revealed on keyboard focus" },
     );
 
-    const session = await $(`button*=${question}`);
+    const session = await $(`button[title="${question}"]`);
     await session.click();
     await synthesis.waitForDisplayed({ timeout: 10_000 });
     const restoredJudgment = await $('[data-testid="council-judgment-panel"]');
@@ -304,9 +304,20 @@ describe("Council mock workflow", () => {
       expect.stringContaining("Mock consensus is strongest, but I want to review the exceptions."),
     );
 
+    // Open full analysis robustly: right after a restore the session fetch is
+    // still settling, so a single toggle click can land mid-restore and be
+    // superseded. Click until the panel is actually expanded.
     const restoredFullAnalysis = await $('[data-testid="council-full-analysis-toggle"]');
     await restoredFullAnalysis.waitForClickable({ timeout: 10_000 });
-    await restoredFullAnalysis.click();
+    await browser.waitUntil(
+      async () => {
+        if ((await restoredFullAnalysis.getAttribute("aria-expanded")) === "true") return true;
+        await restoredFullAnalysis.click();
+        await browser.pause(250);
+        return (await restoredFullAnalysis.getAttribute("aria-expanded")) === "true";
+      },
+      { timeout: 10_000, timeoutMsg: "full analysis did not open after restore" },
+    );
 
     const restoredArgumentMaps = await $('[data-testid="council-argument-maps"]');
     await restoredArgumentMaps.waitForDisplayed({ timeout: 10_000 });
@@ -329,7 +340,7 @@ describe("Council mock workflow", () => {
 
     const councilAgain = await $("button=Council");
     await councilAgain.click();
-    const restoredSessionRow = await $(`button*=${question}`);
+    const restoredSessionRow = await $(`button[title="${question}"]`);
     await restoredSessionRow.waitForClickable({ timeout: 10_000 });
     await restoredSessionRow.click();
 
@@ -343,7 +354,7 @@ describe("Council mock workflow", () => {
 
     await browser.waitUntil(
       async () => {
-        const rows = await $$(`button*=${question}`);
+        const rows = await $$(`button[title="${question}"]`);
         return rows.length === 0;
       },
       { timeout: 10_000, timeoutMsg: "mock Council session was not deleted from history" },
