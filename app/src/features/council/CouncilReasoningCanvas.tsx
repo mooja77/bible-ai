@@ -465,7 +465,11 @@ export function CouncilReasoningCanvas({
           )}
         </Band>
 
-        {(response.grounding || response.judge || response.scope || response.independence) && (
+        {(response.grounding ||
+          response.judge ||
+          response.scope ||
+          response.independence ||
+          response.soft_layer?.available) && (
           <Band step={6} kicker="Verification" title="How this was checked">
             <div className="reasoning-verify">
               {response.scope?.positions?.length ? (
@@ -538,6 +542,48 @@ export function CouncilReasoningCanvas({
                   </span>
                 </p>
               )}
+              {response.soft_layer?.available && response.soft_layer.confidence && (
+                <p className="reasoning-note">
+                  <span className="reasoning-verify-label">Calibrated confidence</span> —{" "}
+                  {response.soft_layer.confidence.downgraded ? (
+                    <>
+                      model said {response.soft_layer.confidence.stated ?? "—"}, read as{" "}
+                      <span className="reasoning-verify-mixed">
+                        {response.soft_layer.confidence.calibrated}
+                      </span>
+                      {response.soft_layer.confidence.reasons.length
+                        ? ` — ${response.soft_layer.confidence.reasons.join("; ")}`
+                        : ""}
+                    </>
+                  ) : (
+                    <span className="reasoning-verify-ok">
+                      {response.soft_layer.confidence.calibrated} — consistent with the checks
+                    </span>
+                  )}
+                </p>
+              )}
+              {response.soft_layer?.available &&
+                typeof response.soft_layer.tick_passed === "number" && (
+                  <p className="reasoning-note">
+                    <span className="reasoning-verify-label">Integrity</span> —{" "}
+                    <span
+                      className={
+                        response.soft_layer.tick_passed === response.soft_layer.tick_total
+                          ? "reasoning-verify-ok"
+                          : "reasoning-verify-mixed"
+                      }
+                    >
+                      {response.soft_layer.tick_passed}/{response.soft_layer.tick_total} integrity
+                      checks passed
+                    </span>
+                    {(response.soft_layer.tick ?? []).some((c) => !c.pass)
+                      ? ` — needs: ${(response.soft_layer.tick ?? [])
+                          .filter((c) => !c.pass)
+                          .map((c) => c.label.toLowerCase())
+                          .join(", ")}`
+                      : ""}
+                  </p>
+                )}
             </div>
           </Band>
         )}
