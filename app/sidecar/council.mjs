@@ -635,12 +635,9 @@ export async function runCouncil({
   // redundant scope call here. -------------------------------------------------
   let scope;
   if (Array.isArray(scopedPositions) && scopedPositions.length > 0) {
+    // Host already ran scope (and emitted scope_started/done) before retrieving
+    // per-position evidence; adopt its positions without re-emitting scope events.
     scope = { available: true, positions: scopedPositions, source: "host" };
-    emit("scope_done", {
-      available: true,
-      position_count: scopedPositions.length,
-      source: "host",
-    });
   } else {
     emit("scope_started", {});
     const scoped = await runScope({ question, model, env });
