@@ -25,6 +25,7 @@ import {
   classifyProviderError,
 } from "./providers/_shared.mjs";
 import { runGroundingFloor, buildRegenNote } from "./grounded/grounding-floor.mjs";
+import { runCrossFamilyJudge } from "./grounded/cross-family-judge.mjs";
 
 const log = (...args) => console.error("[council]", ...args);
 
@@ -675,11 +676,33 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
   });
   // ------------------------------------------------------------------------
 
+  // --- CHANNEL B: cross-family judge (advisory; flags only, never blocks) ---
+  // A DIFFERENT provider family than the synthesizer (Claude) cross-examines the
+  // synthesis for grounding + balance. Self-grading is weak; an independent
+  // family is the de-biaser. Fail-soft: no eligible family / failed call /
+  // unparseable verdict simply means "no cross-family check available".
+  emit("judge_started", {});
+  const judge = await runCrossFamilyJudge({
+    synthesizerName: "claude",
+    providers: available,
+    question,
+    evidence,
+    synthesis,
+    env,
+  });
+  emit("judge_done", {
+    available: judge.available,
+    parsed: judge.parsed ?? false,
+    verdict: judge.verdict ?? null,
+    provider: judge.judge_provider ?? null,
+  });
+  // ------------------------------------------------------------------------
+
   const judged = judgedEventPayload(synthesis);
   if (judged) emit("judged", judged);
 
   const synthesis_mode = resolveSynthesisMode({ okCount: ok.length, synthesisFailed });
-  const response = { synthesis, voices, manifest, synthesis_mode, grounding };
+  const response = { synthesis, voices, manifest, synthesis_mode, grounding, judge };
   if (synthesis_mode !== "consensus") {
     response.synthesis_voice = ok[0].display_name;
   }

@@ -102,6 +102,7 @@ function delay(ms) {
 
 export const gemini = {
   name: "gemini",
+  family: "google",
   display_name: `Gemini (${resolveModel()})`,
   displayName: ({ env = process.env } = {}) => `Gemini (${resolveModel(env)})`,
   isAvailable: (env) => !!env.GOOGLE_API_KEY,
@@ -115,5 +116,15 @@ export const gemini = {
       timeoutMs: timeoutMs(env),
     });
     return parseResponse(text, "Gemini");
+  },
+  // Raw completion for the cross-family judge (returns model text, not a CouncilResult).
+  async complete({ systemPrompt, userPrompt, env = process.env }) {
+    return callGemini({
+      apiKey: env.GOOGLE_API_KEY,
+      systemPrompt,
+      userPrompt,
+      model: resolveModel(env),
+      timeoutMs: timeoutMs(env),
+    });
   },
 };
