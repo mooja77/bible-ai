@@ -237,6 +237,8 @@ export interface CouncilResponse {
   judge?: CouncilJudge;
   /** The scope stage — candidate positions enumerated before analysis. */
   scope?: CouncilScope;
+  /** Channel B — independence grapher: is agreement independent or echoed proof-texts? */
+  independence?: CouncilIndependence;
   /** Present when a sensitive/crisis prompt was routed away from the Council
    *  before any generation. When set, the normal result is not produced. */
   sensitive_topic?: { category: string; message: string } | null;
@@ -270,6 +272,25 @@ export interface CouncilJudge {
 export interface CouncilScope {
   available: boolean;
   positions: { label: string; description?: string }[];
+}
+
+export interface CouncilIndependencePosition {
+  label: string;
+  supporting_voice_count: number;
+  distinct_route_count: number;
+  shared_verse_ids: number[];
+  mean_overlap: number;
+  independence: "independent" | "correlated" | "single_source";
+  note: string;
+}
+
+export interface CouncilIndependence {
+  available: boolean;
+  positions: CouncilIndependencePosition[];
+  independent_count: number;
+  correlated_count: number;
+  single_source_count: number;
+  note: string;
 }
 
 export interface RetrievedEvidence {
