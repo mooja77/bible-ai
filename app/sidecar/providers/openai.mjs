@@ -88,8 +88,8 @@ export const openai = {
   display_name: `OpenAI (${resolveModel()})`,
   displayName: ({ env = process.env } = {}) => `OpenAI (${resolveModel(env)})`,
   isAvailable: (env) => !!env.OPENAI_API_KEY,
-  async analyze({ question, evidence, env }) {
-    const userPrompt = buildVoicePrompt({ question, evidence });
+  async analyze({ question, evidence, env, scopedPositions }) {
+    const userPrompt = buildVoicePrompt({ question, evidence, scopedPositions });
     const text = await callOpenAI({
       apiKey: env.OPENAI_API_KEY,
       systemPrompt: VOICE_SYSTEM_PROMPT,

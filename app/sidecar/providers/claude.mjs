@@ -160,8 +160,8 @@ export const claude = {
   // already a Claude Code session (subscription contention).
   isAvailable: (env = process.env) =>
     !!env.ANTHROPIC_API_KEY || env.DISABLE_CLAUDE_VOICE !== "1",
-  async analyze({ question, evidence, env = process.env, model }) {
-    const userPrompt = buildVoicePrompt({ question, evidence });
+  async analyze({ question, evidence, env = process.env, model, scopedPositions }) {
+    const userPrompt = buildVoicePrompt({ question, evidence, scopedPositions });
     const rawText = await callClaudeVoice({
       systemPrompt: VOICE_SYSTEM_PROMPT,
       userPrompt,
