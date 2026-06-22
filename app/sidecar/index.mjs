@@ -15,7 +15,7 @@
 
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
-import { runCouncil } from "./council.mjs";
+import { runCouncil, scopeCouncil } from "./council.mjs";
 import { explainPassage } from "./explain.mjs";
 import { providerManifest } from "./providers/index.mjs";
 import { gatewayHealthEndpoint } from "./providers/gateway.mjs";
@@ -171,12 +171,25 @@ async function handle(msg) {
           result: explainPassage({ passage: msg.passage ?? [] }),
         };
       }
+      case "council_scope": {
+        // Stage 2b leg 1: enumerate candidate positions so the host can retrieve
+        // targeted evidence per position before the full council request.
+        const result = await scopeCouncil({
+          question: msg.question,
+          model: msg.model ?? "sonnet",
+          settings: msg.settings ?? {},
+        });
+        return { id, type: "council_scope_result", result };
+      }
       case "council": {
         const result = await runCouncil({
           question: msg.question,
           evidence: msg.evidence ?? [],
           model: msg.model ?? "sonnet",
           settings: msg.settings ?? {},
+          // Stage 2b leg 2: host-provided positions + per-position evidence bundles.
+          scopedPositions: msg.scoped_positions,
+          positionEvidence: msg.position_evidence,
           onEvent: (event) => send(councilProgressLine(id, event)),
         });
         return { id, type: "council_result", result };

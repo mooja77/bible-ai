@@ -3021,13 +3021,145 @@ async fn ask_council(
         serde_json::json!({ "count": evidence_json.len(), "mode": retrieval_mode.clone() }),
     );
 
-    let evidence_count = evidence_json.len();
-    let body = build_council_request(
+    // --- STAGE 2b: per-position retrieval (depth) ---------------------------
+    // Broad retrieval gives the council a first-pass corpus. For genuine depth we
+    // SCOPE the question (sidecar leg 1: `council_scope`), then retrieve targeted
+    // evidence for EACH candidate position (Rust owns the corpus + embeddings) and
+    // union it into the working corpus, so the grounding floor's membership set
+    // covers every verse a voice can cite. Live-only: in mock mode we keep the
+    // single-request path so the e2e harness is unaffected. Fail-soft throughout —
+    // any failure falls back to broad-evidence-only.
+    let mock_council = std::env::var("BIBLE_AI_MOCK_COUNCIL").ok().as_deref() == Some("1");
+    let mut council_evidence = evidence_json.clone();
+    let mut scoped_positions: Vec<serde_json::Value> = Vec::new();
+    let mut position_evidence: Vec<serde_json::Value> = Vec::new();
+    if !mock_council {
+        emit("scope_started", serde_json::json!({}));
+        let scope_body = serde_json::json!({
+            "question": &question,
+            "model": &selected_model,
+            "settings": &settings,
+        });
+        match state.request(&app, "council_scope", scope_body).await {
+            Ok(scope_result) => {
+                let positions = scope_result
+                    .get("positions")
+                    .and_then(serde_json::Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                emit(
+                    "scope_done",
+                    serde_json::json!({
+                        "available": !positions.is_empty(),
+                        "position_count": positions.len(),
+                        "source": "host",
+                    }),
+                );
+                // Dedup the unions against verses already in the working corpus.
+                let mut seen: std::collections::HashSet<i64> = council_evidence
+                    .iter()
+                    .filter_map(|row| row.get("verse_id").and_then(serde_json::Value::as_i64))
+                    .collect();
+                // Bound the fan-out: at most 4 positions, smaller per-position limit.
+                let per_position_limit = (limit / 2).clamp(8, 40);
+                for (idx, pos) in positions.iter().take(4).enumerate() {
+                    let label = pos
+                        .get("label")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
+                    if label.is_empty() {
+                        continue;
+                    }
+                    let description = pos
+                        .get("description")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
+                    scoped_positions.push(serde_json::json!({
+                        "label": label,
+                        "description": description,
+                    }));
+                    let pos_query = format!("{question} {label} {description}");
+                    let pos_options = RetrievalOptions {
+                        evidence_limit: per_position_limit,
+                        ..retrieval_options.clone()
+                    };
+                    emit(
+                        "position_retrieval_started",
+                        serde_json::json!({ "index": idx, "label": label }),
+                    );
+                    match retrieve_evidence(
+                        &app,
+                        &pos_query,
+                        &pos_options,
+                        settings.ollama_host.as_deref(),
+                    )
+                    .await
+                    {
+                        Ok((rows, _mode, _fallback)) => {
+                            let mut bundle_ids: Vec<i64> = Vec::new();
+                            for row in rows {
+                                if let Some(vid) =
+                                    row.get("verse_id").and_then(serde_json::Value::as_i64)
+                                {
+                                    bundle_ids.push(vid);
+                                    if seen.insert(vid) {
+                                        council_evidence.push(row);
+                                    }
+                                }
+                            }
+                            emit(
+                                "position_retrieval_done",
+                                serde_json::json!({
+                                    "index": idx,
+                                    "label": label,
+                                    "count": bundle_ids.len(),
+                                }),
+                            );
+                            position_evidence.push(serde_json::json!({
+                                "label": label,
+                                "description": description,
+                                "verse_ids": bundle_ids,
+                            }));
+                        }
+                        Err(e) => {
+                            // A narrow position query may find nothing — that is not
+                            // fatal; the broad corpus still covers the question.
+                            emit(
+                                "position_retrieval_failed",
+                                serde_json::json!({ "index": idx, "label": label, "error": e }),
+                            );
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                // Scope unavailable — proceed with broad evidence only.
+                emit(
+                    "scope_done",
+                    serde_json::json!({ "available": false, "error": e }),
+                );
+            }
+        }
+    }
+    // ------------------------------------------------------------------------
+
+    let evidence_count = council_evidence.len();
+    let mut body = build_council_request(
         &question,
-        evidence_json.clone(),
+        council_evidence.clone(),
         &selected_model,
         Some(&settings),
     );
+    if !scoped_positions.is_empty() {
+        body["scoped_positions"] = serde_json::Value::Array(scoped_positions.clone());
+    }
+    if !position_evidence.is_empty() {
+        body["position_evidence"] = serde_json::Value::Array(position_evidence.clone());
+    }
     let mut result = state
         .request_streaming(&app, "council", body, |event| {
             let kind = event
@@ -3047,14 +3179,14 @@ async fn ask_council(
     result["evidence_count"] = serde_json::Value::Number(evidence_count.into());
     result["retrieval_options"] =
         serde_json::to_value(&retrieval_options).unwrap_or(serde_json::Value::Null);
-    result["retrieved_evidence"] = serde_json::Value::Array(evidence_json.clone());
+    result["retrieved_evidence"] = serde_json::Value::Array(council_evidence.clone());
 
     // Persist to user.sqlite so the user has an audit trail they can revisit.
     // Non-fatal: if persistence fails, we still return the response.
     if let (Ok(response_json), Ok(options_json), Ok(evidence_json_text)) = (
         serde_json::to_string(&result),
         serde_json::to_string(&retrieval_options),
-        serde_json::to_string(&evidence_json),
+        serde_json::to_string(&council_evidence),
     ) {
         let app_for_persist = app.clone();
         let q = question.clone();
