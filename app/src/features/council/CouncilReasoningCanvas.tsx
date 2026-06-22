@@ -465,7 +465,7 @@ export function CouncilReasoningCanvas({
           )}
         </Band>
 
-        {(response.grounding || response.judge || response.scope) && (
+        {(response.grounding || response.judge || response.scope || response.independence) && (
           <Band step={6} kicker="Verification" title="How this was checked">
             <div className="reasoning-verify">
               {response.scope?.positions?.length ? (
@@ -524,6 +524,20 @@ export function CouncilReasoningCanvas({
                   independent review.
                 </p>
               ) : null}
+              {response.independence?.available && (
+                <p className="reasoning-note">
+                  <span className="reasoning-verify-label">Independence</span> —{" "}
+                  <span
+                    className={
+                      response.independence.correlated_count > 0
+                        ? "reasoning-verify-mixed"
+                        : "reasoning-verify-ok"
+                    }
+                  >
+                    {response.independence.note}
+                  </span>
+                </p>
+              )}
             </div>
           </Band>
         )}

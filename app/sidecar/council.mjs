@@ -27,6 +27,7 @@ import {
 import { runGroundingFloor, buildRegenNote } from "./grounded/grounding-floor.mjs";
 import { runCrossFamilyJudge } from "./grounded/cross-family-judge.mjs";
 import { runScope } from "./grounded/scope.mjs";
+import { buildIndependenceReport } from "./grounded/independence.mjs";
 
 const log = (...args) => console.error("[council]", ...args);
 
@@ -440,33 +441,36 @@ function mockCouncilResult({ question, evidence, model }) {
       { provider: "mock-gemini", display_name: "Gemini (mock)", fav: minorityPos },
       { provider: "mock-gateway", display_name: "Gateway (mock)", fav: consensusPos },
     ].slice(0, voiceCount);
+    const mockVoices = defs.map((d) => ({
+      provider: d.provider,
+      display_name: d.display_name,
+      status: "ok",
+      result: { ...result, positions: [d.fav] },
+      error: null,
+      duration_ms: 1,
+    }));
     return {
       synthesis: result,
-      voices: defs.map((d) => ({
-        provider: d.provider,
-        display_name: d.display_name,
-        status: "ok",
-        result: { ...result, positions: [d.fav] },
-        error: null,
-        duration_ms: 1,
-      })),
+      voices: mockVoices,
       manifest: defs.map((d) => ({ name: d.provider, display_name: d.display_name, available: true })),
       synthesis_mode: "consensus",
       ...mockVerification,
+      independence: buildIndependenceReport(result, mockVoices),
     };
   }
+  const soloVoices = [
+    {
+      provider: "mock",
+      display_name: `Mock Council (${model ?? "default"})`,
+      status: "ok",
+      result,
+      error: null,
+      duration_ms: 1,
+    },
+  ];
   return {
     synthesis: result,
-    voices: [
-      {
-        provider: "mock",
-        display_name: `Mock Council (${model ?? "default"})`,
-        status: "ok",
-        result,
-        error: null,
-        duration_ms: 1,
-      },
-    ],
+    voices: soloVoices,
     manifest: [
       {
         name: "mock",
@@ -476,6 +480,7 @@ function mockCouncilResult({ question, evidence, model }) {
     ],
     synthesis_mode: "consensus",
     ...mockVerification,
+    independence: buildIndependenceReport(result, soloVoices),
   };
 }
 
@@ -870,11 +875,27 @@ export async function runCouncil({
   });
   // ------------------------------------------------------------------------
 
+  // --- CHANNEL B: independence grapher (deterministic; flags only) ----------
+  // When several voices land on the same position, do they corroborate from
+  // DISTINCT proof-texts (independent) or just echo the same verses (correlated)?
+  // Over-counting echoed agreement inflates false confidence. Ranks only.
+  const independence = buildIndependenceReport(synthesis, voices);
+  // ------------------------------------------------------------------------
+
   const judged = judgedEventPayload(synthesis);
   if (judged) emit("judged", judged);
 
   const synthesis_mode = resolveSynthesisMode({ okCount: ok.length, synthesisFailed });
-  const response = { synthesis, voices, manifest, synthesis_mode, grounding, judge, scope };
+  const response = {
+    synthesis,
+    voices,
+    manifest,
+    synthesis_mode,
+    grounding,
+    judge,
+    scope,
+    independence,
+  };
   if (synthesis_mode !== "consensus") {
     response.synthesis_voice = ok[0].display_name;
   }
