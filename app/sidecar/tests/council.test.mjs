@@ -191,7 +191,25 @@ test("mock mode emits an ordered progress event sequence", async () => {
   );
 
   const kinds = events.map((e) => e.kind);
-  assert.deepEqual(kinds, ["voice_started", "voice_done", "judged"]);
+  // Mock mirrors the full Grounded Council pipeline order: scope + per-position
+  // depth, the (single) voice, the grounding floor, the cross-family judge, then
+  // the headline judged event. Single-voice mock → no synthesis_started.
+  assert.deepEqual(kinds, [
+    "scope_started",
+    "scope_done",
+    "position_retrieval_started",
+    "position_retrieval_done",
+    "position_retrieval_started",
+    "position_retrieval_done",
+    "depth_done",
+    "voice_started",
+    "voice_done",
+    "grounding_started",
+    "grounding_done",
+    "judge_started",
+    "judge_done",
+    "judged",
+  ]);
 
   for (let i = 1; i < events.length; i++) {
     assert.ok(events[i].seq > events[i - 1].seq, "seq must strictly increase");

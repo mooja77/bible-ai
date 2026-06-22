@@ -310,11 +310,25 @@ export interface CouncilProgressEvent {
     | "retrieval_started"
     | "retrieval_fallback"
     | "retrieval_done"
+    // Grounded Council — scope + per-position depth (Stage 2/2b)
+    | "scope_started"
+    | "scope_done"
+    | "position_retrieval_started"
+    | "position_retrieval_done"
+    | "position_retrieval_failed"
+    | "depth_done"
     | "voice_started"
     | "voice_done"
     | "voice_failed"
     | "synthesis_started"
     | "synthesis_fallback"
+    // Grounded Council — verification (Channel A floor + regen, Channel B judge)
+    | "grounding_started"
+    | "regen_started"
+    | "regen_done"
+    | "grounding_done"
+    | "judge_started"
+    | "judge_done"
     | "judged"
     | "run_complete";
   [key: string]: unknown;

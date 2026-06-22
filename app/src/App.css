@@ -725,6 +725,12 @@ mark {
   color: var(--c-challenge);
   border-color: var(--c-challenge);
 }
+/* Stage that never fired (e.g. fail-soft scope/depth fallback) — muted, not pending */
+.reasoning-run-node-skipped {
+  color: var(--color-neutral-700);
+  border-color: var(--border-subtle);
+  opacity: 0.55;
+}
 
 .reasoning-note {
   font-size: 0.75rem;
