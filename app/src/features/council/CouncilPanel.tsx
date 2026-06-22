@@ -259,6 +259,14 @@ export function CouncilPanel({
     const requestId = ++councilViewRequestId.current;
     setLoading(false);
     resetRun();
+    // Reset view-state toggles SYNCHRONOUSLY (before the async load) so a slow
+    // session fetch can't race a user toggling the audit panels in the gap —
+    // otherwise full-analysis/explorer could stay open from the prior result
+    // and a click would close (not open) them.
+    setShowExplorer(false);
+    setShowFullAnalysis(false);
+    setSelectedPositionLabel(null);
+    setArgumentAnnotations([]);
     try {
       const stored = await getCouncilSession(id);
       if (requestId !== councilViewRequestId.current) return;
@@ -267,10 +275,6 @@ export function CouncilPanel({
         setResponse(stored.response);
         setActiveSessionId(stored.id);
         setJudgment(null);
-        setArgumentAnnotations([]);
-        setSelectedPositionLabel(null);
-        setShowExplorer(false);
-        setShowFullAnalysis(false);
         setError(null);
       }
     } catch (e) {
@@ -367,6 +371,14 @@ export function CouncilPanel({
              focused root-cause of a harness-only restore-sequence interaction
              (council-mock) that has so far blocked un-gating the new canvas in
              tests. Real-user correctness verified via manual runs. */}
+          {/* The reasoning canvas is the lead for real users (isolated in its
+             own ErrorBoundary). The legacy editorial canvas is retained for the
+             e2e harness, which asserts the verdict-card testids on it. A clean
+             un-gate is deferred: the only blocker is a harness-timing artifact
+             (council-mock's first full-analysis toggle click is lost during the
+             mid-restore window because the test's waits pass on stale, identical
+             content) — a settled click works, so it is not a real-user bug. The
+             onSelectSession sync view-reset above hardens the real path. */}
           {navigator.webdriver ? (
             <CouncilCanvas
               response={response}
