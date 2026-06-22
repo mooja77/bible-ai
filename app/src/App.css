@@ -651,6 +651,23 @@ mark {
   font-variant-numeric: tabular-nums lining-nums;
   color: var(--accent);
 }
+/* Live run-phase node states (CouncilRunCanvas) */
+.reasoning-run-node-pending {
+  color: var(--color-neutral-600);
+  border-color: var(--border-subtle);
+}
+.reasoning-run-node-active {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+.reasoning-run-node-done {
+  color: var(--c-support);
+  border-color: var(--c-support);
+}
+.reasoning-run-node-failed {
+  color: var(--c-challenge);
+  border-color: var(--c-challenge);
+}
 
 .reasoning-note {
   font-size: 0.75rem;
