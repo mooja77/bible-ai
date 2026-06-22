@@ -231,9 +231,45 @@ export interface CouncilResponse {
   retrieved_evidence?: RetrievedEvidence[];
   synthesis_mode?: "consensus" | "single_voice" | "synthesis_failed";
   synthesis_voice?: string;
+  /** Channel A — the deterministic grounding floor verdict (verse_id membership). */
+  grounding?: CouncilGrounding;
+  /** Channel B — the cross-family judge verdict (a different family checks grounding + balance). */
+  judge?: CouncilJudge;
+  /** The scope stage — candidate positions enumerated before analysis. */
+  scope?: CouncilScope;
   /** Present when a sensitive/crisis prompt was routed away from the Council
    *  before any generation. When set, the normal result is not produced. */
   sensitive_topic?: { category: string; message: string } | null;
+}
+
+export interface CouncilGrounding {
+  hard_fail: boolean;
+  citation_accuracy: number;
+  out_of_corpus_verse_ids: number[];
+  violations?: { verse_id: number; position: string; field: string; reason: string }[];
+  uncited_positions?: string[];
+  cited_count: number;
+  in_corpus_count: number;
+  regen_attempts?: number;
+}
+
+export interface CouncilJudge {
+  available: boolean;
+  parsed?: boolean;
+  judge_provider?: string;
+  judge_family?: string;
+  grounding_faithful?: boolean;
+  balance_preserved?: boolean;
+  ungrounded_claims?: string[];
+  overreach?: string[];
+  verdict?: "sound" | "mixed" | "unsound";
+  notes?: string;
+  reason?: string;
+}
+
+export interface CouncilScope {
+  available: boolean;
+  positions: { label: string; description?: string }[];
 }
 
 export interface RetrievedEvidence {
