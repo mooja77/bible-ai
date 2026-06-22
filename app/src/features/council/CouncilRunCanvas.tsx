@@ -2,10 +2,12 @@ import type { CouncilRunState, StageId, StageStatus } from "./councilRun";
 
 /**
  * Live "watch it think" canvas — the reasoning canvas's run-phase. Built from the
- * REAL CouncilRunState (streamed backend events, not timing): the same numbered
- * editorial timeline as the completed canvas, with each band lighting up as its
- * stage actually advances and the voices appearing/finishing on real voice
- * events. On completion CouncilPanel swaps this for the full CouncilReasoningCanvas.
+ * REAL CouncilRunState (streamed backend events, not timing): a numbered editorial
+ * timeline where each band lights up as its stage actually advances. It now mirrors
+ * the full Grounded Council pipeline — scope the positions, dig per position,
+ * voices, synthesis, the grounding floor, and an independent cross-family judge —
+ * so a watcher sees HOW and WHY the outcome is reached. On completion CouncilPanel
+ * swaps this for the full CouncilReasoningCanvas.
  *
  * Carries the run-map testids (council-run-map, runmap-stage-*, runmap-voices,
  * runmap-verdict) so the live progression stays e2e-covered.
@@ -17,7 +19,15 @@ function nodeClass(status: StageStatus): string {
   if (status === "done") return "reasoning-run-node-done";
   if (status === "active") return "reasoning-run-node-active";
   if (status === "failed") return "reasoning-run-node-failed";
+  if (status === "skipped") return "reasoning-run-node-skipped";
   return "reasoning-run-node-pending";
+}
+
+function nodeGlyph(status: StageStatus, step: number): string {
+  if (status === "done") return "✓";
+  if (status === "failed") return "✕";
+  if (status === "skipped") return "–";
+  return String(step).padStart(2, "0");
 }
 
 function LiveBand({
@@ -44,7 +54,7 @@ function LiveBand({
         className={`reasoning-band-node ${nodeClass(status)} ${status === "active" ? "runmap-active-pulse" : ""}`}
         aria-hidden="true"
       >
-        {status === "done" ? "✓" : status === "failed" ? "✕" : String(step).padStart(2, "0")}
+        {nodeGlyph(status, step)}
       </span>
       <div className="space-y-2">
         <div>
@@ -71,6 +81,16 @@ export function CouncilRunCanvas({
     const i = runState.voices.findIndex((v) => v.provider === provider);
     return `var(${VOICE_VARS[(i >= 0 ? i : 0) % VOICE_VARS.length]})`;
   };
+
+  const depthNote = (() => {
+    if (s.depth === "skipped") return "No per-position search was needed.";
+    if (s.depth === "done" || runState.positionsRetrieved > 0) {
+      const of = runState.positionsScoped ?? runState.positionsRetrieved;
+      return `${runState.positionsRetrieved}/${of} positions searched · ${runState.depthVerses} verses added.`;
+    }
+    if (s.depth === "active") return "Searching Scripture for each position…";
+    return "Waiting to dig per position.";
+  })();
 
   return (
     <section className="reasoning-canvas" aria-label="The Council is working" aria-live="polite">
@@ -100,8 +120,40 @@ export function CouncilRunCanvas({
           </p>
         </LiveBand>
 
-        {/* 02 · Voices */}
-        <LiveBand step={2} kicker="The voices weigh in" title="Each model's independent view" status={s.voices}>
+        {/* 02 · Scope */}
+        <LiveBand
+          step={2}
+          kicker="The positions in play"
+          title="Mapping the interpretive options"
+          status={s.scope}
+          runmapStage="scope"
+        >
+          <p className="reasoning-note">
+            {runState.notes.scope
+              ? runState.notes.scope
+              : s.scope === "active"
+                ? "Enumerating the candidate positions…"
+                : s.scope === "skipped"
+                  ? "No distinct positions were mapped."
+                  : "Waiting to map the positions."}
+          </p>
+        </LiveBand>
+
+        {/* 03 · Depth — per-position retrieval */}
+        <LiveBand
+          step={3}
+          kicker="Digging deeper"
+          title="Targeted evidence for each position"
+          status={s.depth}
+          runmapStage="depth"
+        >
+          <p className="reasoning-note" data-testid="runmap-depth">
+            {depthNote}
+          </p>
+        </LiveBand>
+
+        {/* 04 · Voices */}
+        <LiveBand step={4} kicker="The voices weigh in" title="Each model's independent view" status={s.voices}>
           {runState.voices.length === 0 ? (
             <p className="reasoning-note">The voices are preparing…</p>
           ) : (
@@ -134,37 +186,65 @@ export function CouncilRunCanvas({
           )}
         </LiveBand>
 
-        {/* 03 · Agreement & conflict */}
+        {/* 05 · Agreement & conflict */}
         <LiveBand
-          step={3}
+          step={5}
           kicker="Agreement & conflict"
           title="Where the voices converge and clash"
           status={s.synthesis}
         >
           <p className="reasoning-note">
-            {s.synthesis === "pending"
-              ? "Waiting for the voices to finish."
-              : "Comparing the views and clustering positions…"}
+            {runState.notes.synthesis
+              ? runState.notes.synthesis
+              : s.synthesis === "pending"
+                ? "Waiting for the voices to finish."
+                : s.synthesis === "skipped"
+                  ? "Only one voice answered — nothing to reconcile."
+                  : "Comparing the views and clustering positions…"}
           </p>
         </LiveBand>
 
-        {/* 04 · The judge weighs */}
+        {/* 06 · Grounding floor */}
         <LiveBand
-          step={4}
-          kicker="The judge weighs"
-          title="How the leading view is reached"
-          status={s.synthesis}
+          step={6}
+          kicker="Grounding check"
+          title="Every citation tested against the evidence"
+          status={s.grounding}
+          runmapStage="grounding"
         >
-          <p className="reasoning-note">
-            {s.synthesis === "done" || s.verdict !== "pending"
-              ? "Weighing the clustered positions…"
-              : "Waiting for synthesis."}
+          <p className="reasoning-note" data-testid="runmap-grounding">
+            {runState.notes.grounding
+              ? runState.notes.grounding
+              : s.grounding === "active"
+                ? "Checking each cited verse is in the retrieved evidence…"
+                : s.grounding === "skipped"
+                  ? "Grounding check did not run."
+                  : "Waiting to check the citations."}
           </p>
         </LiveBand>
 
-        {/* 05 · Outcome */}
+        {/* 07 · Independent judge */}
         <LiveBand
-          step={5}
+          step={7}
+          kicker="Independent judge"
+          title="A different model family cross-examines"
+          status={s.judge}
+          runmapStage="judge"
+        >
+          <p className="reasoning-note" data-testid="runmap-judge">
+            {runState.notes.judge
+              ? runState.notes.judge
+              : s.judge === "active"
+                ? "A different family is reviewing grounding & balance…"
+                : s.judge === "skipped"
+                  ? "No independent judge ran."
+                  : "Waiting for the independent check."}
+          </p>
+        </LiveBand>
+
+        {/* 08 · Outcome */}
+        <LiveBand
+          step={8}
           kicker="Outcome"
           title={runState.verdict ? runState.verdict.leader_label : "Reaching an outcome…"}
           status={s.verdict}

@@ -499,6 +499,9 @@ export function judgedEventPayload(synthesis) {
  * (Task 2) emits the same kinds at their real moments.
  */
 export function emitMockSequence(result, emit) {
+  // Scope + per-position depth (mock mirrors the live pipeline order so the run
+  // canvas shows the full rigor; in live mode these come from the Rust host).
+  emitMockScopeAndDepth(result, emit);
   for (const v of result.voices ?? []) {
     emit("voice_started", { provider: v.provider, display_name: v.display_name });
     if (v.status === "ok") {
@@ -522,8 +525,44 @@ export function emitMockSequence(result, emit) {
       emit("synthesis_fallback", { reason: SYNTHESIS_FALLBACK_REASON });
     }
   }
+  emitMockVerification(result, emit);
   const judged = judgedEventPayload(result.synthesis);
   if (judged) emit("judged", judged);
+}
+
+/** Mock scope + per-position depth events, derived from the synthetic scope. */
+function emitMockScopeAndDepth(result, emit) {
+  const positions = result.scope?.positions ?? [];
+  if (positions.length === 0) return;
+  emit("scope_started", {});
+  emit("scope_done", { available: true, position_count: positions.length, source: "mock" });
+  positions.forEach((p, index) => {
+    emit("position_retrieval_started", { index, label: p.label });
+    emit("position_retrieval_done", { index, label: p.label, count: 3 });
+  });
+  emit("depth_done", { positions: positions.length, verses: positions.length * 3 });
+}
+
+/** Mock grounding-floor + cross-family-judge events, from synthetic verification. */
+function emitMockVerification(result, emit) {
+  if (result.grounding) {
+    emit("grounding_started", {});
+    emit("grounding_done", {
+      hard_fail: !!result.grounding.hard_fail,
+      citation_accuracy: result.grounding.citation_accuracy ?? 1,
+      out_of_corpus: (result.grounding.out_of_corpus_verse_ids ?? []).length,
+      regen_attempts: result.grounding.regen_attempts ?? 0,
+    });
+  }
+  if (result.judge) {
+    emit("judge_started", {});
+    emit("judge_done", {
+      available: !!result.judge.available,
+      parsed: !!result.judge.parsed,
+      verdict: result.judge.verdict ?? null,
+      provider: result.judge.judge_provider ?? null,
+    });
+  }
 }
 
 /**
@@ -589,6 +628,29 @@ export async function runCouncil({
       await sleep(mockDelayMs);
       emit("retrieval_done", { count: evidence.length });
       await sleep(mockDelayMs);
+      const pacedPositions = mock.scope?.positions ?? [];
+      if (pacedPositions.length > 0) {
+        emit("scope_started", {});
+        await sleep(mockDelayMs);
+        emit("scope_done", {
+          available: true,
+          position_count: pacedPositions.length,
+          source: "mock",
+        });
+        await sleep(mockDelayMs);
+        for (let index = 0; index < pacedPositions.length; index += 1) {
+          const p = pacedPositions[index];
+          emit("position_retrieval_started", { index, label: p.label });
+          await sleep(mockDelayMs);
+          emit("position_retrieval_done", { index, label: p.label, count: 3 });
+          await sleep(mockDelayMs);
+        }
+        emit("depth_done", {
+          positions: pacedPositions.length,
+          verses: pacedPositions.length * 3,
+        });
+        await sleep(mockDelayMs);
+      }
       for (const v of mock.voices ?? []) {
         emit("voice_started", { provider: v.provider, display_name: v.display_name });
         await sleep(mockDelayMs);
@@ -604,6 +666,28 @@ export async function runCouncil({
       const okCount = (mock.voices ?? []).filter((v) => v.status === "ok").length;
       if (okCount > 1) {
         emit("synthesis_started", { voice_count: okCount });
+        await sleep(mockDelayMs);
+      }
+      if (mock.grounding) {
+        emit("grounding_started", {});
+        await sleep(mockDelayMs);
+        emit("grounding_done", {
+          hard_fail: !!mock.grounding.hard_fail,
+          citation_accuracy: mock.grounding.citation_accuracy ?? 1,
+          out_of_corpus: (mock.grounding.out_of_corpus_verse_ids ?? []).length,
+          regen_attempts: mock.grounding.regen_attempts ?? 0,
+        });
+        await sleep(mockDelayMs);
+      }
+      if (mock.judge) {
+        emit("judge_started", {});
+        await sleep(mockDelayMs);
+        emit("judge_done", {
+          available: !!mock.judge.available,
+          parsed: !!mock.judge.parsed,
+          verdict: mock.judge.verdict ?? null,
+          provider: mock.judge.judge_provider ?? null,
+        });
         await sleep(mockDelayMs);
       }
       const judgedPaced = judgedEventPayload(mock.synthesis);
