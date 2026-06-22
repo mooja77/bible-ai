@@ -130,12 +130,15 @@ export function CouncilReasoningCanvas({
     >
       {/* Header — the question opens the story (a visual headline, not a heading
           level, so it doesn't displace the page's peer h2 sections). */}
-      <header className="reasoning-canvas-head">
+      <header className="reasoning-canvas-head" data-testid="council-verdict-card">
         <p className="section-kicker" style={{ textAlign: "center" }}>Reasoning, step by step</p>
         <p className="reasoning-question">{question}</p>
         {leader && (
           <p className="reasoning-dateline">
-            Leading view — <span className="reasoning-dateline-strong">{leader.label}</span>
+            Leading view —{" "}
+            <span className="reasoning-dateline-strong" data-testid="council-verdict-answer">
+              {leader.label}
+            </span>
           </p>
         )}
         <button
@@ -400,7 +403,12 @@ export function CouncilReasoningCanvas({
                     />
                   ))}
                 </span>
-                <span className="text-sm text-neutral-300 capitalize">{confidenceWord} confidence</span>
+                <span
+                  className="text-sm text-neutral-300 capitalize"
+                  data-testid="council-verdict-confidence"
+                >
+                  {confidenceWord} confidence
+                </span>
               </div>
               {response.synthesis?.confidence_rationale &&
                 response.synthesis.confidence_rationale.length <= 120 && (

@@ -38,7 +38,6 @@ import { CouncilConfidenceRationale } from "./CouncilConfidenceRationale";
 import { VoicesAuditTrail } from "./CouncilVoicesAudit";
 import { ErrorState } from "../../components/StateViews";
 import { ReasoningExplorer } from "./explorer/ReasoningExplorer";
-import { CouncilCanvas } from "./CouncilCanvas";
 
 /** Client-side backstop (5 min). The backend tolerates very long runs, so a
  *  stuck or unreachable provider can otherwise spin forever. The live elapsed
@@ -371,25 +370,14 @@ export function CouncilPanel({
              focused root-cause of a harness-only restore-sequence interaction
              (council-mock) that has so far blocked un-gating the new canvas in
              tests. Real-user correctness verified via manual runs. */}
-          {/* The reasoning canvas is the lead for real users (isolated in its
-             own ErrorBoundary). The legacy editorial canvas is retained for the
-             e2e harness, which asserts the verdict-card testids on it. A clean
-             un-gate is deferred: the only blocker is a harness-timing artifact
-             (council-mock's first full-analysis toggle click is lost during the
-             mid-restore window because the test's waits pass on stale, identical
-             content) — a settled click works, so it is not a real-user bug. The
-             onSelectSession sync view-reset above hardens the real path. */}
-          {navigator.webdriver ? (
-            <CouncilCanvas
-              response={response}
-              question={question}
-              onOpenExplorer={() => setShowExplorer(true)}
-            />
-          ) : (
-            <ErrorBoundary title="The reasoning view ran into a problem">
-              <CouncilReasoningCanvas response={response} question={question} />
-            </ErrorBoundary>
-          )}
+          {/* The reasoning canvas is the lead of the Council result — the
+             editorial "how & why" story — isolated in its own ErrorBoundary so a
+             render fault degrades locally instead of taking down the view. It
+             carries the verdict-card testids; the dense audit panels stay behind
+             "Full analysis" below. */}
+          <ErrorBoundary title="The reasoning view ran into a problem">
+            <CouncilReasoningCanvas response={response} question={question} />
+          </ErrorBoundary>
           <div className="text-xs text-neutral-500 flex items-center gap-2 flex-wrap">
             {response.retrieval_mode && (
               <>
