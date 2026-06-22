@@ -16,6 +16,7 @@ import {
   findVoice,
   findPosition,
 } from "./explorer/reasoningModel";
+import { CouncilHeroReveal } from "./CouncilHeroReveal";
 
 /**
  * Council Reasoning Canvas (T1 — static, drillable; polished + reviewed).
@@ -95,6 +96,24 @@ export function CouncilReasoningCanvas({
   // Remounting the timeline replays the staggered reveal (reduced-motion safe).
   const [revealKey, setRevealKey] = useState(0);
 
+  // The cinematic hero plays once per result (skipped under reduced-motion),
+  // then settles into the legible timeline below.
+  const prefersReduced =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Skip the cinematic under the e2e harness — it's a ~7s full-cover overlay that
+  // would block test interaction; the legible canvas beneath is what specs cover.
+  const skipHero =
+    prefersReduced || (typeof navigator !== "undefined" && navigator.webdriver);
+  const [heroDone, setHeroDone] = useState<boolean>(skipHero);
+  const [heroKey, setHeroKey] = useState(0);
+  useEffect(() => {
+    if (skipHero) return;
+    setHeroDone(false);
+    setHeroKey((k) => k + 1);
+  }, [question, skipHero]);
+
   const positions = rankedPositions(response);
   const leader = positions[0] as CouncilPosition | undefined;
   const okVoices = (response.voices ?? []).filter((v) => v.status === "ok");
@@ -135,6 +154,13 @@ export function CouncilReasoningCanvas({
       aria-label="How the Council reached this"
       className="reasoning-canvas"
     >
+      {!heroDone && (
+        <CouncilHeroReveal
+          response={response}
+          replayKey={heroKey}
+          onDone={() => setHeroDone(true)}
+        />
+      )}
       {/* Header — the question opens the story (a visual headline, not a heading
           level, so it doesn't displace the page's peer h2 sections). */}
       <header className="reasoning-canvas-head" data-testid="council-verdict-card">
@@ -148,13 +174,25 @@ export function CouncilReasoningCanvas({
             </span>
           </p>
         )}
-        <button
-          type="button"
-          className="reasoning-replay"
-          onClick={() => setRevealKey((k) => k + 1)}
-        >
-          ▷ Replay the reasoning
-        </button>
+        <div className="reasoning-replay-row">
+          <button
+            type="button"
+            className="reasoning-replay"
+            onClick={() => {
+              setHeroDone(false);
+              setHeroKey((k) => k + 1);
+            }}
+          >
+            ✦ Replay cinematic
+          </button>
+          <button
+            type="button"
+            className="reasoning-replay"
+            onClick={() => setRevealKey((k) => k + 1)}
+          >
+            ▷ Replay the reasoning
+          </button>
+        </div>
       </header>
 
       <div className="reasoning-timeline" data-testid="council-run-map" key={revealKey}>
