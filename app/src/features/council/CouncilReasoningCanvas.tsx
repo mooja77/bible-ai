@@ -85,6 +85,8 @@ export function CouncilReasoningCanvas({
   question: string;
 }) {
   const [focus, setFocus] = useState<ExplorerEntity | null>(null);
+  // Remounting the timeline replays the staggered reveal (reduced-motion safe).
+  const [revealKey, setRevealKey] = useState(0);
 
   const positions = rankedPositions(response);
   const leader = positions[0] as CouncilPosition | undefined;
@@ -136,9 +138,16 @@ export function CouncilReasoningCanvas({
             Leading view — <span className="reasoning-dateline-strong">{leader.label}</span>
           </p>
         )}
+        <button
+          type="button"
+          className="reasoning-replay"
+          onClick={() => setRevealKey((k) => k + 1)}
+        >
+          ▷ Replay the reasoning
+        </button>
       </header>
 
-      <div className="reasoning-timeline">
+      <div className="reasoning-timeline" key={revealKey}>
         {/* 01 · Evidence gathered */}
         <Band step={1} kicker="Evidence gathered" title="What scriptures were weighed">
           {evidence.length === 0 ? (
