@@ -28,6 +28,7 @@ import { runGroundingFloor, buildRegenNote } from "./grounded/grounding-floor.mj
 import { runCrossFamilyJudge } from "./grounded/cross-family-judge.mjs";
 import { runScope } from "./grounded/scope.mjs";
 import { buildIndependenceReport } from "./grounded/independence.mjs";
+import { buildSoftLayer } from "./grounded/soft-layer.mjs";
 
 const log = (...args) => console.error("[council]", ...args);
 
@@ -449,13 +450,21 @@ function mockCouncilResult({ question, evidence, model }) {
       error: null,
       duration_ms: 1,
     }));
+    const mockIndependence = buildIndependenceReport(result, mockVoices);
     return {
       synthesis: result,
       voices: mockVoices,
       manifest: defs.map((d) => ({ name: d.provider, display_name: d.display_name, available: true })),
       synthesis_mode: "consensus",
       ...mockVerification,
-      independence: buildIndependenceReport(result, mockVoices),
+      independence: mockIndependence,
+      soft_layer: buildSoftLayer({
+        synthesis: result,
+        voices: mockVoices,
+        grounding: mockVerification.grounding,
+        judge: mockVerification.judge,
+        independence: mockIndependence,
+      }),
     };
   }
   const soloVoices = [
@@ -481,6 +490,13 @@ function mockCouncilResult({ question, evidence, model }) {
     synthesis_mode: "consensus",
     ...mockVerification,
     independence: buildIndependenceReport(result, soloVoices),
+    soft_layer: buildSoftLayer({
+      synthesis: result,
+      voices: soloVoices,
+      grounding: mockVerification.grounding,
+      judge: mockVerification.judge,
+      independence: buildIndependenceReport(result, soloVoices),
+    }),
   };
 }
 
@@ -882,6 +898,12 @@ export async function runCouncil({
   const independence = buildIndependenceReport(synthesis, voices);
   // ------------------------------------------------------------------------
 
+  // --- CHANNEL B: soft layer (deterministic; ranks/flags only) -------------
+  // Compose grounding + judge + independence + inter-voice entropy into honest
+  // calibrated confidence + an integrity checklist. Advisory only.
+  const soft_layer = buildSoftLayer({ synthesis, voices, grounding, judge, independence });
+  // ------------------------------------------------------------------------
+
   const judged = judgedEventPayload(synthesis);
   if (judged) emit("judged", judged);
 
@@ -895,6 +917,7 @@ export async function runCouncil({
     judge,
     scope,
     independence,
+    soft_layer,
   };
   if (synthesis_mode !== "consensus") {
     response.synthesis_voice = ok[0].display_name;

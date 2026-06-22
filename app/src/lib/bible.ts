@@ -239,6 +239,8 @@ export interface CouncilResponse {
   scope?: CouncilScope;
   /** Channel B — independence grapher: is agreement independent or echoed proof-texts? */
   independence?: CouncilIndependence;
+  /** Channel B — soft layer: calibrated confidence, inter-voice entropy, integrity checklist. */
+  soft_layer?: CouncilSoftLayer;
   /** Present when a sensitive/crisis prompt was routed away from the Council
    *  before any generation. When set, the normal result is not produced. */
   sensitive_topic?: { category: string; message: string } | null;
@@ -291,6 +293,37 @@ export interface CouncilIndependence {
   correlated_count: number;
   single_source_count: number;
   note: string;
+}
+
+export interface CouncilSemanticEntropy {
+  available: boolean;
+  value: number | null;
+  label: string;
+  voice_count: number;
+  clusters: number;
+}
+
+export interface CouncilCalibratedConfidence {
+  stated: "high" | "medium" | "low" | null;
+  calibrated: "high" | "moderate" | "low" | "contested";
+  downgraded: boolean;
+  reasons: string[];
+}
+
+export interface CouncilTickCheck {
+  id: string;
+  label: string;
+  pass: boolean;
+  detail: string;
+}
+
+export interface CouncilSoftLayer {
+  available: boolean;
+  semantic_entropy?: CouncilSemanticEntropy;
+  confidence?: CouncilCalibratedConfidence;
+  tick?: CouncilTickCheck[];
+  tick_passed?: number;
+  tick_total?: number;
 }
 
 export interface RetrievedEvidence {
