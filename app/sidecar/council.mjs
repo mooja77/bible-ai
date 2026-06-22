@@ -539,7 +539,15 @@ export function resolveSynthesisMode({ okCount, synthesisFailed }) {
   return "consensus";
 }
 
-export async function runCouncil({ question, evidence, model, settings, onEvent }) {
+export async function runCouncil({
+  question,
+  evidence,
+  model,
+  settings,
+  onEvent,
+  scopedPositions,
+  positionEvidence,
+}) {
   let seq = 0;
   const emit = (kind, payload = {}) =>
     onEvent?.({ seq: ++seq, ts: Date.now(), kind, ...payload });
@@ -620,11 +628,40 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
 
   log(`running ${available.length} voice(s):`, available.map((p) => p.name).join(", "));
 
-  // --- STAGE: SCOPE — enumerate the candidate positions before analysis, so
-  // every voice addresses the same frame (coverage + cleaner clustering). ----
-  emit("scope_started", {});
-  const scope = await runScope({ question, model, env });
-  emit("scope_done", { available: scope.available, position_count: scope.positions.length });
+  // --- STAGE: SCOPE — candidate positions before analysis, so every voice
+  // addresses the same frame (coverage + cleaner clustering). Stage 2b: the Rust
+  // host may pre-compute the positions (via the `council_scope` request) so it can
+  // retrieve targeted evidence PER position; if so, adopt them and skip the
+  // redundant scope call here. -------------------------------------------------
+  let scope;
+  if (Array.isArray(scopedPositions) && scopedPositions.length > 0) {
+    scope = { available: true, positions: scopedPositions, source: "host" };
+    emit("scope_done", {
+      available: true,
+      position_count: scopedPositions.length,
+      source: "host",
+    });
+  } else {
+    emit("scope_started", {});
+    const scoped = await runScope({ question, model, env });
+    scope = { ...scoped, source: "scope" };
+    emit("scope_done", {
+      available: scope.available,
+      position_count: scope.positions.length,
+    });
+  }
+  // Per-position evidence (Stage 2b depth): the host already unioned these verses
+  // into `evidence` (so the grounding floor's membership corpus includes them); we
+  // attach the bundles to `scope` for visibility — which verses were retrieved for
+  // which candidate position.
+  if (Array.isArray(positionEvidence) && positionEvidence.length > 0) {
+    scope.position_evidence = positionEvidence;
+    const verseTotal = positionEvidence.reduce(
+      (n, b) => n + (Array.isArray(b?.verse_ids) ? b.verse_ids.length : 0),
+      0,
+    );
+    emit("depth_done", { positions: positionEvidence.length, verses: verseTotal });
+  }
 
   const voices = await Promise.all(
     available.map((p) =>
@@ -761,4 +798,35 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
     response.synthesis_voice = ok[0].display_name;
   }
   return response;
+}
+
+/**
+ * Stage 2b — host-driven SCOPE. Run ONLY the scope pass and return the candidate
+ * positions to the Rust host. The host then retrieves targeted evidence for each
+ * position (which only Rust can do — it owns the corpus + embeddings) and feeds it
+ * back through `runCouncil({ scopedPositions, positionEvidence })`. This is the
+ * first leg of the per-position retrieval round-trip.
+ *
+ * Always resolves; never throws on a failed scope (fail-soft, like `runScope`) so
+ * the host can fall back to broad-evidence-only when scoping is unavailable.
+ * @returns {{available: boolean, positions: Array<{label,description}>, source: string, parsed?: boolean}}
+ */
+export async function scopeCouncil({ question, model, settings }) {
+  if (!question || typeof question !== "string") {
+    throw new Error("council scope: question is required");
+  }
+  if (process.env.BIBLE_AI_MOCK_COUNCIL === "1") {
+    // Reuse the mock's synthetic scope so the host round-trip is exercisable in
+    // dev/e2e without a real provider, and stays consistent with mock verification.
+    const mock = mockCouncilResult({ question, evidence: [], model });
+    return { available: true, positions: mock.scope?.positions ?? [], source: "mock" };
+  }
+  const env = envWithSettings(settings);
+  const scope = await runScope({ question, model, env });
+  return {
+    available: scope.available,
+    positions: scope.positions,
+    parsed: scope.parsed ?? false,
+    source: "scope",
+  };
 }
