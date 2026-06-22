@@ -222,39 +222,50 @@ export function CouncilReasoningCanvas({
               Only one voice analysed this question — there is no council to compare yet.
             </p>
           ) : (
-            <ul className="space-y-2">
-              {positions.map((p) => {
-                const voices = positionVoices(response, p);
-                return (
-                  <li key={p.label} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <button
-                      type="button"
-                      onClick={() => setFocus({ type: "position", label: p.label })}
-                      className="reasoning-position-link"
+            <>
+              <p className="reasoning-note">
+                Each position is a cluster — the voices that landed on it sit together; positions
+                with few or lone voices are where the council clashes.
+              </p>
+              <div className="reasoning-clusters">
+                {positions.map((p, i) => {
+                  const voices = positionVoices(response, p);
+                  return (
+                    <div
+                      key={p.label}
+                      className={"reasoning-cluster" + (i === 0 ? " reasoning-cluster-leader" : "")}
                     >
-                      {p.label}
-                    </button>
-                    <span className="flex items-center gap-1">
-                      {voices.map((v) => (
-                        <span
-                          key={v.provider}
-                          aria-label={v.display_name}
-                          className="voice-dot"
-                          style={{ background: voiceColor(v.provider) }}
-                        />
-                      ))}
-                    </span>
-                    <span className="reasoning-faint">
-                      {voices.length === 0
-                        ? "synthesis only"
-                        : voices.length === 1
-                          ? "1 voice"
-                          : `${voices.length} voices agree`}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+                      <button
+                        type="button"
+                        onClick={() => setFocus({ type: "position", label: p.label })}
+                        className="reasoning-cluster-head"
+                      >
+                        <span className="reasoning-cluster-label">{p.label}</span>
+                        <span className="reasoning-faint shrink-0">
+                          {voices.length} {voices.length === 1 ? "voice" : "voices"}
+                        </span>
+                      </button>
+                      {voices.length === 0 ? (
+                        <p className="reasoning-faint">Synthesis only — no voice argued this directly.</p>
+                      ) : (
+                        <ul className="reasoning-cluster-voices">
+                          {voices.map((v) => (
+                            <li key={v.provider} className="reasoning-cluster-voice">
+                              <span
+                                aria-hidden="true"
+                                className="voice-chip-dot"
+                                style={{ background: voiceColor(v.provider) }}
+                              />
+                              {v.display_name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
           {(response.synthesis?.unresolved_tensions?.length ?? 0) > 0 && (
             <p className="reasoning-tension">

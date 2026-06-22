@@ -730,6 +730,58 @@ mark {
   text-decoration-color: var(--accent);
 }
 
+/* Agreement & conflict — the cluster landscape (voices that landed together). */
+.reasoning-clusters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.reasoning-cluster {
+  flex: 1 1 12rem;
+  min-width: 11rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-card);
+  padding: 0.7rem 0.8rem;
+}
+.reasoning-cluster-leader {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  flex-grow: 1.4;
+}
+.reasoning-cluster-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 0.5rem;
+}
+.reasoning-cluster-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-neutral-100);
+}
+.reasoning-cluster-head:hover .reasoning-cluster-label {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+.reasoning-cluster-voices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.reasoning-cluster-voice {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--color-neutral-300);
+}
+
 /* Ranked positions (the judge's weighing) */
 .reasoning-rank {
   display: block;

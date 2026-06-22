@@ -386,6 +386,34 @@ function mockCouncilResult({ question, evidence, model }) {
       },
     ],
   };
+  // Dev-only: BIBLE_AI_MOCK_VOICES>1 synthesizes several voices (some converging
+  // on the consensus, one dissenting) so the multi-voice agreement/conflict
+  // cluster can be designed + verified. Default is 1, so the e2e mock (which sets
+  // only BIBLE_AI_MOCK_COUNCIL=1) is unchanged and remains single-voice.
+  const voiceCount = Math.max(1, parseInt(process.env.BIBLE_AI_MOCK_VOICES ?? "1", 10) || 1);
+  if (voiceCount > 1) {
+    const consensusPos = result.positions.find((p) => p.cluster_id === "mock-consensus") ?? result.positions[0];
+    const minorityPos = result.positions.find((p) => p.cluster_id === "mock-minority") ?? result.positions[1] ?? consensusPos;
+    const defs = [
+      { provider: "mock-claude", display_name: "Claude (mock)", fav: consensusPos },
+      { provider: "mock-gpt", display_name: "GPT (mock)", fav: consensusPos },
+      { provider: "mock-gemini", display_name: "Gemini (mock)", fav: minorityPos },
+      { provider: "mock-gateway", display_name: "Gateway (mock)", fav: consensusPos },
+    ].slice(0, voiceCount);
+    return {
+      synthesis: result,
+      voices: defs.map((d) => ({
+        provider: d.provider,
+        display_name: d.display_name,
+        status: "ok",
+        result: { ...result, positions: [d.fav] },
+        error: null,
+        duration_ms: 1,
+      })),
+      manifest: defs.map((d) => ({ name: d.provider, display_name: d.display_name, available: true })),
+      synthesis_mode: "consensus",
+    };
+  }
   return {
     synthesis: result,
     voices: [
