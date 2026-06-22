@@ -553,6 +553,290 @@ mark {
   50% { opacity: 1; }
 }
 
+/* ---- Council Reasoning Canvas — the centrepiece "how & why" story --------- */
+.reasoning-canvas {
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: var(--surface-panel);
+  padding: 2rem 2.25rem 2.25rem;
+  box-shadow: 0 18px 60px -34px rgba(0, 0, 0, 0.55);
+}
+.reasoning-canvas-head {
+  text-align: center;
+  padding-bottom: 1.75rem;
+}
+.reasoning-question {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  line-height: 1.25;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--color-neutral-100);
+  margin: 0.4rem 0 0;
+}
+.reasoning-dateline {
+  margin-top: 0.6rem;
+  font-size: 0.8125rem;
+  color: var(--color-neutral-500);
+}
+.reasoning-dateline-strong {
+  color: var(--color-neutral-200);
+  font-weight: 600;
+}
+
+/* The hairline spine that threads the numbered phases into one story. */
+.reasoning-timeline {
+  position: relative;
+}
+.reasoning-timeline::before {
+  content: "";
+  position: absolute;
+  left: 0.84rem;
+  top: 0.9rem;
+  bottom: 0.9rem;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--border-subtle) 6%,
+    var(--border-subtle) 94%,
+    transparent
+  );
+}
+.reasoning-band {
+  position: relative;
+  padding-left: 2.75rem;
+}
+.reasoning-band + .reasoning-band {
+  margin-top: 2rem;
+}
+.reasoning-band-node {
+  position: absolute;
+  left: 0;
+  top: -0.1rem;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 9999px;
+  display: grid;
+  place-items: center;
+  background: var(--surface-panel);
+  border: 1px solid var(--accent-border);
+  font-family: var(--font-serif);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--accent);
+}
+
+.reasoning-note {
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+}
+.reasoning-faint {
+  font-size: 0.6875rem;
+  color: var(--color-neutral-500);
+}
+
+/* Evidence chips — citation over a strength underline (combined retrieval score). */
+.evidence-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  min-width: 5.5rem;
+  padding: 0.4rem 0.6rem 0.45rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-card);
+  transition: border-color 140ms ease;
+}
+.evidence-chip:hover {
+  border-color: var(--accent-border);
+}
+.evidence-chip-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.evidence-chip-role {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  flex: none;
+}
+.evidence-chip-label {
+  font-size: 0.75rem;
+  color: var(--color-neutral-200);
+  white-space: nowrap;
+}
+.evidence-chip-bar {
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.evidence-chip-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--accent);
+}
+
+/* Voices */
+.voice-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  background: var(--surface-card);
+  font-size: 0.875rem;
+  transition: border-color 140ms ease;
+}
+.voice-chip:hover {
+  border-color: var(--accent-border);
+}
+.voice-chip-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  flex: none;
+}
+.voice-dot {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+}
+.voice-tally {
+  width: 0.78rem;
+  height: 0.78rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-strong);
+}
+
+.reasoning-position-link {
+  font-size: 0.875rem;
+  color: var(--color-neutral-200);
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--accent-border);
+  text-underline-offset: 3px;
+  transition: color 140ms ease, text-decoration-color 140ms ease;
+}
+.reasoning-position-link:hover {
+  color: var(--color-neutral-100);
+  text-decoration-color: var(--accent);
+}
+
+/* Ranked positions (the judge's weighing) */
+.reasoning-rank {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-card);
+  padding: 0.7rem 0.85rem;
+  transition: border-color 140ms ease;
+}
+.reasoning-rank:hover {
+  border-color: var(--accent-border);
+}
+.reasoning-rank-leader {
+  border-left: 2px solid var(--c-leader);
+}
+.reasoning-rank-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-neutral-100);
+}
+.reasoning-rank-summary {
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--color-neutral-400);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.reasoning-aside {
+  margin-top: 0.45rem;
+  font-size: 0.6875rem;
+  color: var(--color-neutral-500);
+  font-style: italic;
+}
+
+/* Outcome — the serif climax */
+.reasoning-verdict {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  line-height: 1.5;
+  color: var(--color-neutral-100);
+}
+.reasoning-cite {
+  color: var(--accent);
+}
+.reasoning-cite:hover {
+  text-decoration: underline;
+}
+
+/* Contested-views note (Agreement & conflict) */
+.reasoning-tension {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-neutral-400);
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.reasoning-tension-mark {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: var(--c-challenge);
+  flex: none;
+  transform: translateY(1px);
+}
+
+/* Support vs challenge balance — counter-evidence kept visible, not buried. */
+.reasoning-balance {
+  font-size: 0.8125rem;
+}
+.reasoning-balance-support {
+  color: var(--c-support);
+}
+.reasoning-balance-challenge {
+  color: var(--c-challenge);
+}
+
+/* Confidence as countable pips — never a % or a threshold band. */
+.conf-pip {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+}
+.conf-pip-on {
+  background: var(--c-leader);
+  border-color: transparent;
+}
+
+/* In-place drill inspector */
+.reasoning-drill {
+  margin-top: 1.5rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 10px;
+  background: var(--surface-card);
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 /* Council canvas entrance: a calm fade-and-rise as the editorial result
    settles in. Neutralized by the global prefers-reduced-motion block below. */
 .council-canvas-enter {

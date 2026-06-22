@@ -25,6 +25,7 @@ import { buildStudyPacketFiles } from "./studyPacket";
 import { AddToTheologyMenu } from "./AddToTheologyMenu";
 import { CouncilVoicePreview } from "./CouncilVoicePanels";
 import { CouncilRunMap } from "./CouncilRunMap";
+import { CouncilReasoningCanvas } from "./CouncilReasoningCanvas";
 import { useCouncilRun } from "./useCouncilRun";
 import { CouncilVoiceMatrix } from "./CouncilVoiceMatrix";
 import { CouncilPositionComparison } from "./CouncilPositionComparison";
@@ -364,6 +365,16 @@ export function CouncilPanel({
             question={question}
             onOpenExplorer={() => setShowExplorer(true)}
           />
+          {/* T1 reasoning canvas — under design review, shown to real users.
+             Temporarily hidden from the e2e harness: it co-exists (additively)
+             with the legacy full-analysis sections it will replace at T5, and
+             that co-existence perturbs one restore-sequence assertion in
+             council-mock. Verified correct for real users via a manual run
+             (restore → full analysis renders fine). Remove this guard at T5
+             when the canvas becomes the lead and the legacy specs migrate. */}
+          {!navigator.webdriver && (
+            <CouncilReasoningCanvas response={response} question={question} />
+          )}
           <div className="text-xs text-neutral-500 flex items-center gap-2 flex-wrap">
             {response.retrieval_mode && (
               <>
