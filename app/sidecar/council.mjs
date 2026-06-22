@@ -24,6 +24,7 @@ import {
   redactSecrets,
   classifyProviderError,
 } from "./providers/_shared.mjs";
+import { runGroundingFloor, buildRegenNote } from "./grounded/grounding-floor.mjs";
 
 const log = (...args) => console.error("[council]", ...args);
 
@@ -93,11 +94,12 @@ async function runOneVoice(provider, { question, evidence, env, model, emit }) {
   }
 }
 
-async function synthesise({ question, successfulVoices, model, env }) {
-  const userPrompt = buildSynthesisPrompt({
+async function synthesise({ question, successfulVoices, model, env, regenNote }) {
+  let userPrompt = buildSynthesisPrompt({
     question,
     voiceResults: successfulVoices,
   });
+  if (regenNote) userPrompt += `\n${regenNote}`;
   const rawText = await callClaudeSynthesis({
     systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
     userPrompt,
@@ -613,11 +615,71 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
     }
   }
   synthesis = ensurePositionEvidence(synthesis, evidence);
+
+  // --- CHANNEL A: GROUNDING FLOOR (deterministic) + bounded regen ---------
+  // Every cited verse_id must be a member of the retrieved evidence. If the
+  // synthesis cites a verse that was never retrieved, it is ungrounded — re-run
+  // synthesis against the flagged ids, adopting a new draft ONLY if it has
+  // strictly fewer out-of-corpus citations (monotonic; never weaker). A true
+  // multi-voice run is required to regen (single-voice is a pass-through).
+  emit("grounding_started", {});
+  let grounding = runGroundingFloor(synthesis, evidence);
+  let regenAttempts = 0;
+  const MAX_REGEN = 2;
+  while (grounding.hard_fail && regenAttempts < MAX_REGEN && ok.length > 1) {
+    regenAttempts += 1;
+    emit("regen_started", {
+      attempt: regenAttempts,
+      out_of_corpus: grounding.out_of_corpus_verse_ids,
+    });
+    let candidate;
+    try {
+      candidate = await synthesise({
+        question,
+        successfulVoices: ok,
+        model,
+        env,
+        regenNote: buildRegenNote(grounding),
+      });
+      candidate = ensurePositionEvidence(candidate, evidence);
+    } catch (err) {
+      log("grounding regen failed:", redactSecrets(err?.message ?? String(err), env));
+      emit("regen_done", { attempt: regenAttempts, adopted: false });
+      break;
+    }
+    const candidateGrounding = runGroundingFloor(candidate, evidence);
+    // Monotonic gate: adopt only if strictly fewer hallucinated citations.
+    if (
+      candidateGrounding.out_of_corpus_verse_ids.length <
+      grounding.out_of_corpus_verse_ids.length
+    ) {
+      synthesis = candidate;
+      grounding = candidateGrounding;
+      emit("regen_done", {
+        attempt: regenAttempts,
+        adopted: true,
+        remaining: grounding.out_of_corpus_verse_ids.length,
+      });
+      if (!grounding.hard_fail) break;
+    } else {
+      emit("regen_done", { attempt: regenAttempts, adopted: false });
+      break;
+    }
+  }
+  grounding.regen_attempts = regenAttempts;
+  emit("grounding_done", {
+    hard_fail: grounding.hard_fail,
+    citation_accuracy: grounding.citation_accuracy,
+    out_of_corpus: grounding.out_of_corpus_verse_ids.length,
+    regen_attempts: regenAttempts,
+  });
+  // ------------------------------------------------------------------------
+
   const judged = judgedEventPayload(synthesis);
   if (judged) emit("judged", judged);
 
   const synthesis_mode = resolveSynthesisMode({ okCount: ok.length, synthesisFailed });
-  const response = { synthesis, voices, manifest, synthesis_mode };
+  const response = { synthesis, voices, manifest, synthesis_mode, grounding };
   if (synthesis_mode !== "consensus") {
     response.synthesis_voice = ok[0].display_name;
   }

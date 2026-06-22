@@ -41,6 +41,7 @@ if (!appBundle) {
     failures.push(`bundled macOS Node runtime is not executable: ${nodePath}`);
   }
   checkDirectory("sidecar providers", join(resources, "sidecar", "providers"));
+  checkDirectory("sidecar grounded", join(resources, "sidecar", "grounded"));
   checkDirectory("sidecar dependencies", join(resources, "sidecar", "node_modules"));
   checkAbsent("sidecar tests", join(resources, "sidecar", "tests"));
 

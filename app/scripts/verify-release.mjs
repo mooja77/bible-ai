@@ -18,6 +18,7 @@ const requiredFiles = [
 
 const requiredDirectories = [
   ["sidecar providers", join(releaseRoot, "sidecar", "providers")],
+  ["sidecar grounded", join(releaseRoot, "sidecar", "grounded")],
   ["sidecar dependencies", join(releaseRoot, "sidecar", "node_modules")],
 ];
 

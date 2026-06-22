@@ -16,7 +16,7 @@ const requiredFileNames = [
   "nsis_installer",
   "msi_installer",
 ];
-const requiredDirectoryNames = ["sidecar_providers", "sidecar_dependencies"];
+const requiredDirectoryNames = ["sidecar_providers", "sidecar_grounded", "sidecar_dependencies"];
 const forbiddenPaths = [["sidecar_tests", join(releaseRoot, "sidecar", "tests")]];
 const sha256Pattern = /^[a-f0-9]{64}$/;
 

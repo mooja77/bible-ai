@@ -20,6 +20,7 @@ const fileArtifacts = [
 
 const directoryArtifacts = [
   ["sidecar_providers", join(releaseRoot, "sidecar", "providers")],
+  ["sidecar_grounded", join(releaseRoot, "sidecar", "grounded")],
   ["sidecar_dependencies", join(releaseRoot, "sidecar", "node_modules")],
 ];
 

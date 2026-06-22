@@ -15,7 +15,7 @@ const requiredFileNames = [
   "sidecar_lockfile",
   "node_runtime",
 ];
-const requiredDirectoryNames = ["app_bundle", "sidecar_providers", "sidecar_dependencies"];
+const requiredDirectoryNames = ["app_bundle", "sidecar_providers", "sidecar_grounded", "sidecar_dependencies"];
 const sha256Pattern = /^[a-f0-9]{64}$/;
 const failures = [];
 const successes = [];
