@@ -84,6 +84,7 @@ async function callOpenAI({ apiKey, systemPrompt, userPrompt, model, timeoutMs =
 
 export const openai = {
   name: "openai",
+  family: "openai",
   display_name: `OpenAI (${resolveModel()})`,
   displayName: ({ env = process.env } = {}) => `OpenAI (${resolveModel(env)})`,
   isAvailable: (env) => !!env.OPENAI_API_KEY,
@@ -97,5 +98,15 @@ export const openai = {
       timeoutMs: timeoutMs(env),
     });
     return parseResponse(text, "OpenAI");
+  },
+  // Raw completion for the cross-family judge (returns model text, not a CouncilResult).
+  async complete({ systemPrompt, userPrompt, env = process.env }) {
+    return callOpenAI({
+      apiKey: env.OPENAI_API_KEY,
+      systemPrompt,
+      userPrompt,
+      model: resolveModel(env),
+      timeoutMs: timeoutMs(env),
+    });
   },
 };
