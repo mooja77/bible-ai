@@ -526,6 +526,42 @@ export async function runCouncil({ question, evidence, model, settings, onEvent 
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     const mock = mockCouncilResult({ question, evidence, model });
+    const mockDelayMs = parseInt(process.env.BIBLE_AI_MOCK_DELAY_MS ?? "0", 10) || 0;
+    if (mockDelayMs > 0) {
+      // Dev-only: pace the FULL run lifecycle so the live "watch it think" canvas
+      // is visible without a real run. Default 0 keeps the e2e mock instant.
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      emit("run_started", {});
+      await sleep(mockDelayMs);
+      emit("safety_checked", { status: "ok" });
+      await sleep(mockDelayMs);
+      emit("retrieval_started", {});
+      await sleep(mockDelayMs);
+      emit("retrieval_done", { count: evidence.length });
+      await sleep(mockDelayMs);
+      for (const v of mock.voices ?? []) {
+        emit("voice_started", { provider: v.provider, display_name: v.display_name });
+        await sleep(mockDelayMs);
+      }
+      for (const v of mock.voices ?? []) {
+        emit(v.status === "ok" ? "voice_done" : "voice_failed", {
+          provider: v.provider,
+          ms: 1,
+          position_count: v.result?.positions?.length ?? 0,
+        });
+        await sleep(mockDelayMs);
+      }
+      const okCount = (mock.voices ?? []).filter((v) => v.status === "ok").length;
+      if (okCount > 1) {
+        emit("synthesis_started", { voice_count: okCount });
+        await sleep(mockDelayMs);
+      }
+      const judgedPaced = judgedEventPayload(mock.synthesis);
+      if (judgedPaced) emit("judged", judgedPaced);
+      await sleep(mockDelayMs);
+      emit("run_complete", {});
+      return mock;
+    }
     emitMockSequence(mock, emit);
     return mock;
   }
