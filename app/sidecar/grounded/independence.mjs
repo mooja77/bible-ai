@@ -110,7 +110,7 @@ function analysePosition(position, okVoices) {
       independence: "single_source",
       note:
         n === 1
-          ? "Only one voice argued this position — no independent corroboration."
+          ? "Only one provider voice argued this position — no second evidence route to compare."
           : "No voice independently argued this synthesized position.",
     };
   }
@@ -132,7 +132,7 @@ function analysePosition(position, okVoices) {
       ? `${n} voices converge from ${routes} distinct evidence routes — genuine corroboration.`
       : `${n} voices agree but lean on the same ${shared.length || "few"} proof-text${
           shared.length === 1 ? "" : "s"
-        } — agreement may be echo, not independent corroboration.`,
+        } — agreement may reflect a shared evidence route rather than distinct support.`,
   };
 }
 
@@ -144,7 +144,7 @@ function summarise(positions) {
       ? `${counts.correlated} position${counts.correlated === 1 ? "" : "s"} rest on shared proof-texts — read that agreement as correlated, not independent.`
       : counts.independent > 0
         ? "Where voices agree, they corroborate from distinct evidence — independent agreement."
-        : "Agreement could not be cross-checked for independence.";
+        : "Agreement could not be compared for evidence-route diversity.";
   return {
     independent_count: counts.independent,
     correlated_count: counts.correlated,
@@ -175,7 +175,7 @@ export function buildIndependenceReport(synthesis, voices) {
       note:
         okVoices.length < 2
           ? "Independence needs at least two voices to cross-check."
-          : "No positions to assess for independence.",
+          : "No positions to assess for evidence-route diversity.",
     };
   }
   const reportPositions = positions.map((p) => analysePosition(p, okVoices));

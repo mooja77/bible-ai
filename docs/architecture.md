@@ -1,6 +1,6 @@
 # Bible AI — Architecture
 
-> Modern e-Sword alternative with a multi-agent "council" that weights disputed theological points using the full context of scripture.
+> Modern e-Sword alternative with a multi-provider Council that weighs disputed theological points against a bounded, visible set of locally retrieved Scripture evidence.
 
 ## Product shape
 

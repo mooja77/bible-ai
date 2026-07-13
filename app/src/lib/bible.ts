@@ -239,18 +239,24 @@ export interface CouncilResponse {
   scope?: CouncilScope;
   /** Channel B — independence grapher: is agreement independent or echoed proof-texts? */
   independence?: CouncilIndependence;
-  /** Channel B — soft layer: calibrated confidence, inter-voice entropy, integrity checklist. */
+  /** Channel B — soft layer: confidence adjustment, inter-voice entropy, integrity checklist. */
   soft_layer?: CouncilSoftLayer;
   /** Channel B — kill-test: an adversarial skeptic's strongest case against the leading view. */
   kill_test?: CouncilKillTest;
   /** Present when a sensitive/crisis prompt was routed away from the Council
    *  before any generation. When set, the normal result is not produced. */
-  sensitive_topic?: { category: string; message: string } | null;
+  sensitive_topic?: {
+    category: string;
+    message: string;
+    resource_locale?: string;
+    review_status?: "pending_human_safety_review" | "approved";
+  } | null;
 }
 
 export interface CouncilGrounding {
   hard_fail: boolean;
-  citation_accuracy: number;
+  citation_accuracy: number | null;
+  verification_status?: "verified" | "failed" | "unverifiable";
   out_of_corpus_verse_ids: number[];
   violations?: { verse_id: number; position: string; field: string; reason: string }[];
   uncited_positions?: string[];
@@ -424,8 +430,11 @@ export const askCouncil = (
     startVerseId: options.start_verse_id,
     endVerseId: options.end_verse_id,
     evidenceLimit: options.evidence_limit,
+    locale: navigator.language,
   });
 };
+
+export const cancelCouncil = () => invoke<void>("cancel_council");
 
 export interface PassageExplanation {
   citation: string;

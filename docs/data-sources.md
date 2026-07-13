@@ -149,6 +149,8 @@ Current scripts:
 - `scripts/ingest_tsk.py`
 - `scripts/ingest_strongs.py`
 - `scripts/embed_corpus.py`
+- `scripts/verify_corpus_lock.py`
+- `scripts/verify_corpus.py`
 
 Shared helpers:
 
@@ -169,8 +171,14 @@ Before bundling a new source:
 - Confirm the source license allows redistribution in a desktop app.
 - Add source URL and license metadata to the relevant ingest script.
 - Cache the source artifact under `data/sources/`.
+- Add or update its exact version, URL, byte count, SHA-256, license, and
+  attribution in `data/corpus-lock.json`.
 - Rebuild `data/corpus.sqlite`.
+- Run `python scripts/verify_corpus_lock.py` and
+  `python scripts/verify_corpus.py`.
 - Verify `list_translations` exposes the expected metadata in the app.
+- Obtain named content-review approval for every intended distribution
+  territory; an automated checksum is not a legal determination.
 - Update this document.
 - Run:
 
@@ -186,7 +194,8 @@ Deferred until licensing and UX are explicit:
 
 - Modern copyrighted Bible translations.
 - Manuscript images.
-- Douay-Rheims full import until alternate versification is implemented.
+- Douay-Rheims full import until a DRC/deuterocanon-specific versification map,
+  canonical identity rules, navigation UX, and rights review are approved.
 - LXX and apocrypha/deuterocanonical corpora.
 - Server-hosted paid data feeds.
 

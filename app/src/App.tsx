@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import {
   getChapter,
@@ -54,12 +54,7 @@ import { ReaderBar } from "./features/reader/ReaderBar";
 import type { ReaderLayout, ReaderDensity } from "./features/reader/types";
 import { type SearchScope } from "./features/search/SearchScopeControl";
 import { SearchPanel } from "./features/search/SearchPanel";
-import { CouncilPanel } from "./features/council/CouncilPanel";
 import { StrongsPopup } from "./features/reader/StrongsPopup";
-import { SettingsPanel } from "./features/settings/SettingsPanel";
-import { TheologyPanel } from "./features/theology/TheologyPanel";
-import { ResourcesPanel } from "./features/resources/ResourcesPanel";
-import { WorkspacesPanel } from "./features/workspaces/WorkspacesPanel";
 import { ErrorState } from "./components/StateViews";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { TagBrowser } from "./features/tags/TagBrowser";
@@ -74,6 +69,22 @@ import { settingsHasConfiguredAi } from "./lib/settings";
 import { useTheme } from "./lib/useTheme";
 import { useUiScale } from "./lib/useUiScale";
 import type { Mode } from "./lib/mode";
+
+const CouncilPanel = lazy(() =>
+  import("./features/council/CouncilPanel").then((module) => ({ default: module.CouncilPanel })),
+);
+const SettingsPanel = lazy(() =>
+  import("./features/settings/SettingsPanel").then((module) => ({ default: module.SettingsPanel })),
+);
+const TheologyPanel = lazy(() =>
+  import("./features/theology/TheologyPanel").then((module) => ({ default: module.TheologyPanel })),
+);
+const ResourcesPanel = lazy(() =>
+  import("./features/resources/ResourcesPanel").then((module) => ({ default: module.ResourcesPanel })),
+);
+const WorkspacesPanel = lazy(() =>
+  import("./features/workspaces/WorkspacesPanel").then((module) => ({ default: module.WorkspacesPanel })),
+);
 
 // Translations that have Strong's-tagged word tokens ingested.
 const TAGGED_TRANSLATIONS = new Set(["WLC"]);
@@ -645,6 +656,25 @@ function App() {
       return;
     }
     setReferenceError(null);
+    let validatedVerses: Awaited<ReturnType<typeof getVerseRange>>;
+    try {
+      validatedVerses = await getVerseRange(
+        activeTranslation,
+        parsed.verseId,
+        parsed.endVerseId,
+      );
+    } catch (e) {
+      if (requestId !== referenceJumpRequestId.current) return;
+      setReferenceError(String(e));
+      return;
+    }
+    if (requestId !== referenceJumpRequestId.current) return;
+    if (validatedVerses.length === 0) {
+      setReferenceError(
+        `${parsed.citation} is not present in the selected ${activeTranslation} edition.`,
+      );
+      return;
+    }
     // Set the location refs synchronously so the post-await guard below compares
     // against this jump's target (the mirror effect may not have run yet).
     selectedBookIdRef.current = parsed.book.id;
@@ -664,11 +694,7 @@ function App() {
       } else {
         setReferenceRangeTarget(null);
         try {
-          const verses = await getVerseRange(
-            activeTranslation,
-            parsed.verseId,
-            parsed.endVerseId,
-          );
+          const verses = validatedVerses;
           if (requestId !== referenceJumpRequestId.current) return;
           // Drop the result if the user navigated to a different location while
           // the range was loading, so we never show a panel under the wrong chapter.
@@ -1110,6 +1136,7 @@ function App() {
           </div>
         )}
         <ErrorBoundary key={mode} title="This view ran into a problem">
+        <Suspense fallback={<div role="status" className="p-6 text-sm text-neutral-400">Loading view…</div>}>
         {mode === "reader" && !error && (
           /* Editorial reader control row (W6). Controls tucked into popovers;
              jump input always rendered. */
@@ -1340,6 +1367,7 @@ function App() {
             )}
           </>
         )}
+        </Suspense>
         </ErrorBoundary>
       </main>
 

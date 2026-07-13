@@ -144,7 +144,7 @@ Install guides:
 
 Prerequisites:
 
-- Node.js 22 or newer
+- Node.js 22.12 or newer (or another version supported by the pinned Vite release)
 - Rust stable toolchain
 - Tauri 2 prerequisites for your operating system
 - Python 3 for corpus ingestion scripts
@@ -167,6 +167,8 @@ Run checks:
 
 ```bash
 npm run check
+npm run check:trust
+npm run test:e2e:build
 ```
 
 Build a Windows release package:
@@ -211,6 +213,8 @@ prompts/             Prompt and planning artifacts
 - [User-Owned AI Provider Setup](docs/user-owned-ai-setup.md)
 - [Privacy And Distribution](docs/privacy-and-distribution.md)
 - [Release Notes](docs/release-notes.md)
+- [2026-07-13 Deep Review and Implementation Report](docs/reviews/2026-07-13-project-deep-review-and-implementation-report.md)
+- [Trust Remediation Programme](docs/reviews/2026-07-13-trust-remediation-programme.md)
 
 ## Contributing
 

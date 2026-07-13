@@ -15,9 +15,15 @@ const template = {
   exports_secret_leak_check_passed: false,
   backup_restore_passed: false,
   sqlite_backup_restore_passed: false,
+  keyboard_only_workflow_passed: false,
+  screen_reader_smoke_passed: false,
+  zoom_200_percent_passed: false,
+  sensitive_topic_wording_review_passed: false,
+  localized_crisis_resources_review_passed: false,
   notes: [
     "Run this on a separate clean Windows user profile or VM.",
     "Do not paste provider keys or credential values into this file.",
+    "Safety and accessibility fields require named human review; automation must not set them.",
   ],
 };
 

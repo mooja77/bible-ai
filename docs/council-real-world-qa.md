@@ -1,6 +1,54 @@
 # Council Real-World QA
 
-Status: multi-provider release gate complete as of 2026-05-07.
+Status: current grounded single-provider run complete; multi-provider release
+gate **not complete** as of 2026-07-13.
+
+## Current contract status — 2026-07-13
+
+The current fixture contains 20 non-mock Granite 4.1 8B/Ollama results produced
+by the shipped grounded pipeline. All 20 pass the local trust predicate: complete
+grounding, scope, judge, route-diversity, soft-layer, and kill-test objects; no
+sidecar request errors; no output-level weakness flags; exact corpus-hydrated
+visible quotations; and all explicitly named primary passages retrieved.
+
+`npm run qa:real-council:verify` now rejects the fixture only because each
+question has one successful non-mock provider and the public gate requires two.
+This is intentional: a strong local run is useful evidence, but it cannot prove
+cross-family model diversity.
+
+## 2026-07-13 Current Grounded Local Run
+
+- Base command: `python scripts/run_real_council_qa.py --limit 20 --evidence-limit 24 --no-credential-vault --continue-on-error`
+- Environment: `OLLAMA_VOICE_MODEL=granite4.1:8b`, `OLLAMA_NUM_CTX=32768`, `DISABLE_CLAUDE_VOICE=1`.
+- Follow-up command: the same command plus `--resume`; only failed/untrusted
+  questions were regenerated, and already-verified results were retained only
+  when provider diagnostics matched.
+- Results: 20 questions complete, 0 sidecar request errors, 20 locally verified
+  results, `limited_provider_coverage` as the sole run warning.
+- Strict verifier: all content/stage checks pass; the sole remaining failure is
+  one successful provider per question / one successful provider across the run.
+
+Live QA found and fixed several harness/provider defects:
+
+- progress events are consumed until the correlated terminal sidecar response;
+- Ollama requests cap default context at 8,192 tokens, with
+  `OLLAMA_NUM_CTX` available for evidence-heavy QA;
+- invalid local structured output receives one bounded regeneration attempt;
+- voice output size is bounded without dropping evidence classification;
+- multiple explicit passages are interleaved instead of allowing the first
+  canonical book to exhaust the evidence limit;
+- whole-chapter queries reserve capacity for topical/FTS evidence;
+- John 6:51-58 and assurance/security/warning passages have reviewed topical
+  seeds;
+- unnumbered book aliases no longer match inside numbered books (`John` inside
+  `1 John`);
+- `--resume` reuses only grounded, stage-complete, quote-hydrated, weakness-free
+  results from the same provider/model diagnostics.
+
+The credential-vault probes found the saved Google, OpenAI, and Anthropic API
+credentials rejected by their providers. Their values were never logged. Repair
+at least one external provider credential, rerun with Ollama plus that provider,
+and do not edit responses or stage objects by hand.
 
 The app has synthetic fixture coverage for heavy provider disagreement, provider failure, and sparse evidence in `app/tests/fixtures/council-quality.json`; those fixtures are exercised by `app/tests/e2e/release-readiness.spec.ts`.
 
@@ -76,6 +124,9 @@ Run this with mock mode disabled and at least two providers configured.
    On Windows, this runner loads provider credentials saved by Settings from Windows Credential Manager for the child sidecar process. It does not print or write the secret values. Use `--no-credential-vault` if you want to rely only on shell environment variables.
    To avoid a known quota-limited provider from turning every result into a provider-failure fixture, use `--providers claude,openai` or another two-provider allowlist for the release-gate run.
    If the Anthropic API key is present but the configured Anthropic model is unavailable, add `--claude-code` so the Claude voice uses the local Claude Code login instead.
+   For long local runs, add `--resume` after the first complete attempt. It
+   reuses only results that already pass grounding/stage/quote checks and only
+   when saved provider/model diagnostics match the current run.
 4. Run `npm run qa:real-council:verify -- --fixture tests/fixtures/council-real-results.json` from `app/`.
 5. Review `app/tests/fixtures/council-real-weak-results.json`.
 6. Ask additional manual questions through the Council for cases the script does not cover.

@@ -1,12 +1,11 @@
 /**
  * Semantic search strategy E2E test.
  *
- * Tests the search-strategy control (Keyword/Meaning/Both) and the graceful
- * degradation path. The degradation is forced deterministically by selecting the
- * WEB translation (which has no semantic index in the corpus database) before
- * switching to Meaning strategy. This guarantees the "No meaning index" branch
- * in the Rust search handler fires — regardless of whether Ollama happens to be
- * running locally.
+ * Tests the search-strategy control (Keyword/Meaning/Both), WEB's completed
+ * semantic index, and the explicit fallback contract when query embedding is
+ * unavailable. A machine with Ollama returns meaning hits; a machine without it
+ * must explain its keyword fallback. Neither outcome may claim WEB lacks an
+ * index.
  *
  * Persistence assertion is NOT included because the harness creates a fresh
  * temp profile per session (mkdtempSync in beforeSession) and provides no
@@ -42,7 +41,7 @@ describe("Semantic search strategy", () => {
     await $('[data-testid="search-panel"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
-  it("selects Meaning strategy and shows degraded fallback notice with results", async () => {
+  it("uses WEB meaning search or explains query-embedding fallback", async () => {
     // Navigate to Reader mode first (council-mock spec leaves the app in
     // Council mode; the search input is in the sidebar and always visible, but
     // we need Reader mode active so Search Results can mount in the main pane).
@@ -54,10 +53,7 @@ describe("Semantic search strategy", () => {
     await browser.keys("/");
     await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
 
-    // Select the WEB translation in the search-scope filter. WEB has no
-    // semantic index in the corpus database, so any Meaning-strategy search
-    // against it will degrade to keyword — deterministically, regardless of
-    // whether Ollama is running in this environment.
+    // WEB is fully embedded in the release corpus.
     const translationFilter = await $('select[aria-label="Search translation"]');
     await translationFilter.waitForDisplayed({ timeout: 10_000 });
     await translationFilter.selectByVisibleText("WEB");
@@ -80,8 +76,8 @@ describe("Semantic search strategy", () => {
     const keyword = await $('[data-testid="search-strategy-keyword"]');
     await expect(keyword).toHaveAttribute("aria-pressed", "false");
 
-    // Type the search query — the search fires with strategy=semantic and
-    // translation=WEB (no index) → backend degrades to keyword immediately.
+    // Type the search query. Query embedding succeeds when Ollama is available;
+    // otherwise the backend must report its fallback and still return results.
     const search = await $('input[type="search"]');
     await search.waitForDisplayed({ timeout: 10_000 });
     await search.click();
@@ -91,31 +87,24 @@ describe("Semantic search strategy", () => {
     const resultsHeader = await $("h2*=Search:");
     await resultsHeader.waitForDisplayed({ timeout: 15_000 });
 
-    // WEB has no meaning index → backend sets degraded=true immediately
-    // (no Ollama call needed). The UI shows a notice and falls back to keyword.
-    // Poll via execute() since the element is conditionally rendered.
-    await browser.waitUntil(
-      () =>
-        browser.execute(
-          () =>
-            !!document.querySelector('[data-testid="search-degraded-notice"]'),
-        ),
-      {
-        timeout: 20_000,
-        timeoutMsg:
-          "search-degraded-notice did not appear (expected 'No meaning index for WEB' degradation)",
-      },
-    );
-    const degradedNotice = await $('[data-testid="search-degraded-notice"]');
-    await expect(degradedNotice).toBeDisplayed();
-
-    // Keyword fallback still returns results (WEB has FTS content).
+    // Both the indexed semantic route and the disclosed keyword fallback must
+    // return usable WEB results.
     await browser.waitUntil(
       async () => (await $$('[data-testid="search-result"]')).length > 0,
-      { timeout: 20_000, timeoutMsg: "no search results rendered after semantic strategy degraded to keyword" },
+      { timeout: 30_000, timeoutMsg: "no WEB search results rendered" },
     );
     const hits = await $$('[data-testid="search-result"]');
     expect(hits.length).toBeGreaterThan(0);
+
+    const degradedNotice = await $('[data-testid="search-degraded-notice"]');
+    if (await degradedNotice.isExisting()) {
+      const reason = await degradedNotice.getText();
+      expect(reason).toContain("Ollama");
+      expect(reason).not.toContain("No meaning index for WEB");
+    } else {
+      const meaningBadges = await $$('[data-testid="match-kind-badge"]');
+      expect(meaningBadges.length).toBeGreaterThan(0);
+    }
 
     // Clean up: restore keyword strategy, reset translation filter, clear search.
     await keyword.waitForClickable({ timeout: 5_000 });

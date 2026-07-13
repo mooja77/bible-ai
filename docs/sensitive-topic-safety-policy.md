@@ -1,7 +1,7 @@
 # Sensitive-Topic Safety Policy
 
-Status: DRAFT (for review)
-Date: 2026-06-13
+Status: DRAFT — engineering candidate implemented; human safety review pending
+Date: 2026-07-13
 Packet: EP-004 (Trust and safety gate)
 
 This is a draft for human and pastoral review. Three things in this draft
@@ -139,13 +139,13 @@ instead of running normal Council generation. This mode must:
 - For crisis or imminent harm, lead with concise safety guidance and real-world
   help routing. This is the primary response. It is not buried under Scripture
   and is not framed as a theological argument.
-- Route to real-world help. Point to appropriate services. For US users the
-  baseline crisis resource is the 988 Suicide and Crisis Lifeline
-  (call or text 988; https://988lifeline.org and
-  https://www.samhsa.gov/mental-health/988). For imminent danger, direct the
-  user to local emergency services (in the US, 911). A localized crisis and
-  help-resource configuration is required before non-US release; the resources
-  shown above are a US baseline placeholder pending that work and human review.
+- Route to real-world help using the UI locale as a conservative hint, never as
+  proof of physical location. The implemented English candidates are: Ireland
+  (`en-IE`): 112/999 and Samaritans 116 123; UK (`en-GB`): 999, NHS 111 and
+  Samaritans 116 123; US (`en-US`): 988 and 911. Unknown locales receive no
+  country-specific number and are directed to local emergency services and a
+  present trusted person. These candidates are sourced from the HSE, NHS and
+  988 Lifeline pages listed below, but remain blocked on named human review.
 - Keep theological debate out of the crisis response. The app must not produce
   an argument map, a winner, or confident pastoral advice as the primary
   response to a crisis prompt.
@@ -226,5 +226,7 @@ release blocker.
 - `docs/privacy-and-distribution.md` (privacy posture).
 - SAMHSA 988 Suicide and Crisis Lifeline: https://www.samhsa.gov/mental-health/988
 - 988 Suicide and Crisis Lifeline: https://988lifeline.org
+- HSE urgent mental-health help (Ireland): https://www2.hse.ie/mental-health/services-support/get-urgent-help/
+- NHS urgent mental-health support (UK): https://www.nhs.uk/every-mind-matters/urgent-support/
 - APA health advisory on AI chatbots and wellness apps:
   https://www.apa.org/topics/artificial-intelligence-machine-learning/health-advisory-chatbots-wellness-apps

@@ -78,7 +78,18 @@ describe("Council mock workflow", () => {
 
     const notice = await $('[data-testid="sensitive-topic-notice"]');
     await notice.waitForDisplayed({ timeout: 10_000 });
-    await expect(notice).toHaveText(expect.stringContaining("988"));
+    const locale = await browser.execute(() => navigator.language);
+    const noticeText = await notice.getText();
+    if (String(locale).toLowerCase().startsWith("en-us")) {
+      expect(noticeText).toContain("988");
+    } else if (String(locale).toLowerCase().startsWith("en-ie")) {
+      expect(noticeText).toContain("112");
+    } else if (String(locale).toLowerCase().startsWith("en-gb")) {
+      expect(noticeText).toContain("999");
+      expect(noticeText).toContain("NHS 111");
+    } else {
+      expect(noticeText).toContain("qualified professional");
+    }
 
     // The Council must NOT have generated a result for a sensitive prompt.
     const synthesis = await $("h2=Synthesis");

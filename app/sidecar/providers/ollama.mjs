@@ -15,6 +15,10 @@ import { parseResponse, VOICE_SYSTEM_PROMPT, buildVoicePrompt } from "./_shared.
 const DEFAULT_HOST = "http://localhost:11434";
 // Local 27B-class models are slow; be generous so a thorough voice isn't killed.
 const DEFAULT_TIMEOUT_MS = 600_000;
+// Avoid inheriting a model's enormous maximum context (131K/262K is common),
+// which can spill an otherwise-GPU-resident model into system RAM. Council
+// prompts fit comfortably inside 8K; operators can raise this when needed.
+const DEFAULT_NUM_CTX = 8192;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function resolveHost(env = process.env) {
@@ -23,6 +27,11 @@ export function resolveHost(env = process.env) {
 
 export function resolveModel(env = process.env) {
   return env.OLLAMA_VOICE_MODEL?.trim() || "";
+}
+
+export function resolveContextSize(env = process.env) {
+  const parsed = Number(env.OLLAMA_NUM_CTX);
+  return Number.isInteger(parsed) && parsed >= 2048 ? parsed : DEFAULT_NUM_CTX;
 }
 
 function timeoutMs(env = process.env) {
@@ -35,7 +44,15 @@ function timeoutMs(env = process.env) {
  * output to valid JSON (local models need the help); `think:false` suppresses the
  * chain-of-thought some models emit by default (faster, cleaner output).
  */
-export async function callOllama({ host, model, systemPrompt, userPrompt, timeoutMs = DEFAULT_TIMEOUT_MS, json = true }) {
+export async function callOllama({
+  host,
+  model,
+  systemPrompt,
+  userPrompt,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  numCtx = DEFAULT_NUM_CTX,
+  json = true,
+}) {
   const url = `${host}/api/chat`;
   let lastError = null;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -55,7 +72,7 @@ export async function callOllama({ host, model, systemPrompt, userPrompt, timeou
           stream: false,
           think: false,
           ...(json ? { format: "json" } : {}),
-          options: { temperature: 0.3 },
+          options: { temperature: 0.3, num_ctx: numCtx },
         }),
       });
       if (!resp.ok) {
@@ -90,14 +107,23 @@ export const ollama = {
   isAvailable: (env = process.env) => !!resolveModel(env),
   async analyze({ question, evidence, env = process.env, scopedPositions }) {
     const userPrompt = buildVoicePrompt({ question, evidence, scopedPositions });
-    const text = await callOllama({
-      host: resolveHost(env),
-      model: resolveModel(env),
-      systemPrompt: VOICE_SYSTEM_PROMPT,
-      userPrompt,
-      timeoutMs: timeoutMs(env),
-    });
-    return parseResponse(text, "Ollama");
+    let lastError = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const text = await callOllama({
+        host: resolveHost(env),
+        model: resolveModel(env),
+        systemPrompt: VOICE_SYSTEM_PROMPT,
+        userPrompt,
+        timeoutMs: timeoutMs(env),
+        numCtx: resolveContextSize(env),
+      });
+      try {
+        return parseResponse(text, "Ollama");
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError ?? new Error("Ollama: response could not be parsed");
   },
   // Raw completion for the cross-family judge + kill-test (returns model text).
   async complete({ systemPrompt, userPrompt, env = process.env }) {
@@ -107,6 +133,7 @@ export const ollama = {
       systemPrompt,
       userPrompt,
       timeoutMs: timeoutMs(env),
+      numCtx: resolveContextSize(env),
     });
   },
 };

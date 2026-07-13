@@ -205,7 +205,7 @@ Audit view:
 - Retrieved evidence rows show classification badges: used, supporting, conflicting, ignored.
 - Classification reasoning appears below the verse text when the provider supplies it.
 - Every verse links back to Reader.
-- A process view above the raw audit explains the Council flow in inspectable steps: retrieve evidence, run independent voices, cluster arguments, and expose the audit.
+- A process view above the raw audit explains the Council flow in inspectable steps: retrieve bounded evidence, run provider voices, cluster arguments, and expose the audit.
 - The leading-argument comparison explains why the top weighted position ranked above the nearest alternative using visible data: final weight, cited passages, voice agreement, and conflicting evidence.
 
 ## Explain Passage Mode

@@ -42,7 +42,8 @@ export function collectCitedVerseIds(synthesis) {
 /**
  * @typedef {Object} GroundingReport
  * @property {boolean} hard_fail
- * @property {number} citation_accuracy        in-corpus citations / total citations
+ * @property {number|null} citation_accuracy   in-corpus citations / total citations; null when absent
+ * @property {"verified"|"failed"|"unverifiable"} verification_status
  * @property {number[]} out_of_corpus_verse_ids
  * @property {Array<{verse_id:number,position:string,field:string,reason:string}>} violations
  * @property {string[]} uncited_positions      positions whose only citations are out-of-corpus
@@ -78,22 +79,55 @@ export function runGroundingFloor(synthesis, evidence, opts = {}) {
     }
   }
 
-  // Each position that cites anything must cite at least one in-corpus verse.
+  // A correct verse_id with a fabricated quotation is still an ungrounded
+  // claim. Verify visible quotations against the exact retrieved corpus row.
+  const evidenceById = new Map(
+    arr(evidence).map((row) => [Number(row?.verse_id), row]),
+  );
+  for (const p of arr(synthesis?.positions)) {
+    const label = typeof p?.label === "string" && p.label ? p.label : "(unlabelled)";
+    for (const entry of arr(p?.evidence)) {
+      const id = Number(entry?.verse_id);
+      const row = evidenceById.get(id);
+      if (!row) continue; // membership violation already recorded above
+      const claimed = normaliseQuote(entry?.quote);
+      const canonical = normaliseQuote(row?.text);
+      if (!claimed || !canonical || !canonical.includes(claimed)) {
+        violations.push({
+          verse_id: id,
+          position: label,
+          field: "evidence.quote",
+          reason: !claimed
+            ? "citation quote is missing"
+            : "citation quote does not match retrieved corpus text",
+        });
+      }
+    }
+  }
+
+  // Every asserted position must cite at least one in-corpus verse. Absence is
+  // unverifiable, never perfect accuracy.
   const uncited_positions = [];
   for (const p of arr(synthesis?.positions)) {
     const pcited = collectCitedVerseIds({ positions: [p] });
-    if (pcited.length > 0 && !pcited.some((c) => ids.has(c.verse_id))) {
+    if (!pcited.some((c) => ids.has(c.verse_id))) {
       uncited_positions.push(typeof p?.label === "string" && p.label ? p.label : "(unlabelled)");
     }
   }
 
   const cited_count = cited.length;
-  const citation_accuracy = cited_count === 0 ? 1 : inCorpus / cited_count;
+  const citation_accuracy = cited_count === 0 ? null : inCorpus / cited_count;
+  const unverifiable = cited_count === 0;
   const hard_fail =
-    outOfCorpus.size > 0 || citation_accuracy < floor || uncited_positions.length > 0;
+    unverifiable ||
+    outOfCorpus.size > 0 ||
+    violations.length > 0 ||
+    citation_accuracy < floor ||
+    uncited_positions.length > 0;
 
   return {
     hard_fail,
+    verification_status: unverifiable ? "unverifiable" : hard_fail ? "failed" : "verified",
     citation_accuracy,
     out_of_corpus_verse_ids: [...outOfCorpus],
     violations,
@@ -101,6 +135,34 @@ export function runGroundingFloor(synthesis, evidence, opts = {}) {
     cited_count,
     in_corpus_count: inCorpus,
   };
+}
+
+function normaliseQuote(value) {
+  if (typeof value !== "string") return "";
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase("und")
+    .replace(/[\p{P}\p{S}\p{Z}\s]+/gu, " ")
+    .trim();
+}
+
+/** Replace model-rendered quotations with the authoritative retrieved text. */
+export function hydrateEvidenceQuotes(synthesis, evidence) {
+  if (!synthesis || !Array.isArray(synthesis.positions)) return synthesis;
+  const evidenceById = new Map(
+    arr(evidence).map((row) => [Number(row?.verse_id), row]),
+  );
+  for (const position of synthesis.positions) {
+    for (const entry of arr(position?.evidence)) {
+      const row = evidenceById.get(Number(entry?.verse_id));
+      if (!row) continue;
+      entry.quote = row.text;
+      entry.citation = `${row.book_name} ${row.chapter}:${row.verse}`;
+      entry.translation_code = row.translation_code;
+      entry.quote_source = "retrieved_corpus";
+    }
+  }
+  return synthesis;
 }
 
 /**
@@ -112,11 +174,18 @@ export function buildRegenNote(report) {
   const ids = report.out_of_corpus_verse_ids.join(", ");
   const lines = [
     "",
-    "## GROUNDING FAILURE — you cited verses that are NOT in the provided evidence.",
-    `These verse_ids do not exist in the evidence set and MUST be removed or replaced: ${ids}.`,
+    "## GROUNDING FAILURE — the draft is not verifiable against the provided evidence.",
     "Re-issue the SAME synthesis but cite ONLY verse_ids that appear in the evidence above.",
+    "Every listed position must include at least one citation and its quote must be copied exactly from the supplied evidence text.",
     "Do not invent or recall verses from memory. If a position can no longer cite an in-evidence verse, fold it into dissent_notes or unresolved_tensions instead of listing it as a position.",
   ];
+  if (ids) {
+    lines.splice(
+      2,
+      0,
+      `These verse_ids do not exist in the evidence set and MUST be removed or replaced: ${ids}.`,
+    );
+  }
   if (report.uncited_positions.length > 0) {
     lines.push(
       `These positions have no in-evidence citation and must be re-grounded or removed: ${report.uncited_positions.join("; ")}.`,

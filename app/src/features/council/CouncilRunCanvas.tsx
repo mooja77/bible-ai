@@ -223,10 +223,10 @@ export function CouncilRunCanvas({
           </p>
         </LiveBand>
 
-        {/* 07 · Independent judge */}
+        {/* 07 · Cross-family judge */}
         <LiveBand
           step={7}
-          kicker="Independent judge"
+          kicker="Cross-family judge"
           title="A different model family cross-examines"
           status={s.judge}
           runmapStage="judge"

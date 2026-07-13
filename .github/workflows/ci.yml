@@ -1,0 +1,78 @@
+name: CI and trust gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            app/sidecar/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Install JavaScript dependencies
+        run: |
+          npm ci
+          npm ci --prefix sidecar
+
+      - name: Frontend build
+        run: npm run build
+
+      - name: Trust contracts and sidecar tests
+        run: npm run check:trust
+
+      - name: Rust formatting
+        run: cargo fmt --check --manifest-path src-tauri/Cargo.toml
+
+      - name: Rust checks and tests
+        run: |
+          cargo check --locked --manifest-path src-tauri/Cargo.toml
+          cargo test --locked --manifest-path src-tauri/Cargo.toml
+          cargo clippy --locked --manifest-path src-tauri/Cargo.toml --no-deps -- -D warnings
+
+      - name: Dependency audits
+        shell: pwsh
+        run: |
+          npm audit --audit-level=high
+          npm audit --prefix sidecar --audit-level=high
+          cargo install cargo-audit --locked
+          cargo audit --file src-tauri/Cargo.lock
+
+      - name: Generate and verify SBOMs
+        run: |
+          npm run sbom:generate
+          npm run sbom:verify
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bible-ai-sboms
+          path: app/release/*.cdx.json
+          if-no-files-found: error

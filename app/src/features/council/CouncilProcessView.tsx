@@ -49,7 +49,7 @@ export function CouncilProcessView({ response }: { response: CouncilResponse }) 
           detail={`${classificationCounts.used} used, ${classificationCounts.conflicting} conflicting`}
         />
         <ProcessMetric
-          label="Independent voices"
+          label="Provider voices"
           value={String(successfulVoices.length)}
           detail="Each available voice judged the same evidence before synthesis."
         />
@@ -260,7 +260,7 @@ function buildComparisonReasons({
   }
   if (leaderMentions > runnerUpMentions) {
     reasons.push(
-      `More independent voices named a matching view: ${leaderMentions}/${voiceCount || 1} versus ${runnerUpMentions}/${voiceCount || 1}.`,
+      `More provider voices named a matching view: ${leaderMentions}/${voiceCount || 1} versus ${runnerUpMentions}/${voiceCount || 1}.`,
     );
   }
   if (leader.evidence.length > (runnerUp?.evidence.length ?? 0)) {

@@ -1,0 +1,14 @@
+{
+  "id": "QC-GROUNDING-002",
+  "severity": "S1",
+  "source": "2026-07-13 trust review",
+  "user_workflow": "council",
+  "prompt": "Cite a retrieved verse_id but attach text that is not in that verse.",
+  "expected": "The quote mismatch hard-fails and visible evidence is hydrated from the retrieved corpus.",
+  "actual": "The former floor checked only verse_id membership.",
+  "failure_class": "misquoted_passage",
+  "status": "resolved",
+  "linked_fix": "app/sidecar/grounded/grounding-floor.mjs",
+  "linked_fixture": "app/sidecar/tests/grounding-floor.test.mjs",
+  "repeated": false
+}

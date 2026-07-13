@@ -20,7 +20,11 @@ function position(label, ids) {
     summary: "",
     supporting_evidence_ids: ids,
     challenging_evidence_ids: [],
-    evidence: ids.map((verse_id) => ({ verse_id, citation: "", quote: "" })),
+    evidence: ids.map((verse_id) => ({
+      verse_id,
+      citation: "",
+      quote: evidence.find((row) => row.verse_id === verse_id)?.text ?? "",
+    })),
   };
 }
 
@@ -54,12 +58,21 @@ test("a position whose only citations are out-of-corpus is flagged", () => {
   assert.ok(r.uncited_positions.includes("Ungrounded"));
 });
 
-test("a synthesis with no citations does not hard-fail (cannot adjudicate)", () => {
+test("a synthesis with no citations hard-fails as unverifiable", () => {
   const synthesis = { positions: [{ label: "Empty", weight: 1, evidence: [] }] };
   const r = runGroundingFloor(synthesis, evidence);
-  assert.equal(r.hard_fail, false);
+  assert.equal(r.hard_fail, true);
+  assert.equal(r.verification_status, "unverifiable");
   assert.equal(r.cited_count, 0);
-  assert.equal(r.citation_accuracy, 1);
+  assert.equal(r.citation_accuracy, null);
+});
+
+test("a fabricated quotation for a retrieved verse hard-fails", () => {
+  const synthesis = { positions: [position("Invented quote", [43003016])] };
+  synthesis.positions[0].evidence[0].quote = "This is not in John 3:16";
+  const r = runGroundingFloor(synthesis, evidence);
+  assert.equal(r.hard_fail, true);
+  assert.ok(r.violations.some((v) => v.field === "evidence.quote"));
 });
 
 test("collectCitedVerseIds pulls ids from every field", () => {

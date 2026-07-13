@@ -125,6 +125,7 @@ export const config: WebdriverIO.Config = {
   specs: [
     [
       "./tests/e2e/smoke.spec.ts",
+      "./tests/e2e/axe-accessibility.spec.ts",
       "./tests/e2e/workspace.spec.ts",
       "./tests/e2e/reader-interactions.spec.ts",
       "./tests/e2e/backup-restore.spec.ts",

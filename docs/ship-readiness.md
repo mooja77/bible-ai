@@ -1,15 +1,18 @@
 # Ship Readiness
 
-Date: 2026-06-14
-Status: Shippable as a public/private beta once the human gates below are done.
+Date: 2026-07-13
+Status: Engineering baseline green; **public release blocked by current evidence gates**.
 
 This is the straight answer to "is the product finished / shippable to end users."
 
 ## Bottom line
 
-The app is feature-complete and **passes every automated release gate**. The only
-things between here and a shipped beta are gates that require a human on a real
-machine (and one product decision). Nothing more needs to be *built*.
+The remediation engineering is complete and the local automated build, corpus,
+security, and WebView suites pass. The app is not yet approved for public
+distribution because the current real-provider evidence has only one successful
+provider family and the named human rights, safety, accessibility, clean-profile,
+and distribution attestations have not been completed. A private development
+build is usable; a public release is not authorized by the current evidence.
 
 ## What is verified (done)
 
@@ -20,26 +23,45 @@ machine (and one product decision). Nothing more needs to be *built*.
   validates DB identity and scrubs legacy secrets; imports are size-budgeted and
   unreviewed sources are quarantined.
 - Study Packet v1 folder export works end-to-end with a write-boundary leak guard.
-- AI quality: fabricated-citation gate over the Council fixtures; quality-case
-  schema + resolution rule.
-- Release pipeline: `npm run release:check` (verify/manifest/summary/package/
-  archive + smokes) and **Real Council QA** (`qa:real-council:verify`, 20 real
-  Gemini/OpenAI results) pass.
-- `npm run check` is green: vite build, Rust (fmt/check/clippy `-D warnings`/112
-  tests), 85 sidecar tests, all `node --check`, leak + quality-case + quality
-  gates.
+- Corpus trust: 11 source artifacts checksum-locked; explicit edition
+  versification mappings; 155,557 mappings; 155,556 text-bearing embeddings;
+  no unexplained orphan verses; full source and corpus verifiers pass.
+- AI quality: citation-free output is unverifiable; visible Scripture quotations
+  are hydrated from retrieved corpus rows; five adversarial quality cases pass;
+  provider cancellation crosses the sidecar boundary.
+- Automated quality: `npm run check`, 148 sidecar tests, 122 Rust tests, strict
+  Clippy, schema sync, both npm audits, Cargo audit, and CycloneDX SBOM validation
+  pass.
+- Desktop behavior: all 77 WebView E2E tests pass, including the Reader/Council
+  axe scan, keyboard/focus behavior, contrast, and maximum text scaling.
 
-The single failing gate today is **Manual clean-profile QA** in
-`qa:public-release:verify` -- and it fails only because no human has performed and
-recorded it yet (`release/manual-release-gates.json` is still the blank template).
+The current 20-result Granite/Ollama fixture passes every local grounding, quote,
+primary-passage, stage, and output-weakness check with zero sidecar errors. It
+does **not** pass the release contract because only one non-mock provider succeeds
+per question. This is expected fail-closed behavior; local-model quality cannot
+be presented as cross-family provider evidence.
 
 ## The exact steps to ship (human)
 
-1. **Build the release installer** (on a Windows machine):
-   `cd app && npm run release:build`
-   This runs `tauri build` (NSIS/MSI installers) + the full `release:check` chain.
+1. **Repair one external provider credential and complete multi-provider
+   evidence.** The saved Google, OpenAI, and Anthropic credentials were rejected
+   during the 2026-07-13 live probes. Run the current suite with Granite/Ollama
+   plus one working external family, using `--resume` only when provider/model
+   diagnostics match, then run `cd app && npm run qa:real-council:verify`.
+   Provider names, model IDs, retrieval evidence, and every trust stage must be
+   present; do not edit the fixture by hand to make it pass.
 
-2. **Manual clean-profile QA** on a *separate clean Windows user profile or VM*
+2. **Complete content and safety review** with named qualified reviewers:
+   `npm run qa:content-review:template`, record the target territories and every
+   source's redistribution/attribution decision, and run
+   `npm run qa:content-review:verify`. A pastoral/crisis professional must also
+   review the wording and localized resource candidates in
+   `docs/sensitive-topic-safety-policy.md`.
+
+3. **Build the release installer** on the target Windows build machine. Record
+   hashes for the exact installer, corpus, sidecar, and SBOM artifacts.
+
+4. **Manual clean-profile QA** on a *separate clean Windows user profile or VM*
    (never your dev profile). Install the built installer, then verify and record
    each in `app/release/manual-release-gates.json` (template already present;
    regenerate with `npm run qa:manual-gates:template`):
@@ -52,36 +74,35 @@ recorded it yet (`release/manual-release-gates.json` is still the blank template
    Do NOT fill these in without actually doing the checks -- the gate exists
    precisely so a person attests to a clean-machine install.
 
-3. **Verify the public-release gate**: `npm run qa:public-release:verify` must
-   pass (it will, once step 2 is honestly recorded).
+   The evidence must also include keyboard-only, screen-reader, 200% zoom,
+   localized safety-resource wording, and content-review results.
 
-4. **Signing decision** (per `docs/distribution-channel-decision.md`): a public
+5. **Signing decision** (per `docs/distribution-channel-decision.md`): a public
    *beta* may ship **unsigned** as long as the SmartScreen/"unknown publisher"
    warning is documented in the release notes. Acquiring a Windows code-signing
    certificate is the alternative and unblocks the auto-updater later. This is a
    cost/identity decision for the owner.
 
-5. **Pastoral / content sign-off** (genuinely required for a faith + AI tool):
-   - The crisis wording in `SENSITIVE_TOPIC_MESSAGE` (`app/src-tauri/src/lib.rs`)
-     and the sensitive-topic taxonomy/coverage (see
-     `docs/sensitive-topic-safety-policy.md`). Marked `TODO(pastoral-review)`.
-   - The license/redistribution cells marked `TODO confirm` in
-     `docs/content-bom.md`.
+6. **Verify the public-release and installed-build gates**. Both
+   `npm run qa:public-release:verify` and the release smoke/install-smoke chain
+   must pass against the exact artifacts intended for publication.
 
-6. **Publish**: GitHub Release with the installer + SHA-256 checksums, the release
+7. **Publish**: GitHub Release with the installer + SHA-256 checksums, the release
    notes (`docs/release-notes.md`), the known-issues list, the privacy note, and
    the unsigned-installer warning if shipping unsigned.
 
 ## What only a human can do (recap)
 
-- The manual clean-machine QA + attestation (step 2) and the build/publish (1, 6).
-- The signing certificate decision (4).
-- Pastoral/legal sign-off on safety + license wording (5).
-- Real-provider spend is already evidenced (Real Council QA, 20 results); future
-  real-provider testing uses the owner's keys.
+- Repairing/authorizing a second provider account and accepting any associated
+  API cost; the current local-provider evidence is already captured.
+- Content/licensing review for the actual target territories.
+- Pastoral/crisis-professional review of safety wording and local resources.
+- Keyboard, screen-reader, zoom, credential-vault, and clean-profile attestation.
+- Signing/notarization decisions, installed-build smoke, and publication.
+- A separate macOS build/sign/notarization pass on macOS before any `.dmg` claim.
 
 ## Honest verdict
 
-Engineering-complete and gate-green. It is **shippable as a beta** the moment a
-person completes the clean-machine QA attestation, makes the signing call, and
-signs off the crisis wording. There is no remaining build work blocking a ship.
+Engineering-complete, but not release-evidence-complete. Do not call the current
+state publicly shippable until the current-pipeline provider fixture and all
+named human attestations pass the fail-closed release gate.

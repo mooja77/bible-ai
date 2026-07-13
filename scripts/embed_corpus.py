@@ -47,6 +47,19 @@ def embed_batch(model: str, texts: list[str]) -> list[list[float]]:
     return embs
 
 
+def embed_batch_resilient(model: str, texts: list[str]) -> list[list[float]]:
+    """Split an oversized Ollama batch without losing progress or ordering."""
+    try:
+        return embed_batch(model, texts)
+    except urllib.error.HTTPError as error:
+        if error.code != 400 or len(texts) <= 1:
+            raise
+        midpoint = len(texts) // 2
+        return embed_batch_resilient(model, texts[:midpoint]) + embed_batch_resilient(
+            model, texts[midpoint:]
+        )
+
+
 def pack_f32(floats: list[float]) -> bytes:
     return struct.pack(f"<{len(floats)}f", *floats)
 
@@ -102,7 +115,12 @@ def main() -> None:
             texts = [r[1] for r in batch]
 
             try:
-                embs = embed_batch(args.model, texts)
+                embs = embed_batch_resilient(args.model, texts)
+            except urllib.error.HTTPError as e:
+                detail = e.read().decode("utf-8", errors="replace")
+                print(f"\n  Ollama rejected a single input at offset {batch_start}: {detail}")
+                failed = True
+                break
             except urllib.error.URLError as e:
                 sys.exit(
                     f"Could not reach Ollama at {OLLAMA_BATCH_URL}: {e}. Is `ollama serve` running?"

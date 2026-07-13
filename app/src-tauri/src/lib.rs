@@ -397,8 +397,8 @@ mod command_input_tests {
         bounded_limit, classify_sensitive_topic, council_retrieval_fallback_reason,
         normalize_app_settings, normalize_model_id, normalize_module_key_value,
         normalize_strongs_codes, normalize_testament_filter, normalize_translation_code_value,
-        provider_settings_for_legacy_migration, validate_book_chapter, validate_book_id,
-        validate_hex_color, validate_verse_range,
+        provider_settings_for_legacy_migration, sensitive_topic_message, validate_book_chapter,
+        validate_book_id, validate_hex_color, validate_verse_range,
     };
     use crate::user_db::AppSettings;
 
@@ -428,6 +428,62 @@ mod command_input_tests {
         assert!(classify_sensitive_topic("What does Romans 9 say about election?").is_none());
         assert!(classify_sensitive_topic("Did Jesus die for our sins?").is_none());
         assert!(classify_sensitive_topic("How do I forgive someone who hurt me?").is_none());
+    }
+
+    #[test]
+    fn sensitive_router_covers_every_policy_category() {
+        let cases = [
+            ("I want to end my life", "self-harm or suicide"),
+            ("I am going to hurt someone", "harm to others"),
+            ("my partner hits me", "abuse"),
+            ("I was sexually assaulted", "sexual abuse or coercion"),
+            ("a child is being abused", "child safety"),
+            (
+                "should I stop my medication",
+                "medical or mental-health crisis",
+            ),
+            (
+                "should I invest my life savings",
+                "high-stakes legal or financial decision",
+            ),
+            ("my grief is unbearable", "pastoral emergency"),
+            (
+                "I will be shunned if I leave",
+                "spiritual abuse or coercion",
+            ),
+            ("I hit my child", "confession involving harm"),
+        ];
+        for (prompt, expected) in cases {
+            assert_eq!(classify_sensitive_topic(prompt), Some(expected), "{prompt}");
+        }
+    }
+
+    #[test]
+    fn sensitive_router_passes_auditable_direct_and_indirect_fixtures() {
+        let fixtures: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/sensitive-topic-cases.json"
+        ))
+        .expect("sensitive-topic fixture is valid JSON");
+        for case in fixtures.as_array().expect("fixture is an array") {
+            let prompt = case["prompt"].as_str().expect("prompt");
+            let expected = case["expected_category"]
+                .as_str()
+                .expect("expected category");
+            assert_eq!(classify_sensitive_topic(prompt), Some(expected), "{prompt}");
+        }
+    }
+
+    #[test]
+    fn sensitive_resources_are_locale_specific_and_safe_by_default() {
+        let (ie, ie_message) = sensitive_topic_message(Some("en-IE"));
+        assert_eq!(ie, "en-IE");
+        assert!(ie_message.contains("112 or 999"));
+        assert!(ie_message.contains("116 123"));
+
+        let (fallback, fallback_message) = sensitive_topic_message(Some("fr-FR"));
+        assert_eq!(fallback, "international");
+        assert!(!fallback_message.contains("988"));
+        assert!(!fallback_message.contains("911"));
     }
 
     #[test]
@@ -2686,14 +2742,19 @@ const PDF_FONT: &[u8] = include_bytes!("../fonts/DejaVuSans.ttf");
 /// order — Markdown or HTML export is preferable when Hebrew word order
 /// matters.
 fn render_text_pdf(title: &str, text: &str) -> Result<Vec<u8>, String> {
-    use printpdf::{Mm, PdfDocument};
+    use krilla::{
+        geom::Point,
+        page::PageSettings,
+        text::{Font, TextDirection},
+        Document,
+    };
 
-    // US Letter, in millimetres. printpdf's Mm/font-size types are f32.
-    const PAGE_W: f32 = 215.9;
-    const PAGE_H: f32 = 279.4;
-    const MARGIN: f32 = 18.0;
+    // US Letter in PDF points (72 points per inch).
+    const PAGE_W: f32 = 612.0;
+    const PAGE_H: f32 = 792.0;
+    const MARGIN: f32 = 51.0;
     const FONT_SIZE: f32 = 10.0;
-    const LEADING: f32 = 4.4; // vertical mm between baselines
+    const LEADING: f32 = 12.5;
     const LINES_PER_PAGE: usize = 54;
     const MAX_LINE_CHARS: usize = 90;
 
@@ -2727,30 +2788,36 @@ fn render_text_pdf(title: &str, text: &str) -> Result<Vec<u8>, String> {
         lines.push(line);
     }
 
-    let (doc, first_page, first_layer) = PdfDocument::new(title, Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
-    let font = doc
-        .add_external_font(PDF_FONT)
-        .map_err(|e| format!("could not load the PDF font: {e}"))?;
+    let font = Font::new(PDF_FONT.into(), 0)
+        .ok_or_else(|| "could not load the embedded PDF font".to_string())?;
+    let page_settings = PageSettings::from_wh(PAGE_W, PAGE_H)
+        .ok_or_else(|| "invalid PDF page dimensions".to_string())?;
+    let mut document = Document::new();
 
     // `lines` always holds at least the title row, so there is always a page.
-    let page_chunks: Vec<&[String]> = lines.chunks(LINES_PER_PAGE).collect();
-    let mut page_refs = vec![(first_page, first_layer)];
-    for _ in 1..page_chunks.len() {
-        page_refs.push(doc.add_page(Mm(PAGE_W), Mm(PAGE_H), "Layer 1"));
-    }
-
-    for (chunk, (page, layer_idx)) in page_chunks.iter().zip(page_refs.iter()) {
-        let layer = doc.get_page(*page).get_layer(*layer_idx);
-        let mut y = PAGE_H - MARGIN;
-        for line in chunk.iter() {
+    for chunk in lines.chunks(LINES_PER_PAGE) {
+        let mut page = document.start_page_with(page_settings.clone());
+        let mut surface = page.surface();
+        let mut y = MARGIN;
+        for line in chunk {
             if !line.is_empty() {
-                layer.use_text(line, FONT_SIZE, Mm(MARGIN), Mm(y), &font);
+                surface.draw_text(
+                    Point::from_xy(MARGIN, y),
+                    font.clone(),
+                    FONT_SIZE,
+                    line,
+                    false,
+                    TextDirection::Auto,
+                );
             }
-            y -= LEADING;
+            y += LEADING;
         }
+        surface.finish();
+        page.finish();
     }
 
-    doc.save_to_bytes()
+    document
+        .finish()
         .map_err(|e| format!("could not serialise the PDF: {e}"))
 }
 
@@ -2791,11 +2858,30 @@ mod pdf_tests {
 /// embeddings table is populated and Ollama is reachable; otherwise falls
 /// back to the FTS OR-query path. Either way, evidence is handed to the
 /// sidecar along with the question.
-// TODO(pastoral-review): the exact crisis wording and the real-world resources
-// (US 988 is a placeholder; non-US localization is required) must be reviewed by
-// a person, ideally with pastoral/crisis-response input, before release. See
-// docs/sensitive-topic-safety-policy.md.
-const SENSITIVE_TOPIC_MESSAGE: &str = "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, or emergency service. If you or someone else may be in danger, please reach out to a real person who can help right now. In the US you can call or text 988 (the Suicide and Crisis Lifeline), or call 911 for an emergency. You matter, and you deserve support from someone who can be present with you.";
+fn sensitive_topic_message(locale: Option<&str>) -> (&'static str, &'static str) {
+    let locale = locale.unwrap_or("").to_ascii_lowercase();
+    let common = "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. Please contact a trusted person or qualified professional who can be present with you.";
+    if locale.starts_with("en-ie") {
+        return (
+            "en-IE",
+            "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. If you or someone else may be about to come to harm in Ireland, phone 112 or 999 or go to an emergency department now. For confidential listening support, Samaritans is available free on 116 123. Please also contact a trusted person or qualified professional who can be present with you.",
+        );
+    }
+
+    if locale.starts_with("en-gb") {
+        return (
+            "en-GB",
+            "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. If you or someone else is in immediate danger in the UK, call 999 or go to A&E now. For urgent mental-health help call NHS 111; for confidential listening support call Samaritans free on 116 123. Please also contact a trusted person or qualified professional who can be present with you.",
+        );
+    }
+    if locale.starts_with("en-us") {
+        return (
+            "en-US",
+            "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. In the US, call or text 988 for crisis support. If you or someone else is in immediate danger, call 911 now. Please also contact a trusted person or qualified professional who can be present with you.",
+        );
+    }
+    ("international", common)
+}
 
 /// Starter rule set for the pre-Council sensitive-topic router (EP-020). It is
 /// rule-based, local, and deliberately conservative: the dangerous failure is a
@@ -2828,6 +2914,10 @@ fn classify_sensitive_topic(question: &str) -> Option<&'static str> {
                 "take my own life",
                 "end it all",
                 "overdose",
+                "everyone would be better off without me",
+                "won't be here tomorrow",
+                "does my life still have worth",
+                "my life still has worth",
             ],
         ),
         (
@@ -2840,21 +2930,8 @@ fn classify_sensitive_topic(question: &str) -> Option<&'static str> {
                 "going to hurt someone",
                 "make them pay",
                 "shoot them",
-            ],
-        ),
-        (
-            "abuse",
-            &[
-                "being abused",
-                "abusing me",
-                "molest",
-                "rape",
-                "sexually assault",
-                "beats me",
-                "hits me",
-                "domestic violence",
-                "my husband hits",
-                "my partner hits",
+                "afraid i might hurt",
+                "lose control and make them pay",
             ],
         ),
         (
@@ -2864,6 +2941,104 @@ fn classify_sensitive_topic(question: &str) -> Option<&'static str> {
                 "hurting a child",
                 "touched a child",
                 "child is being abused",
+                "child is not safe at home",
+                "little one is being hurt",
+            ],
+        ),
+        (
+            "sexual abuse or coercion",
+            &[
+                "sexually assaulted",
+                "forced me to have sex",
+                "sexual coercion",
+                "was raped",
+                "being raped",
+                "unwanted sexual touching",
+                "made me do sexual things",
+                "molest",
+                "rape",
+            ],
+        ),
+        (
+            "abuse",
+            &[
+                "being abused",
+                "abusing me",
+                "beats me",
+                "hits me",
+                "domestic violence",
+                "my husband hits",
+                "my partner hits",
+                "controls my money and won't let me leave",
+                "monitors my phone and won't let me leave",
+            ],
+        ),
+        (
+            "medical or mental-health crisis",
+            &[
+                "having chest pain",
+                "cannot breathe",
+                "can't breathe",
+                "should i stop my medication",
+                "stopped taking my medication",
+                "hearing voices telling me",
+                "losing touch with reality",
+                "medical emergency",
+                "having a psychotic episode",
+                "friend took too many pills",
+                "took too many pills",
+            ],
+        ),
+        (
+            "high-stakes legal or financial decision",
+            &[
+                "should i sign this contract",
+                "represent myself in court",
+                "court hearing tomorrow",
+                "should i plead guilty",
+                "need legal advice",
+                "invest my life savings",
+                "put all my money into",
+                "should i declare bankruptcy",
+                "about to lose my home",
+                "scripture decide my court case",
+            ],
+        ),
+        (
+            "pastoral emergency",
+            &[
+                "god has abandoned me and i cannot cope",
+                "grief is unbearable",
+                "faith crisis and i am alone",
+                "spiritual crisis and cannot cope",
+                "need a pastor right now",
+                "cannot survive this crisis of faith alone",
+            ],
+        ),
+        (
+            "spiritual abuse or coercion",
+            &[
+                "pastor controls my",
+                "church controls my",
+                "church threatened me",
+                "pastor threatened me",
+                "shunned if i leave",
+                "god will punish me unless",
+                "religious leader blackmail",
+                "forced to obey my pastor",
+                "leader says i must cut off my family",
+            ],
+        ),
+        (
+            "confession involving harm",
+            &[
+                "i abused someone",
+                "i hurt someone and need absolution",
+                "i hit my child",
+                "i harmed a child",
+                "confess that i killed",
+                "forgive me for hurting someone",
+                "asking for absolution after i harmed",
             ],
         ),
     ];
@@ -2873,6 +3048,11 @@ fn classify_sensitive_topic(question: &str) -> Option<&'static str> {
         }
     }
     None
+}
+
+#[tauri::command]
+fn cancel_council(state: tauri::State<'_, SidecarState>) {
+    state.cancel_active();
 }
 
 #[tauri::command]
@@ -2892,7 +3072,9 @@ async fn ask_council(
     testament: Option<String>,
     start_verse_id: Option<i64>,
     end_verse_id: Option<i64>,
+    locale: Option<String>,
 ) -> Result<serde_json::Value, String> {
+    let cancellation_epoch = state.cancellation_epoch();
     let question = question.trim().to_string();
     if question.is_empty() {
         return Err("Council question is required".to_string());
@@ -2925,6 +3107,7 @@ async fn ask_council(
     // never enter normal Council generation. Return a calm safety response
     // before any retrieval, provider call, or session persistence happens.
     if let Some(category) = classify_sensitive_topic(&question) {
+        let (resource_locale, message) = sensitive_topic_message(locale.as_deref());
         emit(
             "safety_checked",
             serde_json::json!({ "status": "blocked", "category": category }),
@@ -2932,7 +3115,9 @@ async fn ask_council(
         return Ok(serde_json::json!({
             "sensitive_topic": {
                 "category": category,
-                "message": SENSITIVE_TOPIC_MESSAGE,
+                "message": message,
+                "resource_locale": resource_locale,
+                "review_status": "pending_human_safety_review",
             }
         }));
     }
@@ -3161,7 +3346,7 @@ async fn ask_council(
         body["position_evidence"] = serde_json::Value::Array(position_evidence.clone());
     }
     let mut result = state
-        .request_streaming(&app, "council", body, |event| {
+        .request_streaming_at_epoch(&app, "council", body, cancellation_epoch, |event| {
             let kind = event
                 .get("kind")
                 .and_then(serde_json::Value::as_str)
@@ -4755,6 +4940,7 @@ pub fn run() {
             backup_user_sqlite,
             restore_user_sqlite,
             ask_council,
+            cancel_council,
             explain_passage,
             list_council_sessions,
             get_council_session,

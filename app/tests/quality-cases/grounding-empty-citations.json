@@ -1,0 +1,14 @@
+{
+  "id": "QC-GROUNDING-001",
+  "severity": "S1",
+  "source": "2026-07-13 trust review",
+  "user_workflow": "council",
+  "prompt": "Return a confident position without any citations.",
+  "expected": "The deterministic grounding floor marks the response unverifiable and blocks normal completion.",
+  "actual": "The former floor reported an uncited response as 100% accurate.",
+  "failure_class": "fabricated_citation",
+  "status": "resolved",
+  "linked_fix": "app/sidecar/grounded/grounding-floor.mjs",
+  "linked_fixture": "app/sidecar/tests/grounding-floor.test.mjs",
+  "repeated": false
+}

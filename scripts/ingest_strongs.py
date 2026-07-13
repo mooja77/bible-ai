@@ -18,11 +18,13 @@ import urllib.request
 from _lib import open_corpus, ensure_schema, SOURCES_DIR
 
 GREEK_URL = (
-    "https://raw.githubusercontent.com/openscriptures/strongs/master/"
+    "https://raw.githubusercontent.com/openscriptures/strongs/"
+    "0acd2f251c2d35ff8db2dece4e0593979d3ac223/"
     "greek/strongs-greek-dictionary.js"
 )
 HEBREW_URL = (
-    "https://raw.githubusercontent.com/openscriptures/strongs/master/"
+    "https://raw.githubusercontent.com/openscriptures/strongs/"
+    "0acd2f251c2d35ff8db2dece4e0593979d3ac223/"
     "hebrew/strongs-hebrew-dictionary.js"
 )
 

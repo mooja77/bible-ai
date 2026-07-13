@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   askCouncil,
+  cancelCouncil,
   getCouncilSession,
   listCouncilSessions,
   upsertCouncilJudgment,
@@ -220,21 +221,25 @@ export function CouncilPanel({
       }
       refreshSessions();
     } catch (e) {
+      if (String(e).includes("Council is taking longer than expected")) {
+        await cancelCouncil().catch(() => undefined);
+      }
       if (requestId === councilViewRequestId.current) setError(String(e));
     } finally {
       if (requestId === councilViewRequestId.current) setLoading(false);
     }
   };
 
-  const onCancelCouncil = () => {
-    // Client-side cancel: bump the request id so the in-flight run's late result
-    // is suppressed (onAsk ignores results whose id is stale), and reset the UI
-    // so the user can ask again. The backend run still completes and is saved;
-    // true provider-level abort is separate transport work.
+  const onCancelCouncil = async () => {
     councilViewRequestId.current += 1;
     setLoading(false);
     setError(null);
     setPacketStatus(null);
+    try {
+      await cancelCouncil();
+    } catch (e) {
+      setError(`Could not stop the Council run: ${String(e)}`);
+    }
   };
 
   const onExportPacket = async () => {

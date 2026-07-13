@@ -501,7 +501,7 @@ export function CouncilReasoningCanvas({
               )}
               {response.judge?.available ? (
                 <p className="reasoning-note">
-                  <span className="reasoning-verify-label">Independent check</span> —{" "}
+                  <span className="reasoning-verify-label">Cross-family check</span> —{" "}
                   {response.judge.parsed ? (
                     <>
                       a different model family ({response.judge.judge_provider}) judged this{" "}
@@ -545,7 +545,7 @@ export function CouncilReasoningCanvas({
               )}
               {response.soft_layer?.available && response.soft_layer.confidence && (
                 <p className="reasoning-note">
-                  <span className="reasoning-verify-label">Calibrated confidence</span> —{" "}
+                  <span className="reasoning-verify-label">Confidence adjustment</span> —{" "}
                   {response.soft_layer.confidence.downgraded ? (
                     <>
                       model said {response.soft_layer.confidence.stated ?? "—"}, read as{" "}

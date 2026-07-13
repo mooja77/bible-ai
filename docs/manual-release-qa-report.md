@@ -1,8 +1,15 @@
 # Manual Release QA Report
 
-Date: 2026-05-02
+Date: 2026-05-02; current status corrected 2026-07-13
 
 ## Current Status
+
+The May run below is retained as historical evidence only. It is **not valid for
+the current public-release contract**. The current real-Council verifier rejects
+that fixture because it predates the grounding, scope, cross-family judge,
+evidence-route diversity, confidence-adjustment, kill-test, quote-hydration, and
+primary-passage gates. A named content-rights review is also absent. See
+`docs/ship-readiness.md` for the current sequence.
 
 Automated release verification is available through:
 
@@ -17,7 +24,7 @@ Automated release verification is available through:
 - `npm run qa:manual-gates:verify`
 - `npm run qa:public-release:verify`
 
-Latest automated run on 2026-05-07:
+Historical automated run on 2026-05-07:
 
 - `npm run check` passed.
 - `npm run tauri build -- --debug --no-bundle` passed.
@@ -29,10 +36,12 @@ Latest automated run on 2026-05-07:
 - The manual gate collector was tested against a temporary clean profile path; the generated JSON passed `npm run qa:manual-gates:verify` when all manual switches were supplied.
 - `npm run qa:manual-gates:package` and `npm run qa:manual-gates:package:verify` passed, producing a portable clean-profile QA package at `app/src-tauri/target/release/manual-qa-package`.
 
-Release-readiness additions since that run:
+Historical release-readiness additions recorded after that run:
 
 - WEB is bundled in the corpus.
-- Real Council QA fixtures were captured from a 20-question Gemini+OpenAI non-mock run that passed the machine-checkable release gate.
+- Real Council QA fixtures were captured from a 20-question Gemini+OpenAI
+  non-mock run that passed the **then-current** machine-checkable release gate;
+  they do not pass the 2026-07-13 contract.
 - Explicit-reference retrieval was added for questions that name passages directly.
 - E2E coverage now checks that Council source JSON does not expose Windows paths or provider key names.
 - Settings includes in-app license, attribution, and privacy disclosures.
@@ -95,10 +104,18 @@ The helper creates or resets a temporary `.\\BibleAIQA` local user and writes si
 9. Create and restore a SQLite backup.
 10. Open source data drawers and exported files.
 11. Confirm no local filesystem paths, provider keys, or raw API credentials appear in exports or source drawers.
+12. Complete the core flow by keyboard only and with a screen reader.
+13. Verify Reader, Council, Settings, and exported content at 200% zoom/text scale.
+14. Review the localized sensitive-topic wording and candidate resources for the
+    target territory with the named safety reviewer.
+15. Verify the named content-rights decision and attribution for every bundled
+    source against the exact release artifact.
 
 ## Public Release Gate
 
-Public release remains blocked until the clean-profile installer checklist and credential-vault profile checks are signed off. Multi-provider Council QA is complete.
+Public release remains blocked until the clean-profile, accessibility,
+credential-vault, safety, and content-rights checks are signed off and a new
+real-provider fixture passes the current grounded-pipeline contract.
 
 The final public-release command is:
 
@@ -107,7 +124,8 @@ cd app
 npm run qa:public-release:verify
 ```
 
-It fails until both evidence files are present and valid:
+It fails until all three evidence files are present and valid:
 
 - `app/tests/fixtures/council-real-results.json`
 - `app/release/manual-release-gates.json`
+- `app/release/content-review.json`

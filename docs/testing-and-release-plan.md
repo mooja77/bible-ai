@@ -138,7 +138,7 @@ Test with mock Council:
 4. Open audit panel.
 5. Verify retrieved evidence is listed.
 6. Verify evidence classification badges render.
-7. Verify the Council process view explains evidence retrieval, independent voices, synthesis clustering, and why the leading argument ranked above the nearest alternative.
+7. Verify the Council process view explains bounded evidence retrieval, provider voices, synthesis clustering, and why the leading argument ranked above the nearest alternative.
 8. Restore session and verify retrieval settings persist.
 
 ### Explain Passage

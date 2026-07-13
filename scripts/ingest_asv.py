@@ -20,7 +20,8 @@ from _lib import (
 )
 
 SOURCE_URL = (
-    "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/"
+    "https://raw.githubusercontent.com/scrollmapper/bible_databases/"
+    "ba07bc991644d82b24426b920245eb4422daa769/"
     "formats/json/ASV.json"
 )
 

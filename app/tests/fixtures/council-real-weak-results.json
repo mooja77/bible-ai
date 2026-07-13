@@ -1,10 +1,12 @@
 {
-  "captured_at": "2026-05-07T16:16:25Z",
+  "captured_at": "2026-07-13T13:57:03Z",
   "complete": true,
   "mock_mode": false,
   "model": "sonnet",
   "question_count": 0,
-  "run_warnings": [],
+  "run_warnings": [
+    "limited_provider_coverage"
+  ],
   "provider_diagnostics": {
     "sidecar": {
       "ok": true,
@@ -26,24 +28,35 @@
       {
         "name": "gemini",
         "display_name": "Gemini (gemini-2.5-flash)",
-        "available": true
+        "available": false
       },
       {
         "name": "openai",
-        "display_name": "OpenAI (gpt-4.1-mini)",
+        "display_name": "OpenAI (gpt-5)",
+        "available": false
+      },
+      {
+        "name": "ollama",
+        "display_name": "Local (granite4.1:8b)",
         "available": true
       }
     ],
     "checks": {
+      "claude": {
+        "configured": false,
+        "ok": false,
+        "mode": "disabled",
+        "error": "Claude voice disabled (DISABLE_CLAUDE_VOICE=1)"
+      },
       "google": {
-        "configured": true,
-        "ok": true,
-        "error": null
+        "configured": false,
+        "ok": false,
+        "error": "No Google API key configured"
       },
       "openai": {
-        "configured": true,
-        "ok": true,
-        "error": null
+        "configured": false,
+        "ok": false,
+        "error": "No OpenAI API key configured"
       },
       "anthropic": {
         "configured": false,
@@ -63,9 +76,5 @@
     }
   },
   "results": [],
-  "errors": [],
-  "merge_notes": [
-    "Merged from successful Gemini/OpenAI non-mock runs after replacing the Trinity retrieval smoke result with topical reference evidence.",
-    "Provider credentials were loaded from Windows Credential Manager; no credential values are stored in this fixture."
-  ]
+  "errors": []
 }

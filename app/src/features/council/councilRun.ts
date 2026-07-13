@@ -32,7 +32,7 @@ export const STAGE_LABELS: Record<StageId, string> = {
   voices: "Voices weigh in",
   synthesis: "Agreement & conflict",
   grounding: "Grounding check",
-  judge: "Independent judge",
+  judge: "Cross-family judge",
   verdict: "Outcome",
 };
 

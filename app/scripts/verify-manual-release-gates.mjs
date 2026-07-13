@@ -11,6 +11,11 @@ const requiredBooleans = [
   "exports_secret_leak_check_passed",
   "backup_restore_passed",
   "sqlite_backup_restore_passed",
+  "keyboard_only_workflow_passed",
+  "screen_reader_smoke_passed",
+  "zoom_200_percent_passed",
+  "sensitive_topic_wording_review_passed",
+  "localized_crisis_resources_review_passed",
 ];
 
 const failures = [];

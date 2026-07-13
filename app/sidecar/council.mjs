@@ -24,7 +24,11 @@ import {
   redactSecrets,
   classifyProviderError,
 } from "./providers/_shared.mjs";
-import { runGroundingFloor, buildRegenNote } from "./grounded/grounding-floor.mjs";
+import {
+  runGroundingFloor,
+  buildRegenNote,
+  hydrateEvidenceQuotes,
+} from "./grounded/grounding-floor.mjs";
 import { runCrossFamilyJudge } from "./grounded/cross-family-judge.mjs";
 import { runScope } from "./grounded/scope.mjs";
 import { buildIndependenceReport } from "./grounded/independence.mjs";
@@ -587,7 +591,7 @@ function emitMockVerification(result, emit) {
     emit("grounding_started", {});
     emit("grounding_done", {
       hard_fail: !!result.grounding.hard_fail,
-      citation_accuracy: result.grounding.citation_accuracy ?? 1,
+      citation_accuracy: result.grounding.citation_accuracy ?? null,
       out_of_corpus: (result.grounding.out_of_corpus_verse_ids ?? []).length,
       regen_attempts: result.grounding.regen_attempts ?? 0,
     });
@@ -711,7 +715,7 @@ export async function runCouncil({
         await sleep(mockDelayMs);
         emit("grounding_done", {
           hard_fail: !!mock.grounding.hard_fail,
-          citation_accuracy: mock.grounding.citation_accuracy ?? 1,
+          citation_accuracy: mock.grounding.citation_accuracy ?? null,
           out_of_corpus: (mock.grounding.out_of_corpus_verse_ids ?? []).length,
           regen_attempts: mock.grounding.regen_attempts ?? 0,
         });
@@ -859,11 +863,11 @@ export async function runCouncil({
       break;
     }
     const candidateGrounding = runGroundingFloor(candidate, evidence);
-    // Monotonic gate: adopt only if strictly fewer hallucinated citations.
-    if (
-      candidateGrounding.out_of_corpus_verse_ids.length <
-      grounding.out_of_corpus_verse_ids.length
-    ) {
+    // Monotonic gate: adopt only if the deterministic issue count improves.
+    const issueCount = (report) =>
+      report.violations.length + report.uncited_positions.length +
+      (report.verification_status === "unverifiable" ? 1 : 0);
+    if (issueCount(candidateGrounding) < issueCount(grounding)) {
       synthesis = candidate;
       grounding = candidateGrounding;
       emit("regen_done", {
@@ -878,6 +882,7 @@ export async function runCouncil({
     }
   }
   grounding.regen_attempts = regenAttempts;
+  synthesis = hydrateEvidenceQuotes(synthesis, evidence);
   emit("grounding_done", {
     hard_fail: grounding.hard_fail,
     citation_accuracy: grounding.citation_accuracy,
