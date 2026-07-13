@@ -126,6 +126,14 @@ Supported entry key types:
 
 Downloaded source artifacts are cached under `data/sources/`.
 
+Two exact inputs are intentionally tracked in the repository:
+`engwebp_usfm.zip` and `cross_references.txt`. Their official download URLs are
+mutable and no immutable upstream revision was available for the corpus already
+under review. The committed blobs are therefore the reproducible source of
+record, while `source_url` preserves provenance. The fetcher refuses to replace
+either blob automatically if it is missing or altered. All other fetchable
+inputs use commit-pinned upstream URLs or a commit-pinned file set.
+
 Current cache includes:
 
 - `en_kjv.json`
@@ -194,7 +202,9 @@ Before bundling a new source:
 
 - Confirm the source license allows redistribution in a desktop app.
 - Add source URL and license metadata to the relevant ingest script.
-- Cache the source artifact under `data/sources/`.
+- Cache the source artifact under `data/sources/`. If upstream cannot provide an
+  immutable versioned URL, commit the reviewed exact blob and set
+  `fetch_policy` to `repository_snapshot`.
 - Add or update its exact version, URL, byte count, SHA-256, license, and
   attribution in `data/corpus-lock.json`.
 - Rebuild `data/corpus.sqlite`.

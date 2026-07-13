@@ -8,9 +8,13 @@ python scripts/build_corpus.py
 
 The build has four trust boundaries:
 
-1. `fetch_corpus_sources.py` downloads only versions named in
+1. `fetch_corpus_sources.py` obtains only versions named in
    `data/corpus-lock.json`, verifies byte counts and SHA-256 values in a
    temporary location, and promotes inputs to the cache only after verification.
+   Commit-pinned upstream files are downloaded directly. WEB and OpenBible
+   cross-references come from exact repository snapshots because their official
+   download URLs are mutable; a missing snapshot is a hard failure, never an
+   invitation to substitute newer text silently.
 2. Every ingest script writes to a separate `.building` database selected via
    `BIBLE_AI_CORPUS_DB`. Completed steps are checkpointed by a fingerprint of
    the lock, schema, ingestion code, and embedding identity.

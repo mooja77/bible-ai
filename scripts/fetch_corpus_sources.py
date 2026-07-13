@@ -80,6 +80,12 @@ def fetch_path_artifact(artifact: dict, offline: bool) -> None:
     if cached_path_ok(path, artifact):
         print(f"verified {artifact['id']}: {path.relative_to(ROOT)}")
         return
+    if artifact.get("fetch_policy") == "repository_snapshot":
+        raise RuntimeError(
+            f"{artifact['id']}: the checksum-locked repository snapshot is missing "
+            f"or invalid: {path}. Restore it from version control; the documented "
+            "upstream URL is mutable and must not be substituted automatically."
+        )
     if offline:
         raise RuntimeError(f"{artifact['id']}: locked cache is missing or invalid: {path}")
     payload = download(artifact["source_url"])

@@ -26,8 +26,9 @@
     {
       "id": "WEB",
       "path": "data/sources/engwebp_usfm.zip",
-      "version": "ENGWEBP artifact cached 2026-05-02",
+      "version": "ENGWEBP repository snapshot acquired 2026-05-02",
       "source_url": "https://ebible.org/Scriptures/engwebp_usfm.zip",
+      "fetch_policy": "repository_snapshot",
       "sha256": "2c77e11f0d26863f7f4a507b40c58651d55399e6d760223b3550908331bc994f",
       "bytes": 2907339,
       "license": "Public Domain; World English Bible is a trademark of eBible.org",
@@ -66,8 +67,9 @@
     {
       "id": "openbible-xrefs",
       "path": "data/sources/cross_references.txt",
-      "version": "artifact cached 2026-05-02",
+      "version": "repository snapshot acquired 2026-05-02",
       "source_url": "https://a.openbible.info/data/cross-references.zip",
+      "fetch_policy": "repository_snapshot",
       "sha256": "533e055792af278032f87ab8e4cce6c1b3899f776cea1c711cfd290c2052b4b2",
       "bytes": 8300549,
       "license": "Creative Commons Attribution",

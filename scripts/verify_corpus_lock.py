@@ -61,8 +61,37 @@ def main() -> None:
         has_glob = isinstance(artifact.get("path_glob"), str) and bool(
             artifact.get("path_glob")
         )
+        fetch_policy = artifact.get("fetch_policy", "network")
+        if fetch_policy not in {"network", "repository_snapshot"}:
+            failures.append(
+                f"{artifact_id}: fetch_policy must be network or repository_snapshot"
+            )
         if has_path == has_glob:
             failures.append(f"{artifact_id}: specify exactly one of path or path_glob")
+        if fetch_policy == "repository_snapshot":
+            if not has_path:
+                failures.append(
+                    f"{artifact_id}: repository_snapshot requires an exact path"
+                )
+            else:
+                snapshot_path = ROOT / artifact["path"]
+                if not snapshot_path.is_file():
+                    failures.append(
+                        f"{artifact_id}: missing repository snapshot {snapshot_path}"
+                    )
+                else:
+                    actual_hash = sha256(snapshot_path)
+                    actual_bytes = snapshot_path.stat().st_size
+                    if actual_hash != artifact.get("sha256"):
+                        failures.append(
+                            f"{artifact_id}: repository snapshot sha256 "
+                            f"expected={artifact.get('sha256')} actual={actual_hash}"
+                        )
+                    if actual_bytes != artifact.get("bytes"):
+                        failures.append(
+                            f"{artifact_id}: repository snapshot bytes "
+                            f"expected={artifact.get('bytes')} actual={actual_bytes}"
+                        )
         if has_glob:
             expected_files = artifact.get("files")
             if not isinstance(artifact.get("file_count"), int) or artifact.get(

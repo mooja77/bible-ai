@@ -18,7 +18,9 @@ venv/
 # Built + user data (regenerable)
 data/corpus.sqlite
 data/user.sqlite
-data/sources/
+data/sources/*
+!data/sources/engwebp_usfm.zip
+!data/sources/cross_references.txt
 
 # Secrets
 .env
