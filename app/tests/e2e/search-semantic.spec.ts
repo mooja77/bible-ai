@@ -1,11 +1,11 @@
 /**
  * Semantic search strategy E2E test.
  *
- * Tests the search-strategy control (Keyword/Meaning/Both), WEB's completed
- * semantic index, and the explicit fallback contract when query embedding is
- * unavailable. A machine with Ollama returns meaning hits; a machine without it
- * must explain its keyword fallback. Neither outcome may claim WEB lacks an
- * index.
+ * Tests the search-strategy control (Keyword/Meaning/Both), WEB semantic search
+ * when the release index is present, and both explicit fallback contracts. A
+ * release corpus without Ollama must explain query-embedding fallback; the
+ * intentionally non-embedding CI corpus must disclose that no meaning index is
+ * present. Every route must still return usable keyword results.
  *
  * Persistence assertion is NOT included because the harness creates a fresh
  * temp profile per session (mkdtempSync in beforeSession) and provides no
@@ -53,7 +53,8 @@ describe("Semantic search strategy", () => {
     await browser.keys("/");
     await $('[data-testid="search-panel"]').waitForDisplayed({ timeout: 5_000 });
 
-    // WEB is fully embedded in the release corpus.
+    // WEB is fully embedded in the release corpus. Platform smoke CI uses an
+    // intentionally smaller non-embedding corpus and exercises that fallback.
     const translationFilter = await $('select[aria-label="Search translation"]');
     await translationFilter.waitForDisplayed({ timeout: 10_000 });
     await translationFilter.selectByVisibleText("WEB");
@@ -99,8 +100,11 @@ describe("Semantic search strategy", () => {
     const degradedNotice = await $('[data-testid="search-degraded-notice"]');
     if (await degradedNotice.isExisting()) {
       const reason = await degradedNotice.getText();
-      expect(reason).toContain("Ollama");
-      expect(reason).not.toContain("No meaning index for WEB");
+      if (reason.includes("No meaning index for WEB")) {
+        expect(reason).toContain("showing keyword results");
+      } else {
+        expect(reason).toContain("Ollama");
+      }
     } else {
       const meaningBadges = await $$('[data-testid="match-kind-badge"]');
       expect(meaningBadges.length).toBeGreaterThan(0);
