@@ -43,11 +43,14 @@ jobs:
           npm ci
           npm ci --prefix sidecar
 
-      - name: Prepare bundled Node resource
+      - name: Prepare build-only bundled resources
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force sidecar/node | Out-Null
           Copy-Item -LiteralPath (Get-Command node).Source -Destination sidecar/node/node.exe
+          if (-not (Test-Path ../data/corpus.sqlite)) {
+            New-Item -ItemType File ../data/corpus.sqlite | Out-Null
+          }
 
       - name: Frontend build
         run: npm run build
