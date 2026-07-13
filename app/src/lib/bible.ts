@@ -237,7 +237,9 @@ export interface CouncilResponse {
   judge?: CouncilJudge;
   /** The scope stage — candidate positions enumerated before analysis. */
   scope?: CouncilScope;
-  /** Channel B — independence grapher: is agreement independent or echoed proof-texts? */
+  /** Channel B — observable diversity of cited evidence routes. */
+  evidence_route_diversity?: CouncilEvidenceRouteDiversity;
+  /** Historical saved-run field; new runs use `evidence_route_diversity`. */
   independence?: CouncilIndependence;
   /** Channel B — soft layer: confidence adjustment, inter-voice entropy, integrity checklist. */
   soft_layer?: CouncilSoftLayer;
@@ -249,7 +251,14 @@ export interface CouncilResponse {
     category: string;
     message: string;
     resource_locale?: string;
+    jurisdictions?: string[];
     review_status?: "pending_human_safety_review" | "approved";
+    reviewed_by?: string | null;
+    reviewed_on?: string | null;
+    expires_on?: string | null;
+    source_urls?: string[];
+    registry_version?: string;
+    owner_role?: string;
   } | null;
 }
 
@@ -303,6 +312,25 @@ export interface CouncilIndependence {
   note: string;
 }
 
+export interface CouncilEvidenceRouteDiversityPosition {
+  label: string;
+  supporting_voice_count: number;
+  distinct_route_count: number;
+  shared_verse_ids: number[];
+  mean_overlap: number;
+  route_classification: "distinct" | "overlapping" | "single_source";
+  note: string;
+}
+
+export interface CouncilEvidenceRouteDiversity {
+  available: boolean;
+  positions: CouncilEvidenceRouteDiversityPosition[];
+  distinct_count: number;
+  overlapping_count: number;
+  single_source_count: number;
+  note: string;
+}
+
 export interface CouncilSemanticEntropy {
   available: boolean;
   value: number | null;
@@ -311,9 +339,13 @@ export interface CouncilSemanticEntropy {
   clusters: number;
 }
 
-export interface CouncilCalibratedConfidence {
+export interface CouncilConfidenceAdjustment {
   stated: "high" | "medium" | "low" | null;
-  calibrated: "high" | "moderate" | "low" | "contested";
+  adjusted?: "high" | "moderate" | "low" | "contested";
+  /** Historical saved-run field; new runs use `adjusted`. */
+  calibrated?: "high" | "moderate" | "low" | "contested";
+  empirically_calibrated?: false;
+  method?: "deterministic_read_down_v1";
   downgraded: boolean;
   reasons: string[];
 }
@@ -328,7 +360,7 @@ export interface CouncilTickCheck {
 export interface CouncilSoftLayer {
   available: boolean;
   semantic_entropy?: CouncilSemanticEntropy;
-  confidence?: CouncilCalibratedConfidence;
+  confidence?: CouncilConfidenceAdjustment;
   tick?: CouncilTickCheck[];
   tick_passed?: number;
   tick_total?: number;

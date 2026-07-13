@@ -211,7 +211,7 @@ export function reduceRunEvent(prev: CouncilRunState, event: CouncilProgressEven
       const provider = str("provider");
       state.notes.judge = bool("available")
         ? `Cross-family verdict: ${verdict || "—"}${provider ? ` (${provider})` : ""}.`
-        : "No independent cross-family judge available.";
+        : "No second-family model check available.";
       break;
     }
     case "judged": {

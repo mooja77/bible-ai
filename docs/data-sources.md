@@ -87,6 +87,14 @@ Stored metadata:
 - `dim`
 - raw little-endian `f32` embedding blob
 
+Each complete set also has an `embedding_builds` identity record containing
+the exact Ollama model digest and version, generator version, Python/platform
+identity, row count, and an ordered aggregate SHA-256 over verse ids,
+dimensions, and vector blobs. Resumable builds refuse to mix a different
+model digest or platform. `--rebuild` is the strict recovery path;
+`--adopt-existing` exists only for a one-time, explicitly reviewed legacy
+corpus migration.
+
 Current implementation stores vectors in SQLite as BLOBs and uses Rust cosine scan. It does not require the `sqlite-vec` extension at runtime.
 
 ## User-Installed Modules
@@ -138,6 +146,8 @@ The cache allows repeated corpus rebuilds without re-downloading every source.
 
 Current scripts:
 
+- `scripts/fetch_corpus_sources.py`
+- `scripts/build_corpus.py`
 - `scripts/ingest_kjv.py`
 - `scripts/ingest_asv.py`
 - `scripts/ingest_web.py`
@@ -163,6 +173,20 @@ Expected ingestion behavior:
 - Update FTS after translation text changes.
 - Store source/license metadata when the target table supports it.
 - Avoid writing user data into `corpus.sqlite`.
+
+For a release corpus, use the resumable orchestrator rather than invoking the
+individual ingestion scripts. It fetches locked inputs into quarantine,
+verifies every checksum before parsing, builds into a separate database,
+records embedding provenance, runs corpus invariants, and atomically promotes
+only the verified result:
+
+```powershell
+python scripts/build_corpus.py
+```
+
+Use `--offline` to prohibit network access, `--plan` to audit the step graph,
+and `--restart` only when intentionally discarding the orchestrator's own
+temporary database and checkpoint file. See [`corpus-build.md`](corpus-build.md).
 
 ## Distribution Checklist
 

@@ -1,8 +1,8 @@
 # AI Risk and Eval Plan
 
-Status: DRAFT (for review)
+Status: Implemented; labelled human reviews remain evidence-dependent
 
-Last updated: 2026-06-13
+Last updated: 2026-07-13
 
 This document defines the AI failure classes Bible AI must guard against and the
 eval ladder that exercises them, with the lower rungs running through the real
@@ -150,6 +150,11 @@ only as adapters around the repo-owned cases -- never as the source of truth:
   in-repo runner is stable; treat Ragas/DeepEval as later, advisory-only.
 - The initial golden Study Packet list and how many ship for v1 (five proposed).
 - Whether provider drift comparison runs every release or only on model/provider
-  upgrades.
+upgrades.
+
+The confidence-adjustment component has a concrete labelled agreement workflow
+in `docs/council-confidence-review.md`. It intentionally keeps
+`empirically_calibrated: false` in live payloads; completing one bounded review
+does not turn a qualitative theological-support label into a probability.
 - Whether the fixture runner pins recorded real outputs or calls live providers
   in CI (cost, determinism, and key-availability tradeoff).

@@ -5,7 +5,7 @@ import type { CouncilRunState, StageId, StageStatus } from "./councilRun";
  * REAL CouncilRunState (streamed backend events, not timing): a numbered editorial
  * timeline where each band lights up as its stage actually advances. It now mirrors
  * the full Grounded Council pipeline — scope the positions, dig per position,
- * voices, synthesis, the grounding floor, and an independent cross-family judge —
+ * voices, synthesis, the grounding floor, and a second-family model check —
  * so a watcher sees HOW and WHY the outcome is reached. On completion CouncilPanel
  * swaps this for the full CouncilReasoningCanvas.
  *
@@ -153,7 +153,7 @@ export function CouncilRunCanvas({
         </LiveBand>
 
         {/* 04 · Voices */}
-        <LiveBand step={4} kicker="The voices weigh in" title="Each model's independent view" status={s.voices}>
+        <LiveBand step={4} kicker="The voices weigh in" title="Each provider's analysis" status={s.voices}>
           {runState.voices.length === 0 ? (
             <p className="reasoning-note">The voices are preparing…</p>
           ) : (
@@ -237,8 +237,8 @@ export function CouncilRunCanvas({
               : s.judge === "active"
                 ? "A different family is reviewing grounding & balance…"
                 : s.judge === "skipped"
-                  ? "No independent judge ran."
-                  : "Waiting for the independent check."}
+                  ? "No second-family check ran."
+                  : "Waiting for the second-family check."}
           </p>
         </LiveBand>
 

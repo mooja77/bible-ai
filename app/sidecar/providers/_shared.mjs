@@ -5,6 +5,28 @@
  * CouncilResult object with the same shape across providers.
  */
 
+/**
+ * Create a request-scoped signal that is cancelled by either its own deadline
+ * or the Council's parent deadline. Call cleanup() in a finally block.
+ */
+export function createRequestAbort(timeoutMs, parentSignal) {
+  const controller = new AbortController();
+  const abortFromParent = () => controller.abort(parentSignal?.reason);
+  if (parentSignal?.aborted) abortFromParent();
+  else parentSignal?.addEventListener("abort", abortFromParent, { once: true });
+  const timer = setTimeout(
+    () => controller.abort(new Error(`Provider request timed out after ${Math.round(timeoutMs / 1000)}s`)),
+    timeoutMs,
+  );
+  return {
+    signal: controller.signal,
+    cleanup() {
+      clearTimeout(timer);
+      parentSignal?.removeEventListener("abort", abortFromParent);
+    },
+  };
+}
+
 export const VOICE_SYSTEM_PROMPT = `You are a rigorous theological voice on a council. A user asks a disputed question. Your job is to produce a weighted distribution over positions that a thoughtful, well-read person COULD defend from scripture — not to declare the "right" answer.
 
 Rules:

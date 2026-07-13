@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
 import re
 import sqlite3
 import urllib.request
@@ -22,7 +23,9 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "data" / "schema.sql"
-CORPUS_DB = ROOT / "data" / "corpus.sqlite"
+CORPUS_DB = Path(
+    os.environ.get("BIBLE_AI_CORPUS_DB", ROOT / "data" / "corpus.sqlite")
+).resolve()
 SOURCES_DIR = ROOT / "data" / "sources"
 
 COMPARISON_VERSIFICATION = "eng-kjv"

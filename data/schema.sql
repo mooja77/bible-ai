@@ -154,6 +154,22 @@ CREATE TABLE IF NOT EXISTS verse_embeddings (
 CREATE INDEX IF NOT EXISTS idx_verse_embeddings_model
   ON verse_embeddings(model, translation_code);
 
+-- Reproducibility record for every generated embedding set. The checksum is
+-- blank only while a resumable build is incomplete; release verification
+-- requires it to match the ordered embedding blobs exactly.
+CREATE TABLE IF NOT EXISTS embedding_builds (
+  translation_code TEXT NOT NULL REFERENCES translations(code),
+  model TEXT NOT NULL,
+  model_digest TEXT NOT NULL,
+  ollama_version TEXT NOT NULL,
+  generator_version TEXT NOT NULL,
+  platform_json TEXT NOT NULL,
+  embedding_count INTEGER NOT NULL,
+  aggregate_sha256 TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (translation_code, model)
+);
+
 -- ============================================================================
 -- USER DATA (read-write, created at first app launch, stored per-user)
 -- ============================================================================

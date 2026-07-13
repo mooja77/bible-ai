@@ -29,11 +29,19 @@ build is usable; a public release is not authorized by the current evidence.
 - AI quality: citation-free output is unverifiable; visible Scripture quotations
   are hydrated from retrieved corpus rows; five adversarial quality cases pass;
   provider cancellation crosses the sidecar boundary.
-- Automated quality: `npm run check`, 148 sidecar tests, 122 Rust tests, strict
+- Automated quality: `npm run check`, 155 sidecar tests, 124 Rust tests, strict
   Clippy, schema sync, both npm audits, Cargo audit, and CycloneDX SBOM validation
   pass.
 - Desktop behavior: all 77 WebView E2E tests pass, including the Reader/Council
-  axe scan, keyboard/focus behavior, contrast, and maximum text scaling.
+  axe scan, keyboard/focus behavior, contrast, and maximum text scaling. The
+  run used exact-matched, Microsoft-signed EdgeDriver/WebView2 150.0.4078.65.
+
+Additional follow-through now records the exact Ollama embedding model digest
+and aggregate per-edition embedding hashes, provides a resumable atomic corpus
+builder, stores safety resources in a versioned locale registry, labels the PDF
+as an untagged visual archive while preferring HTML/Markdown for accessibility,
+and adds Windows E2E plus macOS bundle-smoke CI. The labelled Council
+confidence-review process exists but remains pending named human labels.
 
 The current 20-result Granite/Ollama fixture passes every local grounding, quote,
 primary-passage, stage, and output-weakness check with zero sidecar errors. It

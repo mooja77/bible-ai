@@ -93,8 +93,10 @@ Preview requirements:
 Export format note: Markdown, HTML, and PDF exports all preserve Unicode — PDF
 embeds the DejaVu Sans font, which covers accented Latin, Greek, and Hebrew.
 PDF lays text out left-to-right with no bidirectional reordering, so Hebrew
-appears in logical (not visual) order; prefer Markdown or HTML when Hebrew word
-order matters.
+appears in logical (not visual) order. It is not a tagged PDF/UA artifact.
+The UI explicitly identifies HTML as the preferred accessible, reflowable
+workspace export and Markdown as the preferred theology export; use those
+formats whenever assistive technology or Hebrew word order matters.
 
 ## Reader Navigation
 

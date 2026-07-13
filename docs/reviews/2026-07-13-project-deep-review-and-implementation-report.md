@@ -141,7 +141,7 @@ should be decomposed after the release-evidence work.
 | Schema mirrors could drift | Added runtime/mirror schema version verification and moved fixtures to v14 | Schema sync gate passes |
 | No automated accessibility scanner | Added axe WCAG A/AA serious/critical scans to real Tauri E2E | Reader and Council axe checks pass |
 | Initial frontend bundle carried all major modes | Added route-level lazy loading for Council, Settings, Theology, Resources, and Workspaces | Reader shell is split from feature chunks |
-| No standard release software inventory | Added CycloneDX npm and Cargo SBOM generation/validation and packaging | SBOMs contain 469 npm and 475 Cargo components |
+| No standard release software inventory | Added CycloneDX npm and Cargo SBOM generation/validation and packaging | Current SBOMs contain 553 npm and 475 Cargo components |
 
 ### Terminology corrections
 
@@ -182,14 +182,15 @@ Passed on the review machine:
   - schema v14 mirror check;
   - 11-entry lock metadata check;
   - five adversarial quality cases;
-  - 148 sidecar tests.
+  - 155 sidecar tests.
 - `npm run check`
   - TypeScript and Vite 8 production build;
   - Rust format/check/test/strict Clippy;
   - script syntax, resource fixtures, leak checks, and quality checks.
-- Rust: 122 tests, including Unicode/multipage PDF, versification-aware queries,
+- Rust: 124 tests, including Unicode/multipage PDF, versification-aware queries,
   safety taxonomy, locale fallback, cancellation, imports, backups, and secrets.
 - Tauri WebView: 77 E2E tests in a disposable profile.
+- EdgeDriver/WebView2: exact-matched Microsoft-signed version 150.0.4078.65.
 - Accessibility: axe serious/critical WCAG A/AA scan, focus, keyboard, contrast,
   and maximum text scaling all pass automated checks.
 - Provenance: full corpus lock and corpus integrity verifiers pass.
@@ -209,9 +210,12 @@ The public gate is intentionally red for three independent reasons:
    Granite/Ollama results with zero request errors. All local grounding, quote,
    primary-passage, stage, and output-weakness checks pass, but the verifier
    correctly rejects one-provider coverage. A working second provider family is
-   still required.
-2. The saved Google, OpenAI, and Anthropic credentials were rejected during live
-   probes. Credential values were neither printed nor persisted in QA output.
+   still required. A bounded one-question Granite plus Claude subscription run
+   passed the strict two-provider/stage contract, proving that path works, but
+   it is deliberately not promoted as the required 20-question release fixture.
+2. Earlier saved Google, OpenAI, and Anthropic API credentials were rejected
+   during live probes. The Claude subscription path now probes successfully;
+   credential values were neither printed nor persisted in QA output.
 3. `release/content-review.json` is a blank template and does not contain a named
    completed rights review.
 
@@ -225,32 +229,36 @@ Manual accessibility, safety wording, clean-profile credentials, installer
 hashes, signing/notarization, installed smoke, and target-territory approval also
 remain mandatory. See `docs/ship-readiness.md` for the exact sequence.
 
-## Enhancement backlog
+## P1 follow-through status
 
-### P1 — next engineering work after evidence collection
-
-1. **Reproducible embedding identity.** Record the exact Ollama model digest,
-   generator version, platform information, and an aggregate embedding checksum.
-   Coverage is enforced today; bit-for-bit model identity is not.
-2. **Corpus build orchestrator.** Add one resumable command that fetches every
-   locked artifact, verifies before parse, builds into a temporary database,
-   runs all invariants, and atomically promotes the verified corpus.
-3. **Rust decomposition.** Split Tauri commands into reader/search, Council,
-   safety, export, backup, provider, and resource modules; split persistence by
-   aggregate. Preserve the current IPC and migration tests during extraction.
-4. **PDF accessibility and bidi.** The current export is valid Unicode and
-   paginated, but it is not claimed as PDF/UA and Hebrew bidi layout remains
-   limited. Add tagged structure, visual regression rendering, and assistive-
-   technology review or make HTML the explicitly preferred accessible export.
-5. **Empirical Council calibration.** Build a labelled evaluation set with
-   reviewer agreement, define measurable outcomes, and only then consider
-   probability-like language. Until then, retain qualitative confidence.
-6. **Expanded locale registry.** Move safety candidates into a reviewed,
-   versioned registry with owner, jurisdiction, review date, expiry date, and
-   localized copy. Unsupported locales must continue to avoid guessed numbers.
-7. **Cross-platform release CI.** Exercise Windows installer smoke in a clean VM
-   and macOS app/notarization tests on macOS. Automate EdgeDriver/WebView version
-   matching to remove the current compatibility warning.
+1. **Reproducible embedding identity — implemented.** The database and lock
+   record exact Ollama model digest, Ollama/generator versions, platform data,
+   dimensions, counts, and aggregate per-edition embedding hashes. Resume
+   refuses identity drift.
+2. **Corpus build orchestrator — implemented.** One resumable command fetches
+   locked artifacts, verifies before parse, builds in isolation, checkpoints
+   exact inputs, runs full invariants, and atomically promotes only a verified
+   corpus.
+3. **Rust decomposition — started at the highest-risk boundary.** Safety routing
+   and the locale registry moved from the command monolith into `safety.rs`.
+   Wider reader/Council/export/database extraction remains maintainability debt
+   and should proceed incrementally behind existing IPC tests.
+4. **PDF accessibility and bidi — explicit safe fallback implemented.** The UI
+   now prefers HTML or Markdown for accessible sharing and labels PDF as an
+   untagged visual archive with limited Hebrew bidi behavior. PDF/UA remains a
+   future enhancement, never a current claim.
+5. **Empirical Council agreement review — tooling implemented; human evidence
+   pending.** A SHA-bound 20-case template and fail-closed verifier now measure
+   exact/adjacent agreement, overstatement, severe overstatement, and blocking
+   reviewer findings. Live payloads state `empirically_calibrated: false`.
+6. **Expanded locale registry — implemented, approval pending.** Versioned
+   `en-IE`, `en-GB`, `en-US`, and international fallback records include owner
+   role, jurisdiction, official sources, review fields, dates, and expiry.
+7. **Cross-platform release CI — implemented, hosted evidence pending.** Windows
+   CI builds a checksum-locked E2E corpus, installs exact Microsoft-signed
+   EdgeDriver, and runs the WebView suite. macOS CI creates an ad-hoc `.app` and
+   verifies bundled resources. Developer ID signing/notarization remains a
+   protected-credential and human release gate.
 
 ### P2 — scale and product depth
 

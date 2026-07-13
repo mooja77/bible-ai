@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildSoftLayer, semanticEntropy, calibrateConfidence } from "../grounded/soft-layer.mjs";
+import { buildSoftLayer, semanticEntropy, adjustConfidence } from "../grounded/soft-layer.mjs";
 
 function voice(provider, label) {
   return { provider, status: "ok", result: { positions: [{ label, weight: 0.8 }] } };
@@ -25,73 +25,74 @@ test("semanticEntropy unavailable with fewer than two voices", () => {
   assert.equal(semanticEntropy([]).available, false);
 });
 
-test("calibrateConfidence reads high down to low on a hard floor failure", () => {
-  const c = calibrateConfidence({
+test("adjustConfidence reads high down to low on a hard floor failure", () => {
+  const c = adjustConfidence({
     stated: "high",
     grounding: { hard_fail: true, out_of_corpus_verse_ids: [9] },
     judge: { available: true, parsed: true, verdict: "sound" },
-    leaderIndependence: { independence: "independent" },
+    leaderRouteDiversity: { route_classification: "distinct" },
     entropy: 0,
   });
   assert.equal(c.stated, "high");
-  assert.equal(c.calibrated, "low"); // high(3) − 2 (floor fail) = 1 → low
+  assert.equal(c.adjusted, "low"); // high(3) − 2 (floor fail) = 1 → low
+  assert.equal(c.empirically_calibrated, false);
   assert.ok(c.downgraded);
   assert.ok(c.reasons.some((r) => /grounding floor/.test(r)));
 });
 
-test("calibrateConfidence can reach contested when multiple signals fire", () => {
-  const c = calibrateConfidence({
+test("adjustConfidence can reach contested when multiple signals fire", () => {
+  const c = adjustConfidence({
     stated: "high",
     grounding: { hard_fail: true },
     judge: { available: true, parsed: true, verdict: "unsound" },
-    leaderIndependence: { independence: "correlated" },
+    leaderRouteDiversity: { route_classification: "overlapping" },
     entropy: 0.9,
   });
-  assert.equal(c.calibrated, "contested"); // 3 − 2 − 2 − 1 − 1 < 0 → contested
+  assert.equal(c.adjusted, "contested"); // 3 − 2 − 2 − 1 − 1 < 0 → contested
   assert.ok(c.downgraded);
 });
 
-test("calibrateConfidence downgrades for correlated (echoed) support", () => {
-  const c = calibrateConfidence({
+test("adjustConfidence downgrades for correlated (echoed) support", () => {
+  const c = adjustConfidence({
     stated: "high",
     grounding: { hard_fail: false },
     judge: { available: true, parsed: true, verdict: "sound" },
-    leaderIndependence: { independence: "correlated" },
+    leaderRouteDiversity: { route_classification: "overlapping" },
     entropy: 0,
   });
-  assert.equal(c.calibrated, "moderate"); // 3 - 1 = 2 → moderate
+  assert.equal(c.adjusted, "moderate"); // 3 - 1 = 2 → moderate
   assert.ok(c.downgraded);
   assert.ok(c.reasons.some((r) => /correlated/.test(r)));
 });
 
-test("calibrateConfidence leaves a clean high alone", () => {
-  const c = calibrateConfidence({
+test("adjustConfidence leaves a clean high alone", () => {
+  const c = adjustConfidence({
     stated: "high",
     grounding: { hard_fail: false },
     judge: { available: true, parsed: true, verdict: "sound" },
-    leaderIndependence: { independence: "independent" },
+    leaderRouteDiversity: { route_classification: "distinct" },
     entropy: 0,
   });
-  assert.equal(c.calibrated, "high");
+  assert.equal(c.adjusted, "high");
   assert.equal(c.downgraded, false);
   assert.deepEqual(c.reasons, []);
 });
 
-test("calibrateConfidence reads down for a fatal kill-test", () => {
+test("adjustConfidence reads down for a fatal kill-test", () => {
   const base = {
     stated: "high",
     grounding: { hard_fail: false },
     judge: { available: true, parsed: true, verdict: "sound" },
-    leaderIndependence: { independence: "independent" },
+    leaderRouteDiversity: { route_classification: "distinct" },
     entropy: 0,
   };
-  const fatal = calibrateConfidence({ ...base, killTest: { available: true, parsed: true, severity: "fatal" } });
-  assert.equal(fatal.calibrated, "low"); // high(3) − 2 = 1 → low
+  const fatal = adjustConfidence({ ...base, killTest: { available: true, parsed: true, severity: "fatal" } });
+  assert.equal(fatal.adjusted, "low"); // high(3) − 2 = 1 → low
   assert.ok(fatal.reasons.some((r) => /kill-test/.test(r)));
-  const serious = calibrateConfidence({ ...base, killTest: { available: true, parsed: true, severity: "serious" } });
-  assert.equal(serious.calibrated, "moderate"); // 3 − 1 = 2
-  const survived = calibrateConfidence({ ...base, killTest: { available: true, parsed: true, severity: "none" } });
-  assert.equal(survived.calibrated, "high"); // no penalty
+  const serious = adjustConfidence({ ...base, killTest: { available: true, parsed: true, severity: "serious" } });
+  assert.equal(serious.adjusted, "moderate"); // 3 − 1 = 2
+  const survived = adjustConfidence({ ...base, killTest: { available: true, parsed: true, severity: "none" } });
+  assert.equal(survived.adjusted, "high"); // no penalty
 });
 
 test("buildSoftLayer assembles entropy + confidence + a full tick checklist", () => {
@@ -108,13 +109,15 @@ test("buildSoftLayer assembles entropy + confidence + a full tick checklist", ()
     voices,
     grounding: { hard_fail: false, out_of_corpus_verse_ids: [] },
     judge: { available: true, parsed: true, verdict: "sound", judge_provider: "gpt" },
-    independence: { positions: [{ label: "Leader", independence: "independent" }] },
+    evidenceRouteDiversity: {
+      positions: [{ label: "Leader", route_classification: "distinct" }],
+    },
   });
   assert.equal(out.available, true);
   assert.equal(out.tick_total, 6);
   assert.ok(out.tick_passed >= 4);
   // 3 voices split 2-1 → high inter-voice entropy → honest read-down from high.
-  assert.equal(out.confidence.calibrated, "moderate");
+  assert.equal(out.confidence.adjusted, "moderate");
   assert.ok(out.confidence.downgraded);
   assert.equal(out.semantic_entropy.available, true);
   assert.ok(out.semantic_entropy.value >= 0.66);

@@ -12,8 +12,10 @@ translation text.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sqlite3
+import struct
 from pathlib import Path
 
 from _lib import (
@@ -30,6 +32,31 @@ LOCK_PATH = ROOT / "data" / "corpus-lock.json"
 
 def scalar(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> int:
     return int(conn.execute(sql, params).fetchone()[0])
+
+
+def embedding_checksum(
+    conn: sqlite3.Connection, translation: str, model: str
+) -> tuple[int, str]:
+    digest = hashlib.sha256()
+    count = 0
+    for verse, dim, blob in conn.execute(
+        """
+        SELECT verse_id, dim, embedding
+        FROM verse_embeddings
+        WHERE translation_code = ? AND model = ?
+        ORDER BY verse_id
+        """,
+        (translation, model),
+    ):
+        if len(blob) != dim * 4:
+            raise ValueError(
+                f"embedding blob length mismatch: {translation} verse_id={verse} "
+                f"bytes={len(blob)} dim={dim}"
+            )
+        digest.update(struct.pack("<QI", int(verse), int(dim)))
+        digest.update(blob)
+        count += 1
+    return count, digest.hexdigest()
 
 
 def main() -> None:
@@ -133,16 +160,69 @@ def main() -> None:
                     failures.append(
                         f"translation row count {code}: expected={count}, actual={actual.get(code)}"
                     )
+            identity = lock.get("embedding_identity") or {}
+            model = identity.get("model")
             for code in lock.get("required_embedding_translations", []):
                 embeddings = scalar(
                     conn,
-                    "SELECT COUNT(*) FROM verse_embeddings WHERE translation_code = ?",
-                    (code,),
+                    """
+                    SELECT COUNT(*) FROM verse_embeddings
+                    WHERE translation_code = ? AND model = ?
+                    """,
+                    (code, model),
                 )
                 rows = actual.get(code, 0)
                 if embeddings != rows:
                     failures.append(
-                        f"embedding coverage {code}: embeddings={embeddings}, translation_rows={rows}"
+                        f"embedding coverage {code}/{model}: "
+                        f"embeddings={embeddings}, translation_rows={rows}"
+                    )
+                    continue
+                dimensions = list(
+                    conn.execute(
+                        """
+                        SELECT DISTINCT dim FROM verse_embeddings
+                        WHERE translation_code = ? AND model = ?
+                        """,
+                        (code, model),
+                    )
+                )
+                if dimensions != [(identity.get("dim"),)]:
+                    failures.append(
+                        f"embedding dimension {code}/{model}: "
+                        f"expected={identity.get('dim')}, actual={dimensions}"
+                    )
+                build = conn.execute(
+                    """
+                    SELECT model_digest, generator_version, embedding_count,
+                           aggregate_sha256
+                    FROM embedding_builds
+                    WHERE translation_code = ? AND model = ?
+                    """,
+                    (code, model),
+                ).fetchone()
+                if not build:
+                    failures.append(f"missing embedding build identity: {code}/{model}")
+                    continue
+                expected_build = (
+                    identity.get("model_digest"),
+                    identity.get("generator_version"),
+                    embeddings,
+                )
+                if build[:3] != expected_build:
+                    failures.append(
+                        f"embedding build identity {code}/{model}: "
+                        f"expected={expected_build}, actual={build[:3]}"
+                    )
+                try:
+                    checksum_count, checksum = embedding_checksum(conn, code, model)
+                except ValueError as error:
+                    failures.append(str(error))
+                    continue
+                if checksum_count != embeddings or build[3] != checksum:
+                    failures.append(
+                        f"embedding aggregate {code}/{model}: "
+                        f"stored={build[3]}, actual={checksum}"
                     )
         else:
             failures.append(f"missing corpus lockfile: {LOCK_PATH}")

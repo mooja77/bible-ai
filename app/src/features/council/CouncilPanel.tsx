@@ -292,7 +292,7 @@ export function CouncilPanel({
         <h1 className="text-2xl font-semibold text-neutral-100">The Council</h1>
         <p className="text-sm text-neutral-500 mt-1">
           Ask a disputed theological question. Available voices
-          each analyse independently; Claude synthesises. Minority views are preserved.
+          each provide an analysis; an available provider synthesises. Minority views are preserved.
         </p>
       </header>
 

@@ -1,15 +1,12 @@
-// Grounded Council — Stage 3: the INDEPENDENCE grapher (Channel B, advisory).
+// Grounded Council — Stage 3: EVIDENCE-ROUTE DIVERSITY (Channel B, advisory).
 //
-// TRIANGULON's lesson: corroboration only counts when sources are INDEPENDENT.
-// Two outlets syndicating one wire story are not two confirmations. The Council's
-// analogue is interpretive lineage: when several voices land on the same position,
-// are they corroborating independently — each arriving via different proof-texts —
-// or just echoing the SAME verses? Agreement built on one shared proof-text is not
-// independent corroboration, and over-counting it inflates false confidence.
+// Multiple providers are not statistically independent evidence of truth. This
+// deterministic report asks the narrower, observable question: when provider
+// analyses land on the same position, do they cite distinct verse sets or reuse
+// the same proof-texts? Over-counting shared routes inflates confidence.
 //
 // This is deterministic and flags-only (never blocks): it ranks each position's
-// agreement as independent / correlated / single_source so the reader can tell
-// genuine convergence from an echo.
+// agreement as distinct / overlapping / single_source.
 
 /** Normalize a position label for order-independent comparison. */
 function normalizeLabel(label) {
@@ -87,7 +84,7 @@ function distinctRoutes(idLists) {
 }
 
 // A position whose supporters' citation sets overlap at or above this share is
-// treated as an echo rather than independent corroboration.
+// treated as an overlapping rather than distinct route.
 const ECHO_OVERLAP_THRESHOLD = 0.67;
 
 function analysePosition(position, okVoices) {
@@ -107,11 +104,11 @@ function analysePosition(position, okVoices) {
       distinct_route_count: n === 1 && supporters[0].ids.length > 0 ? 1 : 0,
       shared_verse_ids: [],
       mean_overlap: 0,
-      independence: "single_source",
+      route_classification: "single_source",
       note:
         n === 1
           ? "Only one provider voice argued this position — no second evidence route to compare."
-          : "No voice independently argued this synthesized position.",
+          : "No provider analysis argued this synthesized position.",
     };
   }
 
@@ -119,7 +116,7 @@ function analysePosition(position, okVoices) {
   const meanOverlap = meanPairwiseJaccard(sets);
   const shared = intersectAll(sets);
   const routes = distinctRoutes(supporters.map((s) => s.ids));
-  const independent = routes >= 2 && meanOverlap < ECHO_OVERLAP_THRESHOLD;
+  const routeDiverse = routes >= 2 && meanOverlap < ECHO_OVERLAP_THRESHOLD;
 
   return {
     label,
@@ -127,9 +124,9 @@ function analysePosition(position, okVoices) {
     distinct_route_count: routes,
     shared_verse_ids: shared,
     mean_overlap: Math.round(meanOverlap * 100) / 100,
-    independence: independent ? "independent" : "correlated",
-    note: independent
-      ? `${n} voices converge from ${routes} distinct evidence routes — genuine corroboration.`
+    route_classification: routeDiverse ? "distinct" : "overlapping",
+    note: routeDiverse
+      ? `${n} provider analyses converge from ${routes} distinct evidence routes.`
       : `${n} voices agree but lean on the same ${shared.length || "few"} proof-text${
           shared.length === 1 ? "" : "s"
         } — agreement may reflect a shared evidence route rather than distinct support.`,
@@ -137,44 +134,45 @@ function analysePosition(position, okVoices) {
 }
 
 function summarise(positions) {
-  const counts = { independent: 0, correlated: 0, single_source: 0 };
-  for (const p of positions) counts[p.independence] = (counts[p.independence] ?? 0) + 1;
+  const counts = { distinct: 0, overlapping: 0, single_source: 0 };
+  for (const position of positions) {
+    counts[position.route_classification] = (counts[position.route_classification] ?? 0) + 1;
+  }
   const note =
-    counts.correlated > 0
-      ? `${counts.correlated} position${counts.correlated === 1 ? "" : "s"} rest on shared proof-texts — read that agreement as correlated, not independent.`
-      : counts.independent > 0
-        ? "Where voices agree, they corroborate from distinct evidence — independent agreement."
+    counts.overlapping > 0
+      ? `${counts.overlapping} position${counts.overlapping === 1 ? "" : "s"} rest on shared proof-texts — treat this as overlapping evidence routes, not extra corroboration.`
+      : counts.distinct > 0
+        ? "Some provider agreement uses distinct evidence routes; this is diversity of support, not statistical independence."
         : "Agreement could not be compared for evidence-route diversity.";
   return {
-    independent_count: counts.independent,
-    correlated_count: counts.correlated,
+    distinct_count: counts.distinct,
+    overlapping_count: counts.overlapping,
     single_source_count: counts.single_source,
     note,
   };
 }
 
 /**
- * Assess, per synthesized position, whether supporting voices corroborate
- * independently or merely echo the same proof-texts. Pure + deterministic.
- * @returns {{available: boolean, positions: Array, independent_count: number,
- *   correlated_count: number, single_source_count: number, note: string}}
+ * Assess the diversity of cited evidence routes per synthesized position.
+ * @returns {{available: boolean, positions: Array, distinct_count: number,
+ *   overlapping_count: number, single_source_count: number, note: string}}
  */
-export function buildIndependenceReport(synthesis, voices) {
+export function buildEvidenceRouteDiversityReport(synthesis, voices) {
   const positions = Array.isArray(synthesis?.positions) ? synthesis.positions : [];
   const okVoices = (Array.isArray(voices) ? voices : []).filter(
     (v) => v?.result && Array.isArray(v.result.positions),
   );
-  // Independence is only meaningful when more than one voice could agree.
+  // Route diversity is only meaningful when more than one voice could agree.
   if (positions.length === 0 || okVoices.length < 2) {
     return {
       available: false,
       positions: [],
-      independent_count: 0,
-      correlated_count: 0,
+      distinct_count: 0,
+      overlapping_count: 0,
       single_source_count: 0,
       note:
         okVoices.length < 2
-          ? "Independence needs at least two voices to cross-check."
+          ? "Evidence-route diversity needs at least two provider analyses to compare."
           : "No positions to assess for evidence-route diversity.",
     };
   }

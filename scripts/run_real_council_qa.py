@@ -440,8 +440,10 @@ def reusable_verified_result(result: dict[str, Any]) -> bool:
     if has_output_weakness(result):
         return False
     response = result.get("response") or {}
-    required_stages = {"grounding", "scope", "judge", "independence", "soft_layer", "kill_test"}
-    if not required_stages.issubset(response):
+    required_stages = {"grounding", "scope", "judge", "soft_layer", "kill_test"}
+    if not required_stages.issubset(response) or not (
+        response.get("evidence_route_diversity") or response.get("independence")
+    ):
         return False
     grounding = response.get("grounding") or {}
     if (
@@ -477,7 +479,15 @@ def iso_now() -> str:
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 class FILETIME(ctypes.Structure):

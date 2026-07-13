@@ -156,6 +156,19 @@ test("withTimeout: rejects with a timeout error when the promise is too slow", a
   );
 });
 
+test("withTimeout: cancels underlying work through its timeout callback", async () => {
+  const controller = new AbortController();
+  await assert.rejects(
+    () =>
+      withTimeout(new Promise(() => {}), 10, "Claude", {
+        onTimeout: (error) => controller.abort(error),
+      }),
+    /timed out after/,
+  );
+  assert.equal(controller.signal.aborted, true);
+  assert.match(controller.signal.reason.message, /Claude timed out/);
+});
+
 test("emitMockSequence: emits voice_failed for a non-ok voice", () => {
   const events = [];
   const emit = (kind, payload) => events.push({ kind, ...payload });

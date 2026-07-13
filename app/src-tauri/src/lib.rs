@@ -1,6 +1,7 @@
 mod credentials;
 mod db;
 mod ollama;
+mod safety;
 mod sidecar;
 mod user_db;
 
@@ -9,6 +10,7 @@ use std::sync::Mutex;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
+use safety::{classify_sensitive_topic, sensitive_topic_resource};
 use sidecar::{build_council_request, question_to_fts_query, SidecarState};
 
 const EMBED_MODEL: &str = "nomic-embed-text";
@@ -397,7 +399,7 @@ mod command_input_tests {
         bounded_limit, classify_sensitive_topic, council_retrieval_fallback_reason,
         normalize_app_settings, normalize_model_id, normalize_module_key_value,
         normalize_strongs_codes, normalize_testament_filter, normalize_translation_code_value,
-        provider_settings_for_legacy_migration, sensitive_topic_message, validate_book_chapter,
+        provider_settings_for_legacy_migration, sensitive_topic_resource, validate_book_chapter,
         validate_book_id, validate_hex_color, validate_verse_range,
     };
     use crate::user_db::AppSettings;
@@ -475,15 +477,15 @@ mod command_input_tests {
 
     #[test]
     fn sensitive_resources_are_locale_specific_and_safe_by_default() {
-        let (ie, ie_message) = sensitive_topic_message(Some("en-IE"));
-        assert_eq!(ie, "en-IE");
-        assert!(ie_message.contains("112 or 999"));
-        assert!(ie_message.contains("116 123"));
+        let ie = sensitive_topic_resource(Some("en-IE"));
+        assert_eq!(ie.locale, "en-IE");
+        assert!(ie.message.contains("112 or 999"));
+        assert!(ie.message.contains("116 123"));
 
-        let (fallback, fallback_message) = sensitive_topic_message(Some("fr-FR"));
-        assert_eq!(fallback, "international");
-        assert!(!fallback_message.contains("988"));
-        assert!(!fallback_message.contains("911"));
+        let fallback = sensitive_topic_resource(Some("fr-FR"));
+        assert_eq!(fallback.locale, "international");
+        assert!(!fallback.message.contains("988"));
+        assert!(!fallback.message.contains("911"));
     }
 
     #[test]
@@ -2858,198 +2860,6 @@ mod pdf_tests {
 /// embeddings table is populated and Ollama is reachable; otherwise falls
 /// back to the FTS OR-query path. Either way, evidence is handed to the
 /// sidecar along with the question.
-fn sensitive_topic_message(locale: Option<&str>) -> (&'static str, &'static str) {
-    let locale = locale.unwrap_or("").to_ascii_lowercase();
-    let common = "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. Please contact a trusted person or qualified professional who can be present with you.";
-    if locale.starts_with("en-ie") {
-        return (
-            "en-IE",
-            "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. If you or someone else may be about to come to harm in Ireland, phone 112 or 999 or go to an emergency department now. For confidential listening support, Samaritans is available free on 116 123. Please also contact a trusted person or qualified professional who can be present with you.",
-        );
-    }
-
-    if locale.starts_with("en-gb") {
-        return (
-            "en-GB",
-            "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. If you or someone else is in immediate danger in the UK, call 999 or go to A&E now. For urgent mental-health help call NHS 111; for confidential listening support call Samaritans free on 116 123. Please also contact a trusted person or qualified professional who can be present with you.",
-        );
-    }
-    if locale.starts_with("en-us") {
-        return (
-            "en-US",
-            "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. In the US, call or text 988 for crisis support. If you or someone else is in immediate danger, call 911 now. Please also contact a trusted person or qualified professional who can be present with you.",
-        );
-    }
-    ("international", common)
-}
-
-/// Starter rule set for the pre-Council sensitive-topic router (EP-020). It is
-/// rule-based, local, and deliberately conservative: the dangerous failure is a
-/// missed crisis disclosure (a false negative), so it prefers to over-trigger.
-/// The rule coverage and the crisis wording are a starting point that needs
-/// pastoral/professional review and expansion before release (see
-/// docs/sensitive-topic-safety-policy.md). Returns a category label or None.
-fn classify_sensitive_topic(question: &str) -> Option<&'static str> {
-    let q = question.to_lowercase();
-    const RULES: &[(&str, &[&str])] = &[
-        (
-            "self-harm or suicide",
-            &[
-                "kill myself",
-                "killing myself",
-                "end my life",
-                "ending my life",
-                "want to die",
-                "wants to die",
-                "wish i was dead",
-                "wish i were dead",
-                "better off dead",
-                "better off without me",
-                "no reason to live",
-                "suicid",
-                "self-harm",
-                "self harm",
-                "cut myself",
-                "cutting myself",
-                "take my own life",
-                "end it all",
-                "overdose",
-                "everyone would be better off without me",
-                "won't be here tomorrow",
-                "does my life still have worth",
-                "my life still has worth",
-            ],
-        ),
-        (
-            "harm to others",
-            &[
-                "kill him",
-                "kill her",
-                "kill them",
-                "want to hurt someone",
-                "going to hurt someone",
-                "make them pay",
-                "shoot them",
-                "afraid i might hurt",
-                "lose control and make them pay",
-            ],
-        ),
-        (
-            "child safety",
-            &[
-                "abusing a child",
-                "hurting a child",
-                "touched a child",
-                "child is being abused",
-                "child is not safe at home",
-                "little one is being hurt",
-            ],
-        ),
-        (
-            "sexual abuse or coercion",
-            &[
-                "sexually assaulted",
-                "forced me to have sex",
-                "sexual coercion",
-                "was raped",
-                "being raped",
-                "unwanted sexual touching",
-                "made me do sexual things",
-                "molest",
-                "rape",
-            ],
-        ),
-        (
-            "abuse",
-            &[
-                "being abused",
-                "abusing me",
-                "beats me",
-                "hits me",
-                "domestic violence",
-                "my husband hits",
-                "my partner hits",
-                "controls my money and won't let me leave",
-                "monitors my phone and won't let me leave",
-            ],
-        ),
-        (
-            "medical or mental-health crisis",
-            &[
-                "having chest pain",
-                "cannot breathe",
-                "can't breathe",
-                "should i stop my medication",
-                "stopped taking my medication",
-                "hearing voices telling me",
-                "losing touch with reality",
-                "medical emergency",
-                "having a psychotic episode",
-                "friend took too many pills",
-                "took too many pills",
-            ],
-        ),
-        (
-            "high-stakes legal or financial decision",
-            &[
-                "should i sign this contract",
-                "represent myself in court",
-                "court hearing tomorrow",
-                "should i plead guilty",
-                "need legal advice",
-                "invest my life savings",
-                "put all my money into",
-                "should i declare bankruptcy",
-                "about to lose my home",
-                "scripture decide my court case",
-            ],
-        ),
-        (
-            "pastoral emergency",
-            &[
-                "god has abandoned me and i cannot cope",
-                "grief is unbearable",
-                "faith crisis and i am alone",
-                "spiritual crisis and cannot cope",
-                "need a pastor right now",
-                "cannot survive this crisis of faith alone",
-            ],
-        ),
-        (
-            "spiritual abuse or coercion",
-            &[
-                "pastor controls my",
-                "church controls my",
-                "church threatened me",
-                "pastor threatened me",
-                "shunned if i leave",
-                "god will punish me unless",
-                "religious leader blackmail",
-                "forced to obey my pastor",
-                "leader says i must cut off my family",
-            ],
-        ),
-        (
-            "confession involving harm",
-            &[
-                "i abused someone",
-                "i hurt someone and need absolution",
-                "i hit my child",
-                "i harmed a child",
-                "confess that i killed",
-                "forgive me for hurting someone",
-                "asking for absolution after i harmed",
-            ],
-        ),
-    ];
-    for (category, markers) in RULES {
-        if markers.iter().any(|marker| q.contains(marker)) {
-            return Some(category);
-        }
-    }
-    None
-}
-
 #[tauri::command]
 fn cancel_council(state: tauri::State<'_, SidecarState>) {
     state.cancel_active();
@@ -3107,7 +2917,7 @@ async fn ask_council(
     // never enter normal Council generation. Return a calm safety response
     // before any retrieval, provider call, or session persistence happens.
     if let Some(category) = classify_sensitive_topic(&question) {
-        let (resource_locale, message) = sensitive_topic_message(locale.as_deref());
+        let resource = sensitive_topic_resource(locale.as_deref());
         emit(
             "safety_checked",
             serde_json::json!({ "status": "blocked", "category": category }),
@@ -3115,9 +2925,16 @@ async fn ask_council(
         return Ok(serde_json::json!({
             "sensitive_topic": {
                 "category": category,
-                "message": message,
-                "resource_locale": resource_locale,
-                "review_status": "pending_human_safety_review",
+                "message": resource.message,
+                "resource_locale": resource.locale,
+                "jurisdictions": resource.jurisdictions,
+                "review_status": resource.review_status,
+                "reviewed_by": resource.reviewed_by,
+                "reviewed_on": resource.reviewed_on,
+                "expires_on": resource.expires_on,
+                "source_urls": resource.source_urls,
+                "registry_version": safety::registry_version(),
+                "owner_role": safety::registry_owner_role(),
             }
         }));
     }

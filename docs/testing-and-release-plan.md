@@ -32,6 +32,13 @@ Current coverage includes:
 - Verse panel opens.
 - Council mock workflow submits, renders, persists, restores, and deletes.
 
+The Windows E2E job in `.github/workflows/platform-smoke.yml` builds a
+checksum-locked corpus through every ingestion step, deliberately omits the
+release embeddings, installs the exact EdgeDriver matching the runner's Edge
+version, and executes the real Tauri WebView suite. The release corpus still
+requires the full embedding identity and corpus verifier; the CI-only copy is
+never promoted as a release artifact.
+
 ## Required E2E Tests by Feature
 
 ### Study Workspaces
@@ -290,6 +297,11 @@ The macOS gate requires:
 - `npm run macos:release:check` passing.
 - Clean macOS profile QA for first launch, Keychain credential storage, Council, export, backup, and restore.
 - Signing and notarization before public distribution.
+
+The platform-smoke workflow also builds an ad-hoc-signed `.app` on a native
+macOS runner and checks the bundled corpus and sidecar resources. That proves
+cross-platform bundle construction only. It does not replace Developer ID
+signing, notarization, stapling, or clean-profile macOS QA.
 
 ## Risks to Watch
 

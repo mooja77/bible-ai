@@ -1,9 +1,10 @@
 # Release Execution Handoff — 2026-07-13
 
-Status: Windows artifacts built and machine-verified; public distribution remains
-blocked by three fail-closed evidence gates.
+Status: **superseded build artifacts; do not publish them**. Engineering changed
+after the hashes below were recorded. Public distribution remains blocked by
+three fail-closed evidence categories.
 
-## Built artifacts
+## Historical built artifacts (stale)
 
 Version: `0.1.0`, Windows x64.
 
@@ -15,15 +16,20 @@ Version: `0.1.0`, Windows x64.
 | `corpus.sqlite` | 819,224,576 | `e0501e10c38f1222ebfbbf482cba2af98025ae1be4ff63b14b1bac34dff2bbc8` |
 | `Bible AI_0.1.0_release-package.zip` | generated package | `6e1d720bbf3bd13720694e67a7f4f055b45e8dd12b8c6091e9c9b7eaaab9e7f0` |
 
-The verified release package contains both installers, the release manifest,
+These hashes describe the earlier build only and no longer identify the current
+source tree. They are retained as an audit record, not as upload candidates.
+After every external and human gate is complete, rebuild and re-run the entire
+release chain to produce new hashes.
+
+The historical release package contained both installers, the release manifest,
 release summary, and npm/Cargo CycloneDX SBOMs. The portable manual-QA package
 contains both installers, manifest/summary, evidence collector, and evidence
 verifier.
 
 ## Machine verification completed
 
-- `npm run check:trust`: schema v14, 11 source-lock entries, five adversarial
-  quality cases, 148 sidecar tests.
+- `npm run check:trust`: schema v14, 11 source-lock entries, canonical quality
+  cases, 155 sidecar tests.
 - `npm run check`: production TypeScript/Vite build, Rust format/check/test,
   strict Clippy, script/resource/leak/quality checks, and sidecar tests.
 - Full corpus lock/integrity: 31,310 verses; 155,557 edition mappings; 155,556
@@ -40,8 +46,14 @@ verifier.
 - Tauri WebView aggregate suite passed after a fresh rerun. An earlier saturated
   aggregate produced cascading timeouts; the first failing workspace spec then
   passed 12/12 in isolation, and the full suite passed in 166.6 seconds. The
-  EdgeDriver warning that the installed driver has not been tested against Edge
-  150 remains tooling debt, not a test failure.
+  current follow-through run passes all 77 tests with exact-matched,
+  Microsoft-signed EdgeDriver/WebView2 150.0.4078.65, removing the old mismatch
+  warning.
+
+The current follow-through also passes 124 Rust tests, strict Clippy, both npm
+audits, the full 155,556-embedding identity verifier, all 11 source hashes, and
+SBOM validation for 553 npm and 475 Cargo components. None of those checks
+revives the stale installer hashes above.
 
 ## Real Council evidence
 
@@ -52,10 +64,11 @@ kill-test, and output-weakness checks.
 
 The strict verifier rejects only provider diversity: one successful non-mock
 provider per question and one successful provider across the run, where two are
-required. Saved Google, OpenAI, and Anthropic credentials were present but
-rejected by their APIs; values were never printed or persisted. The runner now
-supports `--resume`, but it reuses a result only when provider/model diagnostics
-match and local trust checks already pass.
+required. A bounded one-question Granite plus Claude subscription diagnostic
+did pass the strict two-provider contract, proving the second-provider path is
+usable; it does not replace the required complete 20-question fixture. The
+runner now supports `--resume`, but it reuses a result only when provider/model
+diagnostics match and local trust checks already pass.
 
 ## Public gate result
 
@@ -91,4 +104,5 @@ npm run release:install-smoke
 ```
 
 Only after all commands pass should the exact hashed package be attached to a
-public GitHub Release.
+public GitHub Release. Build fresh artifacts after those gates pass; never reuse
+the stale hashes in this document.

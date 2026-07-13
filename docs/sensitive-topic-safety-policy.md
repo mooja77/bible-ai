@@ -146,6 +146,12 @@ instead of running normal Council generation. This mode must:
   country-specific number and are directed to local emergency services and a
   present trusted person. These candidates are sourced from the HSE, NHS and
   988 Lifeline pages listed below, but remain blocked on named human review.
+  The runtime copy and source URLs now live in the versioned
+  `app/src-tauri/resources/safety-resources.json` registry. Each entry carries
+  jurisdiction, owner role, review status, reviewer/date and expiry fields.
+  Candidate entries deliberately leave human review and expiry fields null;
+  the registry test requires those fields before an entry can be marked
+  `approved`.
 - Keep theological debate out of the crisis response. The app must not produce
   an argument map, a winner, or confident pastoral advice as the primary
   response to a crisis prompt.

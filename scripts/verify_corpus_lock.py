@@ -40,6 +40,15 @@ def main() -> None:
     if len(ids) != len(set(ids)):
         failures.append("artifact ids must be unique")
 
+    identity = lock.get("embedding_identity") or {}
+    for field in ("model", "model_digest", "dim", "generator_version"):
+        if not identity.get(field):
+            failures.append(f"embedding_identity: missing {field}")
+    if len(str(identity.get("model_digest") or "")) != 64:
+        failures.append("embedding_identity: model_digest must be a 64-character sha256")
+    if not isinstance(identity.get("dim"), int) or identity.get("dim", 0) <= 0:
+        failures.append("embedding_identity: dim must be a positive integer")
+
     for artifact in artifacts:
         artifact_id = artifact.get("id", "(unnamed)")
         for field in ("version", "source_url", "license", "attribution", "bytes"):
@@ -48,6 +57,29 @@ def main() -> None:
         checksum = artifact.get("sha256") or artifact.get("aggregate_sha256")
         if not isinstance(checksum, str) or len(checksum) != 64:
             failures.append(f"{artifact_id}: checksum must be a 64-character sha256")
+        has_path = isinstance(artifact.get("path"), str) and bool(artifact.get("path"))
+        has_glob = isinstance(artifact.get("path_glob"), str) and bool(
+            artifact.get("path_glob")
+        )
+        if has_path == has_glob:
+            failures.append(f"{artifact_id}: specify exactly one of path or path_glob")
+        if has_glob:
+            expected_files = artifact.get("files")
+            if not isinstance(artifact.get("file_count"), int) or artifact.get(
+                "file_count", 0
+            ) <= 0:
+                failures.append(f"{artifact_id}: file_count must be a positive integer")
+            if not isinstance(expected_files, list) or len(expected_files) != artifact.get(
+                "file_count"
+            ):
+                failures.append(
+                    f"{artifact_id}: files must list exactly file_count entries"
+                )
+            elif (
+                any(not isinstance(name, str) or not name for name in expected_files)
+                or len(expected_files) != len(set(expected_files))
+            ):
+                failures.append(f"{artifact_id}: files must contain unique non-empty names")
 
     if args.metadata_only:
         print(json.dumps({"checked_lock_entries": len(artifacts), "failures": failures}, indent=2))
@@ -80,6 +112,7 @@ def main() -> None:
             failures.append(f"{artifact_id}: lock entry has neither path nor path_glob")
             continue
         excluded = set(artifact.get("exclude", []))
+        expected_files = artifact.get("files")
         files = sorted(
             path for path in ROOT.glob(pattern) if path.is_file() and path.name not in excluded
         )
@@ -89,6 +122,12 @@ def main() -> None:
         if len(files) != artifact.get("file_count"):
             failures.append(
                 f"{artifact_id}: file_count expected={artifact.get('file_count')} actual={len(files)}"
+            )
+        if expected_files is not None and [path.name for path in files] != sorted(
+            expected_files
+        ):
+            failures.append(
+                f"{artifact_id}: locked filenames do not match the cached artifact set"
             )
         if aggregate != artifact.get("aggregate_sha256"):
             failures.append(

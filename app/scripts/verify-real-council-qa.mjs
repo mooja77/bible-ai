@@ -70,8 +70,11 @@ if (!existsSync(fixturePath)) {
       const response = result.response ?? {};
       const evidence = response.retrieved_evidence ?? result.evidence ?? [];
       const label = result.slug ?? result.question;
-      const missingStages = ["grounding", "scope", "judge", "independence", "soft_layer", "kill_test"]
+      const missingStages = ["grounding", "scope", "judge", "soft_layer", "kill_test"]
         .filter((key) => !response[key]);
+      if (!response.evidence_route_diversity && !response.independence) {
+        missingStages.push("evidence_route_diversity");
+      }
       if (missingStages.length) {
         groundedStageFailures.push(`${label}: missing ${missingStages.join(", ")}`);
       }

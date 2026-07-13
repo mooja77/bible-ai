@@ -101,6 +101,15 @@
       "source_url": "https://github.com/openscriptures/morphhb",
       "aggregate_sha256": "c1b448b47e2a09d7edbf35d845e27be0e9022de7587b73df7745e22e12b66c5c",
       "file_count": 39,
+      "files": [
+        "1Chr.xml", "1Kgs.xml", "1Sam.xml", "2Chr.xml", "2Kgs.xml", "2Sam.xml",
+        "Amos.xml", "Dan.xml", "Deut.xml", "Eccl.xml", "Esth.xml", "Exod.xml",
+        "Ezek.xml", "Ezra.xml", "Gen.xml", "Hab.xml", "Hag.xml", "Hos.xml",
+        "Isa.xml", "Jer.xml", "Job.xml", "Joel.xml", "Jonah.xml", "Josh.xml",
+        "Judg.xml", "Lam.xml", "Lev.xml", "Mal.xml", "Mic.xml", "Nah.xml",
+        "Neh.xml", "Num.xml", "Obad.xml", "Prov.xml", "Ps.xml", "Ruth.xml",
+        "Song.xml", "Zech.xml", "Zeph.xml"
+      ],
       "bytes": 28527617,
       "license": "WLC text Public Domain; lemma and morphology CC BY 4.0",
       "attribution": "Open Scriptures Hebrew Bible Project"
@@ -124,5 +133,11 @@
     "WLC": 23213,
     "YLT": 31102
   },
-  "required_embedding_translations": ["ASV", "KJV", "WEB", "YLT"]
+  "required_embedding_translations": ["ASV", "KJV", "TR", "WEB", "WLC", "YLT"],
+  "embedding_identity": {
+    "model": "nomic-embed-text",
+    "model_digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+    "dim": 768,
+    "generator_version": "embed_corpus.py@2"
+  }
 }

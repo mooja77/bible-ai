@@ -5,7 +5,12 @@
  * minute, which is plenty for a council.
  */
 
-import { parseResponse, VOICE_SYSTEM_PROMPT, buildVoicePrompt } from "./_shared.mjs";
+import {
+  createRequestAbort,
+  parseResponse,
+  VOICE_SYSTEM_PROMPT,
+  buildVoicePrompt,
+} from "./_shared.mjs";
 
 // gemini-2.5-flash is free-tier eligible; gemini-2.5-pro is paid only.
 // Override via GEMINI_MODEL if you have billing enabled.
@@ -31,18 +36,18 @@ async function callGemini({
   userPrompt,
   model,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  signal,
 }) {
   const maxAttempts = 3;
   let lastError = null;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // Per-attempt timeout: without it a hung Gemini endpoint never settles,
     // stalling the whole council until the sidecar's outer deadline.
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const request = createRequestAbort(timeoutMs, signal);
     try {
       const resp = await fetch(endpointFor(model), {
         method: "POST",
-        signal: controller.signal,
+        signal: request.signal,
         headers: {
           "Content-Type": "application/json",
           "x-goog-api-key": apiKey,
@@ -80,6 +85,7 @@ async function callGemini({
       return text;
     } catch (err) {
       lastError = err;
+      if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : err;
       // Classified non-retryable HTTP error: fail fast. Network/abort errors
       // carry no `retryable` flag and stay retryable.
       if (err?.retryable === false) {
@@ -90,7 +96,7 @@ async function callGemini({
         continue;
       }
     } finally {
-      clearTimeout(timer);
+      request.cleanup();
     }
   }
   throw lastError ?? new Error("Gemini: request failed");
@@ -106,7 +112,7 @@ export const gemini = {
   display_name: `Gemini (${resolveModel()})`,
   displayName: ({ env = process.env } = {}) => `Gemini (${resolveModel(env)})`,
   isAvailable: (env) => !!env.GOOGLE_API_KEY,
-  async analyze({ question, evidence, env, scopedPositions }) {
+  async analyze({ question, evidence, env, scopedPositions, signal }) {
     const userPrompt = buildVoicePrompt({ question, evidence, scopedPositions });
     const text = await callGemini({
       apiKey: env.GOOGLE_API_KEY,
@@ -114,6 +120,7 @@ export const gemini = {
       userPrompt,
       model: resolveModel(env),
       timeoutMs: timeoutMs(env),
+      signal,
     });
     return parseResponse(text, "Gemini");
   },

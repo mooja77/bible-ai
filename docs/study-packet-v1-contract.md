@@ -368,6 +368,9 @@ What exists today:
   in `app/src-tauri/src/lib.rs` each write one file
   (`bible-ai-workspace-<title>-<stamp>.{md,html,pdf}`) to the export directory.
   There is also `write_workspace_markdown_to_path` for a chosen path.
+  HTML is the explicitly preferred accessible/reflowable export. The PDF is an
+  untagged visual archive, is not claimed as PDF/UA, and has limited Hebrew
+  bidirectional layout; the UI discloses that limitation beside PDF actions.
 - The Markdown body is produced by `renderWorkspaceMarkdown` in
   `app/src/features/workspaces/workspaceMarkdown.ts`. It walks the workspace
   items (`StudyItem` kinds: verse, verse_range, note, search_hit, search,

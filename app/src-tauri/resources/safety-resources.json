@@ -1,0 +1,59 @@
+{
+  "format_version": 1,
+  "registry_version": "2026-07-13-candidate-1",
+  "owner_role": "Qualified safety and pastoral reviewer (unassigned)",
+  "fallback": {
+    "locale": "international",
+    "locale_aliases": [],
+    "jurisdictions": ["international/unknown"],
+    "message": "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. Please contact local emergency services if anyone may be in immediate danger, and contact a trusted person or qualified professional who can be present with you.",
+    "review_status": "pending_human_safety_review",
+    "reviewed_by": null,
+    "reviewed_on": null,
+    "expires_on": null,
+    "source_urls": []
+  },
+  "entries": [
+    {
+      "locale": "en-IE",
+      "locale_aliases": ["en-ie"],
+      "jurisdictions": ["Ireland"],
+      "message": "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. If you or someone else may be about to come to harm in Ireland, phone 112 or 999 or go to an emergency department now. For confidential listening support, Samaritans is available free on 116 123. Please also contact a trusted person or qualified professional who can be present with you.",
+      "review_status": "pending_human_safety_review",
+      "reviewed_by": null,
+      "reviewed_on": null,
+      "expires_on": null,
+      "source_urls": [
+        "https://www2.hse.ie/mental-health/services-support/get-urgent-help/"
+      ]
+    },
+    {
+      "locale": "en-GB",
+      "locale_aliases": ["en-gb"],
+      "jurisdictions": ["United Kingdom (candidate wording; NHS 111 detail is England-specific)"],
+      "message": "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. If you or someone else is in immediate danger in the UK, call 999 or go to A&E now. In England, urgent mental-health support is available through NHS 111; for confidential listening support call Samaritans free on 116 123. Please also contact a trusted person or qualified professional who can be present with you.",
+      "review_status": "pending_human_safety_review",
+      "reviewed_by": null,
+      "reviewed_on": null,
+      "expires_on": null,
+      "source_urls": [
+        "https://www.nhs.uk/every-mind-matters/urgent-support/",
+        "https://www.nhs.uk/nhs-services/mental-health-services/"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "locale_aliases": ["en-us"],
+      "jurisdictions": ["United States"],
+      "message": "This sounds serious, and a Bible study tool is not the right place to carry it alone. Bible AI is not a counselor, doctor, pastor, lawyer, financial advisor, or emergency service. In the US, call or text 988 for mental-health, suicide, or substance-use crisis support. If anyone faces immediate physical danger, call 911 now. Please also contact a trusted person or qualified professional who can be present with you.",
+      "review_status": "pending_human_safety_review",
+      "reviewed_by": null,
+      "reviewed_on": null,
+      "expires_on": null,
+      "source_urls": [
+        "https://www.samhsa.gov/mental-health/988/faqs",
+        "https://www.samhsa.gov/resource/988/988-versus-911-social-media-post"
+      ]
+    }
+  ]
+}

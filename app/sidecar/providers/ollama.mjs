@@ -10,7 +10,12 @@
  * the cross-family judge, and the kill-test, all without a paid provider.
  */
 
-import { parseResponse, VOICE_SYSTEM_PROMPT, buildVoicePrompt } from "./_shared.mjs";
+import {
+  createRequestAbort,
+  parseResponse,
+  VOICE_SYSTEM_PROMPT,
+  buildVoicePrompt,
+} from "./_shared.mjs";
 
 const DEFAULT_HOST = "http://localhost:11434";
 // Local 27B-class models are slow; be generous so a thorough voice isn't killed.
@@ -52,16 +57,16 @@ export async function callOllama({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   numCtx = DEFAULT_NUM_CTX,
   json = true,
+  signal,
 }) {
   const url = `${host}/api/chat`;
   let lastError = null;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const request = createRequestAbort(timeoutMs, signal);
     try {
       const resp = await fetch(url, {
         method: "POST",
-        signal: controller.signal,
+        signal: request.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model,
@@ -87,12 +92,13 @@ export async function callOllama({
       return text;
     } catch (err) {
       lastError = err;
+      if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : err;
       if (attempt < 1) {
         await sleep(1000);
         continue;
       }
     } finally {
-      clearTimeout(timer);
+      request.cleanup();
     }
   }
   throw lastError ?? new Error("Ollama: request failed");
@@ -105,7 +111,7 @@ export const ollama = {
   displayName: ({ env = process.env } = {}) => `Local (${resolveModel(env) || "Ollama"})`,
   // Opt-in: only a configured chat model turns the local voice on.
   isAvailable: (env = process.env) => !!resolveModel(env),
-  async analyze({ question, evidence, env = process.env, scopedPositions }) {
+  async analyze({ question, evidence, env = process.env, scopedPositions, signal }) {
     const userPrompt = buildVoicePrompt({ question, evidence, scopedPositions });
     let lastError = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -116,6 +122,7 @@ export const ollama = {
         userPrompt,
         timeoutMs: timeoutMs(env),
         numCtx: resolveContextSize(env),
+        signal,
       });
       try {
         return parseResponse(text, "Ollama");

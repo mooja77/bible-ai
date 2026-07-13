@@ -2,7 +2,7 @@
 
 - Date: 2026-07-13
 - Owner: project maintainer
-- Status: engineering implementation complete; independent human gates pending
+- Status: engineering implementation and follow-through complete; named human gates pending
 - Release rule: public distribution remains blocked until every automated gate
   is green and every named human gate has signed evidence.
 
@@ -141,11 +141,13 @@ The engineering programme above is implemented and enforced in code:
   mirror verification, and expanded keyboard/screen-reader/zoom evidence gates
   are present.
 
-Verified engineering baseline on 2026-07-13: 145 sidecar tests, 122 Rust tests,
-77 desktop WebView E2E tests, five adversarial quality cases, zero npm audit
+Verified engineering baseline on 2026-07-13: 155 sidecar tests, 124 Rust tests,
+77 desktop WebView E2E tests, canonical adversarial quality cases, zero npm audit
 vulnerabilities in both Node workspaces, zero Cargo-audit vulnerabilities,
-155,556 embeddings, 155,557 edition mappings, and all 11 locked corpus artifacts
-validated. Cargo audit also reports 19 non-blocking upstream maintenance or
+155,556 embeddings with exact build identities, 155,557 edition mappings, and
+all 11 locked corpus artifacts validated. The Windows E2E run used exact-matched
+Microsoft-signed EdgeDriver/WebView2 150.0.4078.65. Cargo audit also reports 19
+non-blocking upstream maintenance or
 unsoundness warnings; these remain monitored supply-chain debt rather than
 being silently ignored.
 
@@ -155,3 +157,10 @@ crisis wording and localized resources, keyboard/screen-reader/200% zoom use,
 clean-profile credential behavior, real-provider Council runs through the
 current pipeline, signing/notarization, and installed-build smoke tests. The
 release scripts fail closed until those artifacts exist and pass.
+
+Follow-through also added the resumable lock-verified atomic corpus builder,
+versioned locale safety registry, labelled confidence-adjustment review packet,
+canonical quality-case schema enforcement, explicit accessible-export
+preference, provider request cancellation, and native Windows/macOS platform
+smoke workflows. These reduce engineering ambiguity; they do not replace any
+of the named approvals above.
