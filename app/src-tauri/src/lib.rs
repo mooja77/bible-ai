@@ -4472,7 +4472,7 @@ fn extract_reference_ranges(question: &str, books: &[db::Book]) -> Vec<Reference
             aliases.push((short, book.clone()));
         }
     }
-    aliases.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+    aliases.sort_by_key(|alias| std::cmp::Reverse(alias.0.len()));
 
     for (alias, book) in aliases {
         let mut offset = 0;
