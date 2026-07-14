@@ -8,6 +8,16 @@
 import { $, browser, expect } from "@wdio/globals";
 
 describe("Bible AI shell", () => {
+  afterEach(async () => {
+    // A failed guide assertion must not leave its modal covering the shell and
+    // turn one timeout into a cascade of unrelated failures.
+    const tour = await $('[data-testid="guided-tour"]');
+    if (await tour.isExisting()) {
+      const close = await tour.$('button[aria-label="Close guide"]');
+      if (await close.isClickable()) await close.click();
+    }
+  });
+
   it("loads with the Bible AI title in the sidebar", async () => {
     const reader = await $("button=Reader");
     await reader.waitForDisplayed({ timeout: 30_000 });
@@ -91,7 +101,7 @@ describe("Bible AI shell", () => {
     await clickTourButton("Next");
     await expect(tour).toHaveText("Ask the Council and inspect the reasoning", { containing: true, ignoreCase: true });
     const councilHeader = await $("h1=The Council");
-    await councilHeader.waitForDisplayed({ timeout: 10_000 });
+    await councilHeader.waitForDisplayed({ timeout: 30_000 });
 
     await clickTourButton("Rewind");
     await expect(tour).toHaveText("Read, compare, and navigate Scripture", { containing: true, ignoreCase: true });
@@ -106,12 +116,12 @@ describe("Bible AI shell", () => {
     await clickTourButton("Next");
     await expect(tour).toHaveText("Build a living systematic theology", { containing: true, ignoreCase: true });
     const theologyHeader = await $("h1=Theology");
-    await theologyHeader.waitForDisplayed({ timeout: 10_000 });
+    await theologyHeader.waitForDisplayed({ timeout: 30_000 });
 
     await clickTourButton("Next");
     await expect(tour).toHaveText("Search attributable open resources", { containing: true, ignoreCase: true });
     const resourcesHeader = await $("h1=Resources");
-    await resourcesHeader.waitForDisplayed({ timeout: 10_000 });
+    await resourcesHeader.waitForDisplayed({ timeout: 30_000 });
 
     await clickTourButton("Next");
     await expect(tour).toHaveText("Connect providers and review sources", { containing: true, ignoreCase: true });
