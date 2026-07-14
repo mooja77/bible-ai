@@ -16,7 +16,7 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -75,7 +75,7 @@ jobs:
       # still require the protected Developer ID and notarization workflow.
       APPLE_SIGNING_IDENTITY: "-"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
