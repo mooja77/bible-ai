@@ -91,6 +91,15 @@ const TAGGED_TRANSLATIONS = new Set(["WLC"]);
 
 export type SearchTestamentFilter = "all" | "OT" | "NT" | "DC";
 
+function withoutCredentialUpdates(settings: AppSettings): AppSettings {
+  const preferences = { ...settings };
+  delete preferences.google_api_key;
+  delete preferences.openai_api_key;
+  delete preferences.anthropic_api_key;
+  delete preferences.managed_gateway_token;
+  return preferences;
+}
+
 function App() {
   const [books, setBooks] = useState<Book[]>([]);
   const [translations, setTranslations] = useState<Translation[]>([]);
@@ -188,6 +197,35 @@ function App() {
   >(new Map());
   const [selectedWord, setSelectedWord] = useState<WordToken | null>(null);
 
+  const reportRecoverableError = useCallback((context: string, cause: unknown) => {
+    setWarning(`${context}: ${String(cause)}`);
+  }, []);
+
+  const applyLoadedSettings = useCallback(
+    (next: AppSettings, availableTranslations: Translation[]) => {
+      setSettings(next);
+      setSearchStrategy(
+        next.search_strategy === "semantic" || next.search_strategy === "hybrid"
+          ? next.search_strategy
+          : "keyword",
+      );
+      setFontScale(next.font_scale ?? 1);
+      setReaderLayout(next.reader_layout ?? "columns");
+      setReaderDensity(next.reader_density ?? "comfortable");
+      setSyncScroll(next.sync_scroll ?? true);
+      const restoredActive = (next.active_translations ?? "")
+        .split(",")
+        .map((code) => code.trim())
+        .filter((code) => availableTranslations.some((translation) => translation.code === code));
+      const fallbackActive = [
+        availableTranslations.find((translation) => translation.code === "KJV")?.code ??
+          availableTranslations[0]?.code,
+      ].filter(Boolean) as string[];
+      setActiveTranslations(restoredActive.length > 0 ? restoredActive : fallbackActive);
+    },
+    [],
+  );
+
   useEffect(() => {
     (async () => {
       try {
@@ -200,26 +238,7 @@ function App() {
         }
         setBooks(bs);
         setTranslations(ts);
-        setSettings(savedSettings);
-        if (
-          savedSettings.search_strategy === "keyword" ||
-          savedSettings.search_strategy === "semantic" ||
-          savedSettings.search_strategy === "hybrid"
-        ) {
-          setSearchStrategy(savedSettings.search_strategy);
-        }
-        setFontScale(savedSettings.font_scale ?? 1);
-        setReaderLayout(savedSettings.reader_layout ?? "columns");
-        setReaderDensity(savedSettings.reader_density ?? "comfortable");
-        setSyncScroll(savedSettings.sync_scroll ?? true);
-        const savedActive = (savedSettings.active_translations ?? "")
-          .split(",")
-          .map((x) => x.trim())
-          .filter((code) => ts.some((t) => t.code === code));
-        const defaultActive = savedActive.length
-          ? savedActive
-          : [ts.find((t) => t.code === "KJV")?.code ?? ts[0]?.code].filter(Boolean);
-        setActiveTranslations(defaultActive as string[]);
+        applyLoadedSettings(savedSettings, ts);
         const genesis = bs.find((b) => b.osis_code === "Gen") ?? bs[0];
         if (genesis) {
           setSelectedBook(genesis);
@@ -229,7 +248,7 @@ function App() {
         setError(String(e));
       }
     })();
-  }, []);
+  }, [applyLoadedSettings]);
 
   const refreshNavigationLists = useCallback(async () => {
     const requestId = ++navigationRequestId.current;
@@ -256,7 +275,7 @@ function App() {
       await tagItem(tag.id, "bookmark", bookmarkId);
       await refreshNavigationLists();
     } catch (e) {
-      setError(String(e));
+      reportRecoverableError("Could not attach the bookmark tag", e);
     }
   };
 
@@ -265,7 +284,7 @@ function App() {
       await untagItem(tagId, "bookmark", bookmarkId);
       await refreshNavigationLists();
     } catch (e) {
-      setError(String(e));
+      reportRecoverableError("Could not remove the bookmark tag", e);
     }
   };
 
@@ -287,10 +306,10 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [activeTranslations, refreshNavigationLists, selectedBook, selectedChapter]);
 
-  const queueSettingsSave = useCallback((next: AppSettings) => {
+  const queueSettingsSave = useCallback((next: AppSettings, includeCredentials = true) => {
     const save = settingsSaveChain.current
       .catch(() => undefined)
-      .then(() => saveAppSettings(next));
+      .then(() => saveAppSettings(includeCredentials ? next : withoutCredentialUpdates(next)));
     settingsSaveChain.current = save.catch(() => undefined);
     return save;
   }, []);
@@ -298,10 +317,12 @@ function App() {
   const saveSettingsPatch = useCallback((patch: AppSettings) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      void queueSettingsSave(next).catch((e) => setError(String(e)));
+      void queueSettingsSave(next, false).catch((e) =>
+        reportRecoverableError("Could not save reader settings", e),
+      );
       return next;
     });
-  }, [queueSettingsSave]);
+  }, [queueSettingsSave, reportRecoverableError]);
 
   useEffect(() => {
     if (!selectedBook || !selectedChapter || activeTranslations.length === 0) {
@@ -326,7 +347,7 @@ function App() {
         }
       })
       .catch((e) => {
-        if (!cancelled) setError(String(e));
+        if (!cancelled) reportRecoverableError("Could not load this chapter", e);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -334,7 +355,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeTranslations, selectedBook, selectedChapter]);
+  }, [activeTranslations, reportRecoverableError, selectedBook, selectedChapter]);
 
   const searchTimer = useRef<number | null>(null);
   const searchRequestId = useRef(0);
@@ -389,7 +410,9 @@ function App() {
           setSearchDegradedReason(resp.degraded_reason);
         })
         .catch((e) => {
-          if (requestId === searchRequestId.current) setError(String(e));
+          if (requestId === searchRequestId.current) {
+            reportRecoverableError("Search failed", e);
+          }
         })
         .finally(() => {
           if (requestId === searchRequestId.current) setSearchLoading(false);
@@ -407,6 +430,7 @@ function App() {
     searchFilterTestament,
     searchStrategy,
     settings.ollama_host,
+    reportRecoverableError,
   ]);
 
   useEffect(() => {
@@ -428,7 +452,9 @@ function App() {
           if (requestId === noteRequestId.current) setNoteResults(hits);
         })
         .catch((e) => {
-          if (requestId === noteRequestId.current) setError(String(e));
+          if (requestId === noteRequestId.current) {
+            reportRecoverableError("Note search failed", e);
+          }
         })
         .finally(() => {
           if (requestId === noteRequestId.current) setNoteLoading(false);
@@ -442,7 +468,7 @@ function App() {
     return () => {
       if (noteTimer.current) window.clearTimeout(noteTimer.current);
     };
-  }, [searchQuery, searchScope]);
+  }, [reportRecoverableError, searchQuery, searchScope]);
 
   // Monotonic id so an in-flight user-data load that resolves late (after a
   // newer chapter was selected) cannot overwrite the current chapter's data.
@@ -456,11 +482,11 @@ function App() {
       setRangeHighlights([]);
       setNotedVerseIds([]);
       setRangeNotes([]);
-      return;
+      return Promise.resolve();
     }
     const bookId = selectedBook.id;
     const chapter = selectedChapter;
-    Promise.all([
+    return Promise.all([
       listHighlightsForChapter(bookId, chapter).catch(() => [] as Highlight[]),
       listRangeHighlightsForChapter(bookId, chapter).catch(() => [] as RangeHighlight[]),
       listNotesForChapter(bookId, chapter).catch(() => []),
@@ -478,9 +504,8 @@ function App() {
     refetchUserData();
   }, [refetchUserData]);
 
-  const refreshUserDataAndNavigation = useCallback(() => {
-    refetchUserData();
-    refreshNavigationLists();
+  const refreshUserDataAndNavigation = useCallback(async () => {
+    await Promise.all([refetchUserData(), refreshNavigationLists()]);
   }, [refetchUserData, refreshNavigationLists]);
 
   // Fetch word tokens for any active translation that has Strong's tagging.
@@ -1170,23 +1195,14 @@ function App() {
             settings={settings}
             translations={translations}
             onUserDataChanged={refreshUserDataAndNavigation}
+            onBeforeSqliteRestore={() => settingsSaveChain.current}
+            onSettingsRestored={(restoredSettings) => {
+              applyLoadedSettings(restoredSettings, translations);
+            }}
             onJumpToVerse={jumpToVerse}
             onSave={async (next) => {
               await queueSettingsSave(next);
-              setSettings(next);
-              if (next.font_scale) setFontScale(next.font_scale);
-              if (next.reader_layout) setReaderLayout(next.reader_layout);
-              if (next.reader_density) setReaderDensity(next.reader_density);
-              if (next.sync_scroll !== undefined && next.sync_scroll !== null) {
-                setSyncScroll(next.sync_scroll);
-              }
-              if (next.active_translations) {
-                const codes = next.active_translations
-                  .split(",")
-                  .map((x) => x.trim())
-                  .filter((code) => translations.some((t) => t.code === code));
-                if (codes.length) setActiveTranslations(codes);
-              }
+              applyLoadedSettings(next, translations);
             }}
           />
         ) : mode === "workspaces" ? (

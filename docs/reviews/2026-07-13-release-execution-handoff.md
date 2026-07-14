@@ -43,7 +43,7 @@ verifier.
 ## Machine verification completed
 
 - `npm run check:trust`: schema v14, 11 source-lock entries, four canonical
-  quality cases, three corpus-backed QA helper tests, 156 sidecar tests.
+  quality cases, three corpus-backed QA helper tests, 157 sidecar tests.
 - `npm run check`: production TypeScript/Vite build, Rust format/check/test,
   strict Clippy, script/resource/leak/quality checks, and sidecar tests.
 - Full corpus lock/integrity: 31,310 verses; 155,557 edition mappings; 155,556
@@ -58,14 +58,13 @@ verifier.
   must be regenerated again after any tracked source change.
 - Source/staged hashes match for Council sidecar, shared provider logic, and
   Ollama provider logic.
-- Tauri WebView aggregate suite passed after a fresh rerun. An earlier saturated
-  aggregate produced cascading timeouts; the first failing workspace spec then
-  passed 12/12 in isolation, and the full suite passed in 166.6 seconds. The
-  current follow-through run passes all 77 tests with exact-matched,
-  Microsoft-signed EdgeDriver/WebView2 150.0.4078.65, removing the old mismatch
-  warning.
+- Tauri WebView aggregate suite passed after a fresh rerun. During the final
+  hardening pass, a timestamp regression fixture exposed shared-profile cleanup
+  and Council-history refresh weaknesses; both were fixed before the complete
+  suite was repeated. The current follow-through run passes all 79 tests with
+  exact-matched, Microsoft-signed EdgeDriver/WebView2 150.0.4078.65.
 
-The current follow-through also passes 125 Rust tests, strict Clippy, both npm
+The current follow-through also passes 126 Rust tests, strict Clippy, both npm
 audits, the full 155,556-embedding identity verifier, all 11 source hashes, and
 SBOM validation for 553 npm and 475 Cargo components. None of those checks
 revives the stale installer hashes above.

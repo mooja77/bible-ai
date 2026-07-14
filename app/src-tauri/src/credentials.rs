@@ -10,6 +10,11 @@ enum CredentialUpdate<'a> {
     Set(&'a str),
 }
 
+#[derive(Debug, Default)]
+pub struct ProviderKeyChangeSet {
+    previous_values: Vec<(&'static str, Option<String>)>,
+}
+
 fn service_name() -> String {
     std::env::var(SERVICE_ENV)
         .ok()
@@ -39,15 +44,65 @@ pub fn read_provider_keys(settings: &mut crate::user_db::AppSettings) -> Result<
     Ok(())
 }
 
-pub fn save_provider_keys(settings: &crate::user_db::AppSettings) -> Result<(), String> {
-    save_key("google_api_key", settings.google_api_key.as_deref())?;
-    save_key("openai_api_key", settings.openai_api_key.as_deref())?;
-    save_key("anthropic_api_key", settings.anthropic_api_key.as_deref())?;
-    save_key(
-        "managed_gateway_token",
-        settings.managed_gateway_token.as_deref(),
-    )?;
-    Ok(())
+pub fn save_provider_keys(
+    settings: &crate::user_db::AppSettings,
+) -> Result<ProviderKeyChangeSet, String> {
+    let requested = [
+        ("google_api_key", settings.google_api_key.as_deref()),
+        ("openai_api_key", settings.openai_api_key.as_deref()),
+        ("anthropic_api_key", settings.anthropic_api_key.as_deref()),
+        (
+            "managed_gateway_token",
+            settings.managed_gateway_token.as_deref(),
+        ),
+    ];
+    let mut changes = ProviderKeyChangeSet::default();
+    for (name, value) in requested {
+        let desired = match credential_update(value) {
+            CredentialUpdate::Keep => continue,
+            CredentialUpdate::Delete => None,
+            CredentialUpdate::Set(secret) => Some(secret),
+        };
+        let previous = match read_key(name) {
+            Ok(previous) => previous,
+            Err(error) => return Err(error_with_rollback(error, &changes)),
+        };
+        if previous.as_deref() == desired {
+            continue;
+        }
+        if let Err(error) = write_key(name, desired) {
+            return Err(error_with_rollback(error, &changes));
+        }
+        changes.previous_values.push((name, previous));
+    }
+    Ok(changes)
+}
+
+fn error_with_rollback(error: String, changes: &ProviderKeyChangeSet) -> String {
+    match rollback_provider_keys(changes) {
+        Ok(()) => error,
+        Err(rollback) => {
+            format!("{error}; some credential changes could not be rolled back: {rollback}")
+        }
+    }
+}
+
+pub fn rollback_provider_keys(changes: &ProviderKeyChangeSet) -> Result<(), String> {
+    let failures = changes
+        .previous_values
+        .iter()
+        .rev()
+        .filter_map(|(name, previous)| {
+            write_key(name, previous.as_deref())
+                .err()
+                .map(|error| format!("{name}: {error}"))
+        })
+        .collect::<Vec<_>>();
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(failures.join("; "))
+    }
 }
 
 fn read_key(name: &str) -> Result<Option<String>, String> {
@@ -63,21 +118,16 @@ fn read_key(name: &str) -> Result<Option<String>, String> {
     }
 }
 
-fn save_key(name: &str, value: Option<&str>) -> Result<(), String> {
-    let update = credential_update(value);
-    let credential = match update {
-        CredentialUpdate::Keep => return Ok(()),
-        CredentialUpdate::Delete | CredentialUpdate::Set(_) => entry(name)?,
-    };
-    match update {
-        CredentialUpdate::Set(secret) => credential
+fn write_key(name: &str, value: Option<&str>) -> Result<(), String> {
+    let credential = entry(name)?;
+    match value {
+        Some(secret) => credential
             .set_password(secret)
             .map_err(|e| format!("save credential {name}: {e}")),
-        CredentialUpdate::Delete => match credential.delete_credential() {
+        None => match credential.delete_credential() {
             Ok(()) | Err(KeyringError::NoEntry) => Ok(()),
             Err(e) => Err(format!("delete credential {name}: {e}")),
         },
-        CredentialUpdate::Keep => Ok(()),
     }
 }
 

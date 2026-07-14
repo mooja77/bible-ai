@@ -57,7 +57,14 @@ describe("Semantic search strategy", () => {
     // intentionally smaller non-embedding corpus and exercises that fallback.
     const translationFilter = await $('select[aria-label="Search translation"]');
     await translationFilter.waitForDisplayed({ timeout: 10_000 });
-    await translationFilter.selectByVisibleText("WEB");
+    // Translation metadata can finish loading after the app shell becomes
+    // clickable on slower/contended CI hosts. Wait for the actual option
+    // instead of treating an early, partially populated select as a failure.
+    await $('select[aria-label="Search translation"] option[value="WEB"]').waitForExist({
+      timeout: 60_000,
+      timeoutMsg: "WEB translation option did not load",
+    });
+    await translationFilter.selectByAttribute("value", "WEB");
 
     // Switch to Meaning (semantic) strategy BEFORE typing so the strategy is
     // set when the search fires — avoids a race where the strategy changes
@@ -92,7 +99,7 @@ describe("Semantic search strategy", () => {
     // return usable WEB results.
     await browser.waitUntil(
       async () => (await $$('[data-testid="search-result"]')).length > 0,
-      { timeout: 30_000, timeoutMsg: "no WEB search results rendered" },
+      { timeout: 60_000, timeoutMsg: "no WEB search results rendered" },
     );
     const hits = await $$('[data-testid="search-result"]');
     expect(hits.length).toBeGreaterThan(0);

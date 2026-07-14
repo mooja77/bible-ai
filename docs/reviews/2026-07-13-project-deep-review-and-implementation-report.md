@@ -139,7 +139,7 @@ should be decomposed after the release-evidence work.
 | Frontend dependencies contained high audit findings | Migrated to supported Vite 8/plugin versions, aligned Tauri JS/Rust 2.11 lines, and locked patched transitive packages | Both npm audits report zero vulnerabilities |
 | Cancel changed UI state but did not guarantee provider work stopped | Added cancellation epoch, Tauri cancel command, sidecar kill/drop, and clean respawn boundary | Cancellation unit and WebView timeout/retry tests pass |
 | Schema mirrors could drift | Added runtime/mirror schema version verification and moved fixtures to v14 | Schema sync gate passes |
-| No automated accessibility scanner | Added axe WCAG A/AA serious/critical scans to real Tauri E2E | Reader and Council axe checks pass |
+| No automated accessibility scanner | Added axe WCAG A/AA serious/critical scans to real Tauri E2E | Every primary view and shell overlay passes axe checks |
 | Initial frontend bundle carried all major modes | Added route-level lazy loading for Council, Settings, Theology, Resources, and Workspaces | Reader shell is split from feature chunks |
 | No standard release software inventory | Added CycloneDX npm and Cargo SBOM generation/validation and packaging | Current SBOMs contain 553 npm and 475 Cargo components |
 
@@ -154,6 +154,25 @@ The UI and current documentation now use:
 - “confidence adjustment” rather than calibrated probability.
 
 Historical review documents retain their original wording as an audit trail.
+
+## Final reliability hardening (2026-07-14)
+
+The closing application review found and corrected a further set of runtime
+reliability issues after the original trust-remediation programme:
+
+| Finding | Implemented correction | Verification |
+| --- | --- | --- |
+| Ordinary feature failures could replace the whole shell with the fatal startup screen | Bookmark tagging, settings autosave, chapter load, Scripture search, and note search now use a dismissible recoverable-error notice; only startup failure is fatal | Production build and full shared-profile WebView suite pass |
+| A fixed client timer could cancel a healthy long Council run | The client now applies an inactivity deadline reset by every progress event, calls backend cancellation when genuinely stuck, and prevents history changes during an active run | Error, timeout, cancellation, and active-progress E2E cases pass |
+| SQLite restore replaced the file without reliably reloading live React state | Restore drains pending settings writes, replaces the database, reloads settings/modules/user data, and reports partial reload failure honestly | E2E changes reader settings, restores, and observes the original values live |
+| Provider-specific test buttons still contacted every provider and the Claude API-key probe could generate a billed request | Diagnostics accept an explicit scope, run independent checks in parallel, preserve prior checked results, show skipped checks as untested, and use Anthropic model-list authentication for API keys | Scoped sidecar contract test and Settings/release-readiness E2E pass |
+| Several multi-row persistence operations and cross-store credential saves could leave partial state | Settings, workspace reorder, and Council judgment writes are transactional; credential-vault changes record prior values and compensate if a later vault/database step fails | 126 Rust tests, including duplicate-label and invalid-reorder preservation cases, pass |
+| Imported ISO timestamps could be parsed as invalid, while Council history deletion depended entirely on a second refresh and hid errors | Timestamp parsing distinguishes SQLite naive UTC from complete ISO values; confirmed deletes remove the row immediately, reconcile from the database, and surface any delete failure | Timestamp import and Council persist/restore/delete E2E pass |
+| Accessibility automation covered only a narrow slice of the product | The real-WebView axe scan now traverses Reader, book navigation, navigation drawer, command palette, Council, Theology, Resources, Workspaces, Tags, and Settings | No serious WCAG A/AA violations in the expanded automated gate |
+
+This pass raises the verified baseline to 157 sidecar tests, 126 Rust tests, and
+79 desktop WebView E2E tests. Both npm workspaces report zero vulnerabilities;
+Cargo audit reports zero vulnerabilities and 19 allowed upstream warnings.
 
 ## Corpus ground truth after remediation
 
@@ -183,26 +202,29 @@ Passed on the review machine:
   - 11-entry lock metadata check;
   - four canonical quality cases;
   - three corpus-backed retrieval/weakness helper tests;
-  - 156 sidecar tests.
+  - 157 sidecar tests.
 - `npm run check`
   - TypeScript and Vite 8 production build;
   - Rust format/check/test/strict Clippy;
   - script syntax, resource fixtures, leak checks, and quality checks.
-- Rust: 125 tests, including installed-corpus drift diagnostics,
+- Rust: 126 tests, including installed-corpus drift diagnostics,
   Unicode/multipage PDF, versification-aware queries,
   safety taxonomy, locale fallback, cancellation, imports, backups, and secrets.
-- Tauri WebView: 77 E2E tests in a disposable profile.
+- Tauri WebView: 79 E2E tests in a disposable profile shared across spec files.
 - EdgeDriver/WebView2: exact-matched Microsoft-signed version 150.0.4078.65.
-- Accessibility: axe serious/critical WCAG A/AA scan, focus, keyboard, contrast,
-  and maximum text scaling all pass automated checks.
+- Accessibility: axe serious/critical WCAG A/AA scans across every primary view
+  and shell overlay, focus, keyboard, contrast, and maximum text scaling all
+  pass automated checks.
 - Provenance: full corpus lock and corpus integrity verifiers pass.
 - Supply chain: zero npm vulnerabilities in app and sidecar; zero Cargo-audit
   vulnerabilities; SBOM validation passes.
 
 Cargo audit reports 19 allowed upstream warnings, primarily Tauri's
-target-specific GTK3 ecosystem plus maintenance notices in text-shaping
-dependencies. These are recorded debt. They must be reviewed on dependency
-updates and must not be described as a completely advisory-free graph.
+target-specific GTK3 ecosystem plus maintenance notices in Tauri/url-pattern
+and text-shaping dependencies, including the July 2026 `rustybuzz` and
+`ttf-parser` notices reached through current `krilla 0.8.2`. These are recorded
+debt. They must be reviewed on dependency updates and must not be described as
+a completely advisory-free graph.
 
 ## Current fail-closed release evidence
 

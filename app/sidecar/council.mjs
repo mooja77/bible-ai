@@ -669,6 +669,17 @@ export async function runCouncil({
     if (question.includes("__FORCE_COUNCIL_SLOW__")) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
+    // Test-only active-but-slow path: total runtime exceeds the test's client
+    // backstop, but regular progress events prove the UI uses inactivity rather
+    // than total wall-clock time.
+    if (question.includes("__FORCE_COUNCIL_PROGRESS_SLOW__")) {
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      emit("run_started", {});
+      for (const kind of ["safety_checked", "retrieval_started", "retrieval_done", "synthesis_started"]) {
+        await sleep(500);
+        emit(kind, kind === "retrieval_done" ? { count: evidence.length } : {});
+      }
+    }
     const mock = mockCouncilResult({ question, evidence, model });
     const mockDelayMs = parseInt(process.env.BIBLE_AI_MOCK_DELAY_MS ?? "0", 10) || 0;
     if (mockDelayMs > 0) {

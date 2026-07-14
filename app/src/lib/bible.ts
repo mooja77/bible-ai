@@ -516,6 +516,8 @@ export const saveAppSettings = (settings: AppSettings) =>
 export interface SetupCheck {
   configured: boolean;
   ok: boolean;
+  /** False when a scoped diagnostic intentionally did not contact this provider. */
+  checked?: boolean;
   error: string | null;
   host?: string;
   /** For the Claude check: "api", "subscription", or "disabled". */
@@ -572,8 +574,17 @@ export interface SetupDiagnostics {
   };
 }
 
-export const checkAppSetup = (settings: AppSettings) =>
-  invoke<SetupDiagnostics>("check_app_setup", { settings });
+export type SetupCheckScope =
+  | "all"
+  | "claude"
+  | "google"
+  | "openai"
+  | "anthropic"
+  | "gateway"
+  | "ollama";
+
+export const checkAppSetup = (settings: AppSettings, scope: SetupCheckScope = "all") =>
+  invoke<SetupDiagnostics>("check_app_setup", { settings, scope });
 
 // ---------- Study workspaces ----------
 

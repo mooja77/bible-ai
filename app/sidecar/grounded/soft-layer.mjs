@@ -15,8 +15,8 @@
 //      cross-examined? limits disclosed? uncertainty surfaced?).
 //
 // The kill-test skeptic (an adversarial LLM refutation pass) is the soft layer's
-// one non-deterministic member and is intentionally NOT here — it needs a live
-// provider and is tracked as a follow-up.
+// one non-deterministic member and is intentionally orchestrated separately in
+// kill-test.mjs because it needs a live provider.
 
 function normalizeLabel(label) {
   return String(label ?? "")

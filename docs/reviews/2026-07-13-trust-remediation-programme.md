@@ -142,8 +142,8 @@ The engineering programme above is implemented and enforced in code:
   and exact installed-corpus/index diagnostics are present. Setup diagnostics
   now preserve independent corpus and Ollama results when the AI sidecar fails.
 
-Verified engineering baseline on 2026-07-14: 156 sidecar tests, 125 Rust tests,
-77 desktop WebView E2E tests, canonical adversarial quality cases, zero npm audit
+Verified engineering baseline on 2026-07-14: 157 sidecar tests, 126 Rust tests,
+79 desktop WebView E2E tests, canonical adversarial quality cases, zero npm audit
 vulnerabilities in both Node workspaces, zero Cargo-audit vulnerabilities,
 155,556 embeddings with exact build identities, 155,557 edition mappings, and
 all 11 locked corpus artifacts validated. The Windows E2E run used exact-matched
@@ -165,3 +165,11 @@ canonical quality-case schema enforcement, explicit accessible-export
 preference, provider request cancellation, and native Windows/macOS platform
 smoke workflows. These reduce engineering ambiguity; they do not replace any
 of the named approvals above.
+
+The final reliability pass also separates recoverable feature errors from fatal
+startup failure, reloads live settings and user data after SQLite restore,
+scopes provider diagnostics to the button the user selected, compensates
+credential-vault changes when database persistence fails, makes multi-row user
+database writes transactional, and treats Council timeouts as inactivity rather
+than a fixed total runtime. The expanded axe gate covers every primary view and
+shell overlay. These behaviors are protected by the baseline counts above.

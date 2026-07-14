@@ -387,8 +387,15 @@ fn migrate_restored_provider_secrets(conn: &rusqlite::Connection) -> Result<(), 
     let settings = user_db::get_app_settings(conn).map_err(|e| e.to_string())?;
     if has_legacy_provider_key_rows(&settings) {
         let legacy_settings = provider_settings_for_legacy_migration(&settings);
-        credentials::save_provider_keys(&legacy_settings)?;
-        user_db::delete_secret_settings(conn).map_err(|e| e.to_string())?;
+        let credential_changes = credentials::save_provider_keys(&legacy_settings)?;
+        if let Err(database_error) = user_db::delete_secret_settings(conn) {
+            return match credentials::rollback_provider_keys(&credential_changes) {
+                Ok(()) => Err(database_error.to_string()),
+                Err(rollback_error) => Err(format!(
+                    "{database_error}; legacy credential migration rollback was incomplete: {rollback_error}"
+                )),
+            };
+        }
     }
     Ok(())
 }
@@ -1152,10 +1159,18 @@ fn get_app_settings(
         // Preserve legacy SQLite secrets before reading the vault; otherwise an
         // existing vault entry could overwrite the DB value before migration.
         let legacy_settings = provider_settings_for_legacy_migration(&settings);
-        credentials::save_provider_keys(&legacy_settings)?;
-        with_user_db(&app, &state, |conn| {
+        let credential_changes = credentials::save_provider_keys(&legacy_settings)?;
+        let delete_result = with_user_db(&app, &state, |conn| {
             user_db::delete_secret_settings(conn).map_err(|e| e.to_string())
-        })?;
+        });
+        if let Err(database_error) = delete_result {
+            return match credentials::rollback_provider_keys(&credential_changes) {
+                Ok(()) => Err(database_error),
+                Err(rollback_error) => Err(format!(
+                    "{database_error}; legacy credential migration rollback was incomplete: {rollback_error}"
+                )),
+            };
+        }
     }
     credentials::read_provider_keys(&mut settings)?;
     normalize_app_settings(&mut settings)?;
@@ -1169,10 +1184,19 @@ fn save_app_settings(
     mut settings: user_db::AppSettings,
 ) -> Result<(), String> {
     normalize_app_settings(&mut settings)?;
-    credentials::save_provider_keys(&settings)?;
-    with_user_db(&app, &state, |conn| {
+    let credential_changes = credentials::save_provider_keys(&settings)?;
+    let database_result = with_user_db(&app, &state, |conn| {
         user_db::save_app_settings(conn, &settings).map_err(|e| e.to_string())
-    })
+    });
+    if let Err(database_error) = database_result {
+        return match credentials::rollback_provider_keys(&credential_changes) {
+            Ok(()) => Err(database_error),
+            Err(rollback_error) => Err(format!(
+                "{database_error}; settings were not saved and credential rollback was incomplete: {rollback_error}"
+            )),
+        };
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1180,60 +1204,84 @@ async fn check_app_setup(
     app: AppHandle,
     state: tauri::State<'_, SidecarState>,
     mut settings: user_db::AppSettings,
+    scope: Option<String>,
 ) -> Result<serde_json::Value, String> {
     normalize_app_settings(&mut settings)?;
+    let mut requested_scope = scope.as_deref().unwrap_or("all").to_ascii_lowercase();
+    if !matches!(
+        requested_scope.as_str(),
+        "all" | "claude" | "google" | "openai" | "anthropic" | "gateway" | "ollama"
+    ) {
+        requested_scope = "all".to_string();
+    }
     let model = settings
         .claude_model
         .clone()
         .unwrap_or_else(|| "sonnet".to_string());
-    let mut diagnostics = match state
+    let (mut diagnostics, sidecar_unavailable) = match state
         .request(
             &app,
             "diagnostics",
             serde_json::json!({
                 "settings": &settings,
                 "model": model,
+                "scope": &requested_scope,
             }),
         )
         .await
     {
-        Ok(value) => value,
+        Ok(value) => (value, false),
         Err(error) => {
-            let unavailable = |label: &str| {
+            let unavailable = |label: &str, provider: &str| {
+                let checked = requested_scope == "all" || requested_scope == provider;
                 serde_json::json!({
                     "configured": false,
                     "ok": false,
-                    "error": format!("{label} was not checked because the sidecar is unavailable"),
+                    "checked": checked,
+                    "error": if checked {
+                        format!("{label} was not checked because the sidecar is unavailable")
+                    } else {
+                        "Not tested in this run".to_string()
+                    },
                 })
             };
-            serde_json::json!({
-                "sidecar": {
-                    "ok": false,
-                    "node": "unavailable",
-                    "platform": std::env::consts::OS,
-                    "arch": std::env::consts::ARCH,
-                    "error": error,
-                },
-                "providers": [],
-                "checks": {
-                    "claude": unavailable("Claude"),
-                    "google": unavailable("Google"),
-                    "openai": unavailable("OpenAI"),
-                    "anthropic": unavailable("Anthropic"),
-                    "gateway": unavailable("Managed Gateway"),
-                },
-            })
+            (
+                serde_json::json!({
+                    "sidecar": {
+                        "ok": false,
+                        "node": "unavailable",
+                        "platform": std::env::consts::OS,
+                        "arch": std::env::consts::ARCH,
+                        "error": error,
+                    },
+                    "providers": [],
+                    "checks": {
+                        "claude": unavailable("Claude", "claude"),
+                        "google": unavailable("Google", "google"),
+                        "openai": unavailable("OpenAI", "openai"),
+                        "anthropic": unavailable("Anthropic", "anthropic"),
+                        "gateway": unavailable("Managed Gateway", "gateway"),
+                        "ollama": unavailable("Ollama", "ollama"),
+                    },
+                }),
+                true,
+            )
         }
     };
 
-    diagnostics["checks"]["ollama"] = match check_ollama(settings.ollama_host.as_deref()).await {
-        Ok(value) => value,
-        Err(e) => serde_json::json!({
-            "configured": true,
-            "ok": false,
-            "error": e,
-        }),
-    };
+    if sidecar_unavailable && (requested_scope == "all" || requested_scope == "ollama") {
+        diagnostics["checks"]["ollama"] = match check_ollama(settings.ollama_host.as_deref()).await
+        {
+            Ok(value) => value,
+            Err(error) => serde_json::json!({
+                "configured": true,
+                "ok": false,
+                "checked": true,
+                "error": error,
+            }),
+        };
+    }
+
     diagnostics["corpus"] = match open_corpus(&app)
         .and_then(|conn| db::corpus_diagnostics(&conn).map_err(|e| e.to_string()))
     {
@@ -1258,28 +1306,28 @@ async fn check_app_setup(
 
 async fn check_ollama(host_override: Option<&str>) -> Result<serde_json::Value, String> {
     let host = host_override
-        .filter(|h| !h.trim().is_empty())
+        .filter(|host| !host.trim().is_empty())
         .unwrap_or("http://localhost:11434")
         .trim()
         .trim_end_matches('/')
         .to_string();
-    let url = format!("{host}/api/tags");
     let client = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(2))
         .timeout(std::time::Duration::from_secs(5))
         .build()
-        .map_err(|e| format!("ollama diagnostics client: {e}"))?;
-    let resp = client
-        .get(&url)
+        .map_err(|error| format!("ollama diagnostics client: {error}"))?;
+    let response = client
+        .get(format!("{host}/api/tags"))
         .send()
         .await
-        .map_err(|e| format!("ollama is not reachable at {host}: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("ollama {} at {host}", resp.status()));
+        .map_err(|error| format!("ollama is not reachable at {host}: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("ollama {} at {host}", response.status()));
     }
     Ok(serde_json::json!({
         "configured": true,
         "ok": true,
+        "checked": true,
         "error": null,
         "host": host,
     }))

@@ -29,16 +29,18 @@ is usable; a public release is not authorized by the current evidence.
 - AI quality: citation-free output is unverifiable; visible Scripture quotations
   are hydrated from retrieved corpus rows; four canonical quality cases pass;
   provider cancellation crosses the sidecar boundary.
-- Automated quality: `npm run check`, 156 sidecar tests, 3 corpus-backed QA
-  helper tests, 125 Rust tests, strict Clippy, schema sync, npm audit (zero
+- Automated quality: `npm run check`, 157 sidecar tests, 3 corpus-backed QA
+  helper tests, 126 Rust tests, strict Clippy, schema sync, npm audit (zero
   vulnerabilities), and CycloneDX SBOM validation pass. Cargo audit exits zero
   with 19 allowed warnings: Linux-only GTK3 maintenance notices, one patched-in-
   newer-GTK `glib` advisory with no current Windows dependency path, and
-  unmaintained transitive text/PDF crates for which the direct `krilla 0.8.2`
-  dependency is already the latest published version. These warnings remain a
-  tracked cross-platform/PDF maintenance risk, not a zero-warning claim.
-- Desktop behavior: all 77 WebView E2E tests pass, including the Reader/Council
-  axe scan, keyboard/focus behavior, contrast, and maximum text scaling. The
+  unmaintained transitive Tauri/url-pattern and text/PDF crates (including the
+  July 2026 `rustybuzz`/`ttf-parser` notices) for which the direct `krilla
+  0.8.2` dependency is already the latest published version. These warnings
+  remain tracked cross-platform/PDF maintenance risk, not a zero-warning claim.
+- Desktop behavior: all 79 WebView E2E tests pass, including axe scans across
+  every primary view and shell overlay, keyboard/focus behavior, contrast, and
+  maximum text scaling. The
   run used exact-matched, Microsoft-signed EdgeDriver/WebView2 150.0.4078.65.
 
 Additional follow-through now records the exact Ollama embedding model digest
@@ -57,8 +59,10 @@ check with zero sidecar errors. Claude and Ollama each succeeded 20/20. The
 strict machine verifier passes, but its SHA-bound human confidence review is
 still pending and cannot be inferred from the automated result.
 
-Fresh unsigned Windows bundles were built on 2026-07-14 and passed resource
-verification, clean-profile app launch, and NSIS install/launch/uninstall smoke:
+Unsigned Windows bundles built earlier on 2026-07-14 passed resource
+verification, clean-profile app launch, and NSIS install/launch/uninstall smoke.
+They predate the final reliability changes in this report, so they are historical
+evidence only and must be rebuilt before any release:
 
 - NSIS: `Bible AI_0.1.0_x64-setup.exe`, 493,836,610 bytes,
   SHA-256 `5649e7ab37110d747e0773fa133cbdf600fba6df4b06ab1b117ca04e648643bf`.

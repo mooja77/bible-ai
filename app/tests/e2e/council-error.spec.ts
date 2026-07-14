@@ -65,7 +65,7 @@ describe("Council failure UX", () => {
 
   it("stops a stuck run with a calm timeout message and a retry", async () => {
     // Shrink the client-side backstop so the mock's 2s slow path reliably trips
-    // it. Restore it in `finally` so later specs use the real 5-minute default.
+    // it. Restore it in `finally` so later specs use the real inactivity default.
     await browser.execute(() => {
       (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__ = 600;
     });
@@ -105,6 +105,34 @@ describe("Council failure UX", () => {
 
       const synthesis = await $("h2=Synthesis");
       await expect(synthesis).not.toBeDisplayed();
+    } finally {
+      await browser.execute(() => {
+        delete (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__;
+      });
+    }
+  });
+
+  it("allows a long run to finish while progress remains active", async () => {
+    await browser.execute(() => {
+      (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__ = 900;
+    });
+    try {
+      const question = `What does the beginning say about creation? __FORCE_COUNCIL_PROGRESS_SLOW__ e2e ${Date.now()}`;
+      const council = await $("button=Council");
+      await council.waitForClickable({ timeout: 10_000 });
+      await council.click();
+
+      const strategy = await $('select[aria-label="Council retrieval strategy"]');
+      await strategy.selectByAttribute("value", "keyword");
+      const crossRefs = await $('input[type="checkbox"]');
+      if (await crossRefs.isSelected()) await crossRefs.click();
+      await $("textarea").setValue(question);
+      await $("button=Ask the Council").click();
+
+      const synthesis = await $("h2=Synthesis");
+      await synthesis.waitForDisplayed({ timeout: 30_000 });
+      await expect(synthesis).toBeDisplayed();
+      await expect(await $('[data-testid="council-error"]')).not.toBeDisplayed();
     } finally {
       await browser.execute(() => {
         delete (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__;

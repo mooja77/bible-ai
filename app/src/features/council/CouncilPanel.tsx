@@ -40,32 +40,42 @@ import { VoicesAuditTrail } from "./CouncilVoicesAudit";
 import { ErrorState } from "../../components/StateViews";
 import { ReasoningExplorer } from "./explorer/ReasoningExplorer";
 
-/** Client-side backstop (5 min). The backend tolerates very long runs, so a
- *  stuck or unreachable provider can otherwise spin forever. The live elapsed
- *  counter + stage panel keep the user informed during normal waits; this only
- *  trips on a genuine stall. */
-const COUNCIL_CLIENT_TIMEOUT_MS = 300_000;
+/** Client-side inactivity backstop. Individual provider stages can legitimately
+ * take up to ten minutes, while the Rust host owns the thirty-minute overall
+ * deadline. Resetting this timer on progress prevents a valid long run from
+ * being cancelled just before synthesis finishes. */
+const COUNCIL_INACTIVITY_TIMEOUT_MS = 660_000;
 const COUNCIL_TIMEOUT_MESSAGE =
   "The Council is taking longer than expected and may be stuck. This usually " +
   "means a slow or unreachable AI provider. Check your connection and provider " +
   "settings, then try again.";
 
-/** Race a council request against the backstop above so a stall surfaces as a
- *  calm, actionable error (with a retry) instead of an endless spinner. Tests
- *  may shrink the window via `window.__BIBLE_AI_COUNCIL_TIMEOUT_MS__`. */
-async function withCouncilTimeout<T>(promise: Promise<T>): Promise<T> {
+/** Run a Council request with a timer that is restarted by each progress event.
+ * Tests may shrink the window via `window.__BIBLE_AI_COUNCIL_TIMEOUT_MS__`. */
+async function withCouncilInactivityTimeout<T>(
+  start: (markActivity: () => void) => Promise<T>,
+): Promise<T> {
   const override = (
     window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }
   ).__BIBLE_AI_COUNCIL_TIMEOUT_MS__;
   const ms =
-    typeof override === "number" && override > 0 ? override : COUNCIL_CLIENT_TIMEOUT_MS;
+    typeof override === "number" && override > 0 ? override : COUNCIL_INACTIVITY_TIMEOUT_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let rejectTimeout: ((reason: string) => void) | undefined;
+  let active = true;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(COUNCIL_TIMEOUT_MESSAGE), ms);
+    rejectTimeout = reject;
   });
+  const markActivity = () => {
+    if (!active) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => rejectTimeout?.(COUNCIL_TIMEOUT_MESSAGE), ms);
+  };
+  markActivity();
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([start(markActivity), timeout]);
   } finally {
+    active = false;
     if (timer) clearTimeout(timer);
   }
 }
@@ -134,6 +144,26 @@ export function CouncilPanel({
       });
   }, []);
 
+  const handleSessionDeleted = useCallback(
+    (deletedId: number) => {
+      // The delete command has already succeeded, so remove the row
+      // immediately. Refresh afterward to reconcile with the database without
+      // making the visible result depend on another asynchronous round trip.
+      setSessions((current) => current.filter((session) => session.id !== deletedId));
+      if (activeSessionId === deletedId) {
+        councilViewRequestId.current += 1;
+        setResponse(null);
+        setActiveSessionId(null);
+        setJudgment(null);
+        setArgumentAnnotations([]);
+        setShowExplorer(false);
+        setShowFullAnalysis(false);
+      }
+      refreshSessions();
+    },
+    [activeSessionId, refreshSessions],
+  );
+
   useEffect(() => {
     refreshSessions();
   }, [refreshSessions]);
@@ -190,7 +220,7 @@ export function CouncilPanel({
     setLoading(true);
     resetRun();
     try {
-      const r = await withCouncilTimeout(
+      const r = await withCouncilInactivityTimeout((markActivity) =>
         askCouncil(
           q,
           undefined,
@@ -204,7 +234,10 @@ export function CouncilPanel({
             // typed values, and the backend rejects out-of-range limits.
             evidence_limit: Math.min(120, Math.max(10, Math.round(evidenceLimit) || 60)),
           },
-          onCouncilProgress,
+          (event) => {
+            markActivity();
+            onCouncilProgress(event);
+          },
         ),
       );
       if (requestId !== councilViewRequestId.current) return;
@@ -260,8 +293,8 @@ export function CouncilPanel({
   };
 
   const onSelectSession = async (id: number) => {
+    if (loading) return;
     const requestId = ++councilViewRequestId.current;
-    setLoading(false);
     resetRun();
     // Reset view-state toggles SYNCHRONOUSLY (before the async load) so a slow
     // session fetch can't race a user toggling the audit panels in the gap —
@@ -369,12 +402,6 @@ export function CouncilPanel({
 
       {response && !response.sensitive_topic && (
         <>
-          {/* The reasoning canvas is the lead for real users (isolated in its
-             own ErrorBoundary). The legacy editorial canvas is retained for the
-             e2e harness, which asserts the verdict-card testids on it, pending a
-             focused root-cause of a harness-only restore-sequence interaction
-             (council-mock) that has so far blocked un-gating the new canvas in
-             tests. Real-user correctness verified via manual runs. */}
           {/* The reasoning canvas is the lead of the Council result — the
              editorial "how & why" story — isolated in its own ErrorBoundary so a
              render fault degrades locally instead of taking down the view. It
@@ -541,7 +568,8 @@ export function CouncilPanel({
       <CouncilHistory
         sessions={sessions}
         onSelect={onSelectSession}
-        onChanged={refreshSessions}
+        onChanged={handleSessionDeleted}
+        disabled={loading}
       />
 
       {error && (

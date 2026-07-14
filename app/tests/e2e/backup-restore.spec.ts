@@ -50,7 +50,140 @@ describe("Backup and restore", () => {
     await $('[data-testid="nav-drawer"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
   });
 
+  it("renders imported ISO Council timestamps as valid relative times", async () => {
+    const settings = await $("button=Settings");
+    await settings.waitForClickable({ timeout: 10_000 });
+    await settings.click();
+
+    const id = Math.floor(Date.now() % 1_000_000_000);
+    const question = `Imported ISO timestamp session ${id}`;
+    const importedAt = new Date(Date.now() - 120_000).toISOString();
+    const position = {
+      label: "Fixture position",
+      weight: 1,
+      summary: "A timestamp regression fixture.",
+      supporting_evidence_ids: [1001001],
+      challenging_evidence_ids: [],
+      why_not_higher: "",
+      confidence_rationale: "Fixture response.",
+      weakest_link: "",
+      what_would_change_this: "",
+      interpretive_moves: [],
+      argument_map: { nodes: [], edges: [] },
+      evidence: [
+        {
+          verse_id: 1001001,
+          citation: "Genesis 1:1",
+          translation_code: "KJV",
+          quote: "In the beginning God created the heaven and the earth.",
+          reasoning: "Fixture citation.",
+        },
+      ],
+    };
+    const response = {
+      synthesis: {
+        positions: [position],
+        dissent_notes: "",
+        unresolved_tensions: [],
+        synthesis: "A minimal timestamp fixture.",
+        confidence: "medium",
+        confidence_rationale: "Fixture response.",
+        evidence_classification: [
+          { verse_id: 1001001, status: "used", reasoning: "Cited directly." },
+        ],
+        research_trail: [],
+      },
+      voices: [
+        {
+          provider: "mock",
+          display_name: "Mock",
+          status: "ok",
+          result: {
+            positions: [position],
+            synthesis: "A minimal voice result.",
+            confidence: "medium",
+          },
+          error: null,
+          duration_ms: 1,
+        },
+      ],
+      manifest: [{ name: "mock", display_name: "Mock", available: true }],
+      retrieved_evidence: [
+        {
+          verse_id: 1001001,
+          translation_code: "KJV",
+          book_id: 1,
+          book_name: "Genesis",
+          book_osis: "Gen",
+          chapter: 1,
+          verse: 1,
+          text: "In the beginning God created the heaven and the earth.",
+          source: "mock",
+        },
+      ],
+    };
+    const backup = {
+      app: "Bible AI",
+      export_version: 1,
+      user_schema_version: 14,
+      exported_at: importedAt,
+      tables: {
+        council_sessions: [
+          {
+            id,
+            question,
+            topic_tag: null,
+            status: "complete",
+            created_at: importedAt,
+            completed_at: importedAt,
+            retrieval_mode: null,
+            retrieval_options_json: null,
+            retrieved_evidence_json: null,
+            response_json: JSON.stringify(response),
+          },
+        ],
+      },
+    };
+    const textarea = await $('textarea[aria-label="Backup JSON"]');
+    await textarea.setValue(JSON.stringify(backup));
+    await $("button=Import pasted JSON").click();
+    await waitForBackupStatus("Imported 1", "Council timestamp fixture did not import");
+
+    await $("button=Council").click();
+    const row = await $(`button[title="${question}"]`);
+    await row.waitForDisplayed({ timeout: 10_000 });
+    expect(await row.getText()).not.toContain("NaN");
+    expect(await row.getText()).toMatch(/(?:s|m|h|d) ago/);
+
+    // The desktop suite intentionally reuses one profile across spec files.
+    // Remove this fixture so Council history tests that follow see only the
+    // sessions they create themselves.
+    await browser.execute((target: HTMLElement) => {
+      target.scrollIntoView({ block: "center", inline: "nearest" });
+    }, row);
+    await row.moveTo();
+    const deleteButton = await $(
+      `//button[@title="${question}"]/following-sibling::button[@aria-label="Delete session"]`,
+    );
+    await deleteButton.waitForClickable({ timeout: 10_000 });
+    await deleteButton.click();
+    await row.waitForExist({ reverse: true, timeout: 10_000 });
+  });
+
   it("creates a SQLite backup and restores from that backup path", async () => {
+    // Put a known reader preference into the backup so this exercises the live
+    // React settings reload, not only the file replacement/status message.
+    const reader = await $("button=Reader");
+    await reader.waitForClickable({ timeout: 10_000 });
+    await reader.click();
+    await $('button[aria-label="Reading settings"]').click();
+    const originalLayout = await $('select[aria-label="Reader layout"]');
+    const originalDensity = await $('select[aria-label="Reader density"]');
+    await originalLayout.selectByAttribute("value", "columns");
+    await originalDensity.selectByAttribute("value", "comfortable");
+    await browser.keys("Escape");
+    await browser.pause(600);
+
     const settings = await $("button=Settings");
     await settings.waitForClickable({ timeout: 10_000 });
     await settings.click();
@@ -70,6 +203,16 @@ describe("Backup and restore", () => {
       },
       { timeout: 10_000, timeoutMsg: "SQLite backup path was not shown" },
     );
+
+    // Mutate the live/DB state after the backup. Restore must put both values
+    // back and update the already-running application state in place.
+    await reader.click();
+    await $('button[aria-label="Reading settings"]').click();
+    await $('select[aria-label="Reader layout"]').selectByAttribute("value", "interleaved");
+    await $('select[aria-label="Reader density"]').selectByAttribute("value", "compact");
+    await browser.keys("Escape");
+    await browser.pause(600);
+    await settings.click();
 
     const pathInput = await $('input[aria-label="SQLite restore path"]');
     await pathInput.waitForDisplayed({ timeout: 10_000 });
@@ -91,6 +234,12 @@ describe("Backup and restore", () => {
       },
       { timeout: 10_000, timeoutMsg: "SQLite restore did not complete" },
     );
+
+    await reader.click();
+    await $('button[aria-label="Reading settings"]').click();
+    await expect(await $('select[aria-label="Reader layout"]')).toHaveValue("columns");
+    await expect(await $('select[aria-label="Reader density"]')).toHaveValue("comfortable");
+    await browser.keys("Escape");
   });
 
   it("imports resource JSON and makes entries searchable", async () => {

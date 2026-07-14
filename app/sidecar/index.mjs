@@ -98,41 +98,105 @@ async function checkGateway(env) {
   }
 }
 
-async function runDiagnostics({ settings = {}, model = "sonnet" }) {
+const DIAGNOSTIC_SCOPES = new Set([
+  "all",
+  "claude",
+  "google",
+  "openai",
+  "anthropic",
+  "gateway",
+  "ollama",
+]);
+
+function skippedCheck(configured) {
+  return {
+    configured,
+    ok: false,
+    checked: false,
+    error: "Not tested in this run",
+  };
+}
+
+function completedCheck(result) {
+  return { ...result, checked: true };
+}
+
+export async function runDiagnostics({ settings = {}, model = "sonnet", scope = "all" }) {
   const env = envWithSettings(settings);
-  const checks = {
-    // A real call, not an assumption: the Claude voice has no cheap key
-    // check, so the provider test probes it directly.
-    claude: await probeClaudeVoice({ env }),
-    google: env.GOOGLE_API_KEY
-      ? await checkJsonEndpoint({
+  const normalizedScope = DIAGNOSTIC_SCOPES.has(scope) ? scope : "all";
+  const shouldCheck = (name) => normalizedScope === "all" || normalizedScope === name;
+
+  // When an Anthropic API key is present, the models endpoint verifies both
+  // the key and the Claude voice without spending tokens on a generation.
+  // Claude Code subscription mode still needs its small liveness probe.
+  const needsAnthropicEndpoint =
+    !!env.ANTHROPIC_API_KEY && (shouldCheck("anthropic") || shouldCheck("claude"));
+  const anthropicPromise = needsAnthropicEndpoint
+    ? checkJsonEndpoint({
+        name: "Anthropic",
+        url: "https://api.anthropic.com/v1/models",
+        headers: {
+          "x-api-key": env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+      })
+    : null;
+
+  const claudePromise = shouldCheck("claude")
+    ? env.ANTHROPIC_API_KEY
+      ? anthropicPromise.then((result) => ({ ...result, mode: "api" }))
+      : probeClaudeVoice({ env })
+    : Promise.resolve(
+        skippedCheck(!!env.ANTHROPIC_API_KEY || env.DISABLE_CLAUDE_VOICE !== "1"),
+      );
+  const googlePromise = shouldCheck("google")
+    ? env.GOOGLE_API_KEY
+      ? checkJsonEndpoint({
           name: "Google",
           url: "https://generativelanguage.googleapis.com/v1beta/models",
           headers: { "x-goog-api-key": env.GOOGLE_API_KEY },
         })
-      : { configured: false, ok: false, error: "No Google API key configured" },
-    openai: env.OPENAI_API_KEY
-      ? await checkJsonEndpoint({
+      : Promise.resolve({ configured: false, ok: false, error: "No Google API key configured" })
+    : Promise.resolve(skippedCheck(!!env.GOOGLE_API_KEY));
+  const openaiPromise = shouldCheck("openai")
+    ? env.OPENAI_API_KEY
+      ? checkJsonEndpoint({
           name: "OpenAI",
           url: "https://api.openai.com/v1/models",
           headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}` },
         })
-      : { configured: false, ok: false, error: "No OpenAI API key configured" },
-    anthropic: env.ANTHROPIC_API_KEY
-      ? await checkJsonEndpoint({
-          name: "Anthropic",
-          url: "https://api.anthropic.com/v1/models",
-          headers: {
-            "x-api-key": env.ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
-          },
-        })
-      : { configured: false, ok: false, error: "No Anthropic API key configured" },
-    gateway: await checkGateway(env),
-    ollama: await checkJsonEndpoint({
-      name: "Ollama",
-      url: `${env.OLLAMA_HOST || "http://localhost:11434"}/api/tags`,
-    }),
+      : Promise.resolve({ configured: false, ok: false, error: "No OpenAI API key configured" })
+    : Promise.resolve(skippedCheck(!!env.OPENAI_API_KEY));
+  const anthropicCheckPromise = shouldCheck("anthropic")
+    ? anthropicPromise ??
+      Promise.resolve({ configured: false, ok: false, error: "No Anthropic API key configured" })
+    : Promise.resolve(skippedCheck(!!env.ANTHROPIC_API_KEY));
+  const gatewayPromise = shouldCheck("gateway")
+    ? checkGateway(env)
+    : Promise.resolve(skippedCheck(!!env.MANAGED_GATEWAY_URL));
+  const ollamaHost = (env.OLLAMA_HOST || "http://localhost:11434").replace(/\/$/, "");
+  const ollamaPromise = shouldCheck("ollama")
+    ? checkJsonEndpoint({ name: "Ollama", url: `${ollamaHost}/api/tags` }).then((result) => ({
+        ...result,
+        host: ollamaHost,
+      }))
+    : Promise.resolve(skippedCheck(true));
+
+  const [claude, google, openai, anthropic, gateway, ollama] = await Promise.all([
+    claudePromise,
+    googlePromise,
+    openaiPromise,
+    anthropicCheckPromise,
+    gatewayPromise,
+    ollamaPromise,
+  ]);
+  const checks = {
+    claude: claude.checked === false ? claude : completedCheck(claude),
+    google: google.checked === false ? google : completedCheck(google),
+    openai: openai.checked === false ? openai : completedCheck(openai),
+    anthropic: anthropic.checked === false ? anthropic : completedCheck(anthropic),
+    gateway: gateway.checked === false ? gateway : completedCheck(gateway),
+    ollama: ollama.checked === false ? ollama : completedCheck(ollama),
   };
 
   return {
@@ -162,6 +226,7 @@ async function handle(msg) {
         const result = await runDiagnostics({
           settings,
           model: msg.model ?? "sonnet",
+          scope: msg.scope ?? "all",
         });
         return { id, type: "diagnostics_result", result: redactSecrets(result, env) };
       }
