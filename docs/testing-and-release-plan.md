@@ -275,6 +275,10 @@ Clean-profile install smoke:
 1. Run `npm run release:build`.
 2. If artifacts are already built, run `npm run release:install-smoke`.
 3. Confirm the script installs `target/release/bundle/nsis/Bible AI_0.1.0_x64-setup.exe` into a temporary directory, launches the installed app with temporary `APPDATA` and `LOCALAPPDATA`, keeps it running for at least 8 seconds, runs the generated uninstaller with `/S`, and removes the temp directory.
+4. The default installer/uninstaller limits are 10 and 5 minutes because the
+   bundled corpus is large. Constrained CI hosts may set
+   `RELEASE_INSTALL_TIMEOUT_MS` or `RELEASE_UNINSTALL_TIMEOUT_MS`; a timeout
+   terminates the full installer process tree before cleanup.
 
 For a faster pre-install startup check, run `npm run release:smoke`. It launches the release `app.exe` from `target/release` with temporary `APPDATA` and `LOCALAPPDATA`, waits 8 seconds, then terminates it.
 
