@@ -15,17 +15,21 @@ pending. See `docs/ship-readiness.md` for the current sequence.
 Current automated Windows artifact evidence (2026-07-14):
 
 - Tauri produced fresh unsigned NSIS and MSI bundles.
+- Source commit:
+  `368af6ea6d4ada4af2ebedb2dfc4298f8078c967`.
 - `npm run release:verify`, `npm run release:smoke`, and
   `npm run release:install-smoke` passed; the NSIS installer was installed,
   launched for 8 seconds, and uninstalled.
-- NSIS: 493,836,610 bytes, SHA-256
-  `5649e7ab37110d747e0773fa133cbdf600fba6df4b06ab1b117ca04e648643bf`.
-- MSI: 612,103,268 bytes, SHA-256
-  `34d94c75d9abf2fb6522241fbb2a8173d46b0d8844f68fb023aea1ec67973e93`.
+- NSIS: 493,762,616 bytes, SHA-256
+  `38151a3fe9253295a1d6da9ec436a09b27b9bac97672d5915a204f7ace5bb5f8`.
+- MSI: 612,086,884 bytes, SHA-256
+  `19cae56baa5ca8e4c085a65b4c880807e645d34d81a06acaf9aa7a0f726d58f8`.
+- Release archive: 1,103,341,590 bytes, SHA-256
+  `71d6676c3c9d9a0e63cb7ae1bfacf52ccd8001a7e1fb96320eb2f6022d500185`.
 - A first install-smoke run hit the old 180-second timeout during transient
   Windows load. The smoke runner now uses bounded 10-minute install and
   5-minute uninstall defaults, kills the full process tree on timeout, and the
-  repeated real install/launch/uninstall run passed in 73 seconds.
+  current real install/launch/uninstall run passed in 285 seconds.
 - The source-bound manifest and portable manual-QA package were regenerated
   and verified against these installers. Regenerate them again after any
   tracked source change; never reuse a stale package.

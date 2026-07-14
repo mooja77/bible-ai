@@ -59,15 +59,21 @@ check with zero sidecar errors. Claude and Ollama each succeeded 20/20. The
 strict machine verifier passes, but its SHA-bound human confidence review is
 still pending and cannot be inferred from the automated result.
 
-Unsigned Windows bundles built earlier on 2026-07-14 passed resource
-verification, clean-profile app launch, and NSIS install/launch/uninstall smoke.
-They predate the final reliability changes in this report, so they are historical
-evidence only and must be rebuilt before any release:
+Fresh unsigned Windows bundles built on 2026-07-14 from source commit
+`368af6ea6d4ada4af2ebedb2dfc4298f8078c967` pass resource verification,
+isolated-profile app launch, and exact-NSIS install/launch/uninstall smoke. The
+source-bound manifest, summary, release package, archive, and portable manual-QA
+package were regenerated and verified against the same files:
 
-- NSIS: `Bible AI_0.1.0_x64-setup.exe`, 493,836,610 bytes,
-  SHA-256 `5649e7ab37110d747e0773fa133cbdf600fba6df4b06ab1b117ca04e648643bf`.
-- MSI: `Bible AI_0.1.0_x64_en-US.msi`, 612,103,268 bytes,
-  SHA-256 `34d94c75d9abf2fb6522241fbb2a8173d46b0d8844f68fb023aea1ec67973e93`.
+- NSIS: `Bible AI_0.1.0_x64-setup.exe`, 493,762,616 bytes,
+  SHA-256 `38151a3fe9253295a1d6da9ec436a09b27b9bac97672d5915a204f7ace5bb5f8`.
+- MSI: `Bible AI_0.1.0_x64_en-US.msi`, 612,086,884 bytes,
+  SHA-256 `19cae56baa5ca8e4c085a65b4c880807e645d34d81a06acaf9aa7a0f726d58f8`.
+- Release archive: `Bible AI_0.1.0_release-package.zip`, 1,103,341,590 bytes,
+  SHA-256 `71d6676c3c9d9a0e63cb7ae1bfacf52ccd8001a7e1fb96320eb2f6022d500185`.
+
+These are verified private/test artifacts, not publication approval. The named
+human evidence gates below remain intentionally fail-closed.
 
 ## The exact steps to ship (human)
 
@@ -88,9 +94,10 @@ evidence only and must be rebuilt before any release:
    `npm run qa:confidence-review:verify`. Do not edit the underlying Council
    fixture or claim that automated grounding proves theological quality.
 
-3. **Retain the exact release artifacts.** The current NSIS/MSI are built and
-   hashed above. If source, corpus, sidecar, SBOM, version, or signing state
-   changes, rebuild and repeat every artifact-bound gate.
+3. **Retain the exact release artifacts.** The current NSIS, MSI, archive, and
+   source commit are identified above. If source, corpus, sidecar, SBOM,
+   version, or signing state changes, rebuild and repeat every artifact-bound
+   gate.
 
 4. **Manual clean-profile QA** on a *separate clean Windows user profile or VM*
    (never your dev profile). Install the built installer, then verify and record

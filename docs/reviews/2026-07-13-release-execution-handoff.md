@@ -6,21 +6,35 @@ categories.
 
 ## Current built artifacts (still not publication-approved)
 
-Version: `0.1.0`, Windows x64, built 2026-07-14.
+Version: `0.1.0`, Windows x64, built 2026-07-14 from
+`368af6ea6d4ada4af2ebedb2dfc4298f8078c967`.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `app.exe` | 18,561,024 | `caf8bd75448922ff4a3f3904461064e3f88feae7b30e7dc98ee53be631076425` |
+| `corpus.sqlite` | 819,232,768 | `782991bf79d4488753b82bf4b85ffdf134c59b1c3a9e76797c7d2fc9f788f394` |
+| `Bible AI_0.1.0_x64-setup.exe` | 493,762,616 | `38151a3fe9253295a1d6da9ec436a09b27b9bac97672d5915a204f7ace5bb5f8` |
+| `Bible AI_0.1.0_x64_en-US.msi` | 612,086,884 | `19cae56baa5ca8e4c085a65b4c880807e645d34d81a06acaf9aa7a0f726d58f8` |
+| `Bible AI_0.1.0_release-package.zip` | 1,103,341,590 | `71d6676c3c9d9a0e63cb7ae1bfacf52ccd8001a7e1fb96320eb2f6022d500185` |
+
+`release:verify`, isolated-profile binary smoke, exact-NSIS
+install/launch/uninstall smoke, manifest/summary/package/archive verification,
+portable manual-QA packaging, and the 20-result real-Council machine verifier
+pass. These hashes identify the machine-tested artifacts, but they do not
+substitute for the pending named reviews. Any bundled
+source/corpus/version/signing change requires a rebuild and new hashes.
+
+## Historical built artifacts (stale)
+
+The immediately superseded 2026-07-14 bundle is retained only as an audit
+record:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
 | `Bible AI_0.1.0_x64-setup.exe` | 493,836,610 | `5649e7ab37110d747e0773fa133cbdf600fba6df4b06ab1b117ca04e648643bf` |
 | `Bible AI_0.1.0_x64_en-US.msi` | 612,103,268 | `34d94c75d9abf2fb6522241fbb2a8173d46b0d8844f68fb023aea1ec67973e93` |
 
-`release:verify`, clean-profile binary smoke, and NSIS
-install/launch/uninstall smoke pass. These hashes identify the machine-tested
-artifacts, but they do not substitute for the pending named reviews. Any bundled
-source/corpus/version/signing change requires a rebuild and new hashes.
-
-## Historical built artifacts (stale)
-
-Version: `0.1.0`, Windows x64.
+An earlier `0.1.0` Windows x64 build is also retained as historical evidence:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
@@ -66,8 +80,8 @@ verifier.
 
 The current follow-through also passes 126 Rust tests, strict Clippy, both npm
 audits, the full 155,556-embedding identity verifier, all 11 source hashes, and
-SBOM validation for 553 npm and 475 Cargo components. None of those checks
-revives the stale installer hashes above.
+SBOM validation for 553 npm and 475 Cargo components. None of those checks or
+the fresh artifact hashes substitutes for the pending human evidence.
 
 ## Real Council evidence
 
