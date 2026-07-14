@@ -60,10 +60,10 @@ still pending and cannot be inferred from the automated result.
 Fresh unsigned Windows bundles were built on 2026-07-14 and passed resource
 verification, clean-profile app launch, and NSIS install/launch/uninstall smoke:
 
-- NSIS: `Bible AI_0.1.0_x64-setup.exe`, 493,796,392 bytes,
-  SHA-256 `97a4966432b1a9ec459c18fe205280719bef1a47303c2062640df67bca14e055`.
-- MSI: `Bible AI_0.1.0_x64_en-US.msi`, 612,086,884 bytes,
-  SHA-256 `5deb52ea2c5443dfe4999522a891358a9d2ed001a8b47b2466adf84258f97d4f`.
+- NSIS: `Bible AI_0.1.0_x64-setup.exe`, 493,836,610 bytes,
+  SHA-256 `5649e7ab37110d747e0773fa133cbdf600fba6df4b06ab1b117ca04e648643bf`.
+- MSI: `Bible AI_0.1.0_x64_en-US.msi`, 612,103,268 bytes,
+  SHA-256 `34d94c75d9abf2fb6522241fbb2a8173d46b0d8844f68fb023aea1ec67973e93`.
 
 ## The exact steps to ship (human)
 

@@ -18,10 +18,14 @@ Current automated Windows artifact evidence (2026-07-14):
 - `npm run release:verify`, `npm run release:smoke`, and
   `npm run release:install-smoke` passed; the NSIS installer was installed,
   launched for 8 seconds, and uninstalled.
-- NSIS: 493,796,392 bytes, SHA-256
-  `97a4966432b1a9ec459c18fe205280719bef1a47303c2062640df67bca14e055`.
-- MSI: 612,086,884 bytes, SHA-256
-  `5deb52ea2c5443dfe4999522a891358a9d2ed001a8b47b2466adf84258f97d4f`.
+- NSIS: 493,836,610 bytes, SHA-256
+  `5649e7ab37110d747e0773fa133cbdf600fba6df4b06ab1b117ca04e648643bf`.
+- MSI: 612,103,268 bytes, SHA-256
+  `34d94c75d9abf2fb6522241fbb2a8173d46b0d8844f68fb023aea1ec67973e93`.
+- A first install-smoke run hit the old 180-second timeout during transient
+  Windows load. The smoke runner now uses bounded 10-minute install and
+  5-minute uninstall defaults, kills the full process tree on timeout, and the
+  repeated real install/launch/uninstall run passed in 73 seconds.
 - The source-bound manifest and portable manual-QA package were regenerated
   and verified against these installers. Regenerate them again after any
   tracked source change; never reuse a stale package.
