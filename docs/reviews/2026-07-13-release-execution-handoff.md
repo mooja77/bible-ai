@@ -65,7 +65,7 @@ verifier.
   Microsoft-signed EdgeDriver/WebView2 150.0.4078.65, removing the old mismatch
   warning.
 
-The current follow-through also passes 124 Rust tests, strict Clippy, both npm
+The current follow-through also passes 125 Rust tests, strict Clippy, both npm
 audits, the full 155,556-embedding identity verifier, all 11 source hashes, and
 SBOM validation for 553 npm and 475 Cargo components. None of those checks
 revives the stale installer hashes above.

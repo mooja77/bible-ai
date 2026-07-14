@@ -522,13 +522,45 @@ export interface SetupCheck {
   mode?: string;
 }
 
+export interface CorpusTranslationCoverage {
+  code: string;
+  name: string;
+  kind: string;
+  text_count: number;
+  mapping_count: number;
+  embedding_count: number;
+}
+
+export interface CorpusEmbeddingBuild {
+  model: string;
+  model_digest: string;
+  edition_count: number;
+  embedding_count: number;
+  generated_at: string;
+}
+
+export interface CorpusDiagnostics {
+  ok: boolean;
+  error: string | null;
+  canonical_verse_count: number;
+  translation_text_count: number;
+  mapping_count: number;
+  fts_count: number;
+  embedding_count: number;
+  translations: CorpusTranslationCoverage[];
+  embedding_builds: CorpusEmbeddingBuild[];
+  issues: string[];
+}
+
 export interface SetupDiagnostics {
   sidecar: {
     ok: boolean;
     node: string;
     platform: string;
     arch: string;
+    error?: string;
   };
+  corpus: CorpusDiagnostics;
   providers: CouncilProviderInfo[];
   checks: {
     claude: SetupCheck;

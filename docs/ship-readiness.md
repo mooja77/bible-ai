@@ -30,7 +30,7 @@ is usable; a public release is not authorized by the current evidence.
   are hydrated from retrieved corpus rows; four canonical quality cases pass;
   provider cancellation crosses the sidecar boundary.
 - Automated quality: `npm run check`, 156 sidecar tests, 3 corpus-backed QA
-  helper tests, 124 Rust tests, strict Clippy, schema sync, npm audit (zero
+  helper tests, 125 Rust tests, strict Clippy, schema sync, npm audit (zero
   vulnerabilities), and CycloneDX SBOM validation pass. Cargo audit exits zero
   with 19 allowed warnings: Linux-only GTK3 maintenance notices, one patched-in-
   newer-GTK `glib` advisory with no current Windows dependency path, and
@@ -45,8 +45,11 @@ Additional follow-through now records the exact Ollama embedding model digest
 and aggregate per-edition embedding hashes, provides a resumable atomic corpus
 builder, stores safety resources in a versioned locale registry, labels the PDF
 as an untagged visual archive while preferring HTML/Markdown for accessibility,
-and adds Windows E2E plus macOS bundle-smoke CI. The labelled Council
-confidence-review process exists but remains pending named human labels.
+adds Windows E2E plus macOS bundle-smoke CI, and exposes the installed corpus's
+verse, mapping, FTS, embedding, per-edition, model, and digest inventory in
+Settings. Setup diagnostics preserve corpus and Ollama results if the AI
+sidecar is unavailable. The labelled Council confidence-review process exists
+but remains pending named human labels.
 
 The current 20-result Granite/Ollama + Claude Code fixture passes every
 grounding, quote, primary-passage, stage, provider-diversity, and output-weakness

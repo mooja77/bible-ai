@@ -188,7 +188,8 @@ Passed on the review machine:
   - TypeScript and Vite 8 production build;
   - Rust format/check/test/strict Clippy;
   - script syntax, resource fixtures, leak checks, and quality checks.
-- Rust: 124 tests, including Unicode/multipage PDF, versification-aware queries,
+- Rust: 125 tests, including installed-corpus drift diagnostics,
+  Unicode/multipage PDF, versification-aware queries,
   safety taxonomy, locale fallback, cancellation, imports, backups, and secrets.
 - Tauri WebView: 77 E2E tests in a disposable profile.
 - EdgeDriver/WebView2: exact-matched Microsoft-signed version 150.0.4078.65.
@@ -270,8 +271,12 @@ remain mandatory. See `docs/ship-readiness.md` for the exact sequence.
   corpus size or latency data justifies the added native dependency.
 - Add DRC/LXX/deuterocanon only with edition-specific canon and versification,
   navigation, rights, and attribution—not by coercing them into the 66-book map.
-- Add corpus diagnostics in Settings so a user can see source-lock, index, and
-  edition coverage for the exact installed artifact.
+- **Installed corpus diagnostics — implemented.** Settings reports the exact
+  running artifact's canonical verses, edition mappings, FTS rows, semantic
+  embeddings, per-edition coverage, embedding model, and full model digest.
+  It labels this as a lightweight runtime inventory; source-lock checksums and
+  full SQLite integrity remain build/release gates rather than an interactive
+  startup claim.
 - Add privacy-preserving, opt-in operational diagnostics only after a written
   data-minimization and retention decision.
 - Evaluate signed update channels after code-signing ownership and rollback

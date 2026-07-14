@@ -22,6 +22,39 @@ pub struct Translation {
 }
 
 #[derive(Serialize, Clone)]
+pub struct CorpusTranslationCoverage {
+    pub code: String,
+    pub name: String,
+    pub kind: String,
+    pub text_count: i64,
+    pub mapping_count: i64,
+    pub embedding_count: i64,
+}
+
+#[derive(Serialize, Clone)]
+pub struct CorpusEmbeddingBuild {
+    pub model: String,
+    pub model_digest: String,
+    pub edition_count: i64,
+    pub embedding_count: i64,
+    pub generated_at: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct CorpusDiagnostics {
+    pub ok: bool,
+    pub error: Option<String>,
+    pub canonical_verse_count: i64,
+    pub translation_text_count: i64,
+    pub mapping_count: i64,
+    pub fts_count: i64,
+    pub embedding_count: i64,
+    pub translations: Vec<CorpusTranslationCoverage>,
+    pub embedding_builds: Vec<CorpusEmbeddingBuild>,
+    pub issues: Vec<String>,
+}
+
+#[derive(Serialize, Clone)]
 pub struct Verse {
     pub verse_id: i64,
     pub book_name: String,
@@ -161,6 +194,119 @@ pub fn list_translations(conn: &Connection) -> SqlResult<Vec<Translation>> {
     rows.collect()
 }
 
+/// Return lightweight identity and coverage information for the exact corpus
+/// opened by the running app. This intentionally avoids `PRAGMA quick_check` or
+/// hashing the 800MB database during an interactive setup check; the full
+/// checksum/integrity contract remains a build and release gate.
+pub fn corpus_diagnostics(conn: &Connection) -> SqlResult<CorpusDiagnostics> {
+    let canonical_verse_count =
+        conn.query_row("SELECT COUNT(*) FROM verses", [], |row| row.get(0))?;
+    let translation_text_count =
+        conn.query_row("SELECT COUNT(*) FROM translation_text", [], |row| {
+            row.get(0)
+        })?;
+    let mapping_count =
+        conn.query_row("SELECT COUNT(*) FROM edition_verse_mappings", [], |row| {
+            row.get(0)
+        })?;
+    let fts_count = conn.query_row("SELECT COUNT(*) FROM translation_text_fts", [], |row| {
+        row.get(0)
+    })?;
+    let embedding_count = conn.query_row("SELECT COUNT(*) FROM verse_embeddings", [], |row| {
+        row.get(0)
+    })?;
+
+    let mut coverage_stmt = conn.prepare(
+        "SELECT t.code, t.name, t.kind,
+                (SELECT COUNT(*) FROM translation_text tt WHERE tt.translation_code = t.code),
+                (SELECT COUNT(*) FROM edition_verse_mappings m WHERE m.translation_code = t.code),
+                (SELECT COUNT(*) FROM verse_embeddings e WHERE e.translation_code = t.code)
+         FROM translations t
+         ORDER BY t.code",
+    )?;
+    let translations = coverage_stmt
+        .query_map([], |row| {
+            Ok(CorpusTranslationCoverage {
+                code: row.get(0)?,
+                name: row.get(1)?,
+                kind: row.get(2)?,
+                text_count: row.get(3)?,
+                mapping_count: row.get(4)?,
+                embedding_count: row.get(5)?,
+            })
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+
+    let mut builds_stmt = conn.prepare(
+        "SELECT model, model_digest, COUNT(*), SUM(embedding_count), MAX(generated_at)
+         FROM embedding_builds
+         GROUP BY model, model_digest
+         ORDER BY model, model_digest",
+    )?;
+    let embedding_builds = builds_stmt
+        .query_map([], |row| {
+            Ok(CorpusEmbeddingBuild {
+                model: row.get(0)?,
+                model_digest: row.get(1)?,
+                edition_count: row.get(2)?,
+                embedding_count: row.get(3)?,
+                generated_at: row.get(4)?,
+            })
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+
+    let mut issues = Vec::new();
+    if canonical_verse_count <= 0 {
+        issues.push("the corpus has no canonical verses".to_string());
+    }
+    if translations.is_empty() || translation_text_count <= 0 {
+        issues.push("the corpus has no translation text".to_string());
+    }
+    if fts_count != translation_text_count {
+        issues.push(format!(
+            "the search index has {fts_count} rows but translation text has {translation_text_count}"
+        ));
+    }
+    if mapping_count < translation_text_count {
+        issues.push(format!(
+            "only {mapping_count} edition mappings exist for {translation_text_count} text rows"
+        ));
+    }
+    if embedding_count <= 0 || embedding_builds.is_empty() {
+        issues.push("the corpus has no recorded semantic index build".to_string());
+    }
+    for translation in &translations {
+        if translation.text_count <= 0 {
+            issues.push(format!("{} has no text rows", translation.code));
+        }
+        if translation.mapping_count < translation.text_count {
+            issues.push(format!(
+                "{} has fewer mappings than text rows",
+                translation.code
+            ));
+        }
+        if translation.embedding_count < translation.text_count {
+            issues.push(format!(
+                "{} has fewer embeddings than text rows",
+                translation.code
+            ));
+        }
+    }
+
+    Ok(CorpusDiagnostics {
+        ok: issues.is_empty(),
+        error: None,
+        canonical_verse_count,
+        translation_text_count,
+        mapping_count,
+        fts_count,
+        embedding_count,
+        translations,
+        embedding_builds,
+        issues,
+    })
+}
+
 pub fn get_chapter(
     conn: &Connection,
     translation_code: &str,
@@ -289,7 +435,9 @@ fn sanitise_fts_query(q: &str) -> String {
 
 #[cfg(test)]
 mod fts_query_tests {
-    use super::{sanitise_fts_query, search, semantic_search, VerseSearchScope};
+    use super::{
+        corpus_diagnostics, sanitise_fts_query, search, semantic_search, VerseSearchScope,
+    };
     use rusqlite::Connection;
 
     #[test]
@@ -325,6 +473,51 @@ mod fts_query_tests {
             )
             .expect("run fts query");
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn corpus_diagnostics_reports_exact_coverage_and_detects_index_drift() {
+        let conn = Connection::open_in_memory().expect("create sqlite");
+        conn.execute_batch(
+            "CREATE TABLE translations(code TEXT PRIMARY KEY, name TEXT, kind TEXT);
+             CREATE TABLE verses(id INTEGER PRIMARY KEY);
+             CREATE TABLE translation_text(translation_code TEXT, verse_id INTEGER, text TEXT);
+             CREATE VIRTUAL TABLE translation_text_fts USING fts5(verse_id UNINDEXED, translation_code UNINDEXED, text);
+             CREATE TABLE edition_verse_mappings(translation_code TEXT, local_verse_id INTEGER, canonical_verse_id INTEGER);
+             CREATE TABLE verse_embeddings(translation_code TEXT, verse_id INTEGER, embedding BLOB);
+             CREATE TABLE embedding_builds(
+               translation_code TEXT, model TEXT, model_digest TEXT,
+               embedding_count INTEGER, generated_at TEXT
+             );
+             INSERT INTO translations VALUES ('KJV', 'King James Version', 'translation');
+             INSERT INTO verses VALUES (1001001);
+             INSERT INTO translation_text VALUES ('KJV', 1001001, 'In the beginning');
+             INSERT INTO translation_text_fts VALUES (1001001, 'KJV', 'In the beginning');
+             INSERT INTO edition_verse_mappings VALUES ('KJV', 1001001, 1001001);
+             INSERT INTO verse_embeddings VALUES ('KJV', 1001001, X'00000000');
+             INSERT INTO embedding_builds VALUES ('KJV', 'test-model', 'abc123', 1, '2026-07-14');",
+        )
+        .expect("seed diagnostic schema");
+
+        let diagnostics = corpus_diagnostics(&conn).expect("read diagnostics");
+        assert!(diagnostics.ok, "{:?}", diagnostics.issues);
+        assert_eq!(diagnostics.canonical_verse_count, 1);
+        assert_eq!(diagnostics.translation_text_count, 1);
+        assert_eq!(diagnostics.mapping_count, 1);
+        assert_eq!(diagnostics.fts_count, 1);
+        assert_eq!(diagnostics.embedding_count, 1);
+        assert_eq!(diagnostics.translations.len(), 1);
+        assert_eq!(diagnostics.translations[0].embedding_count, 1);
+        assert_eq!(diagnostics.embedding_builds[0].model_digest, "abc123");
+
+        conn.execute("DELETE FROM translation_text_fts", [])
+            .expect("create index drift");
+        let drifted = corpus_diagnostics(&conn).expect("read drifted diagnostics");
+        assert!(!drifted.ok);
+        assert!(drifted
+            .issues
+            .iter()
+            .any(|issue| issue.contains("search index")));
     }
 
     #[test]

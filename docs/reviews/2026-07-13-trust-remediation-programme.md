@@ -138,10 +138,11 @@ The engineering programme above is implemented and enforced in code:
   Rust audits, strict linting, and SBOM generation; the public release gate
   repeats the full local corpus and supply-chain checks.
 - R5: route-level code splitting, automated serious/critical axe checks, schema
-  mirror verification, and expanded keyboard/screen-reader/zoom evidence gates
-  are present.
+  mirror verification, expanded keyboard/screen-reader/zoom evidence gates,
+  and exact installed-corpus/index diagnostics are present. Setup diagnostics
+  now preserve independent corpus and Ollama results when the AI sidecar fails.
 
-Verified engineering baseline on 2026-07-13: 155 sidecar tests, 124 Rust tests,
+Verified engineering baseline on 2026-07-14: 156 sidecar tests, 125 Rust tests,
 77 desktop WebView E2E tests, canonical adversarial quality cases, zero npm audit
 vulnerabilities in both Node workspaces, zero Cargo-audit vulnerabilities,
 155,556 embeddings with exact build identities, 155,557 edition mappings, and

@@ -1101,7 +1101,21 @@ export function SettingsPanel({
               <DiagnosticRow
                 label="Sidecar"
                 ok={diagnostics.sidecar.ok}
-                detail={`Node ${diagnostics.sidecar.node} · ${diagnostics.sidecar.platform}/${diagnostics.sidecar.arch}`}
+                detail={
+                  diagnostics.sidecar.ok
+                    ? `Node ${diagnostics.sidecar.node} · ${diagnostics.sidecar.platform}/${diagnostics.sidecar.arch}`
+                    : diagnostics.sidecar.error ?? "The local AI sidecar is unavailable."
+                }
+              />
+              <DiagnosticRow
+                label="Installed corpus"
+                ok={diagnostics.corpus.ok}
+                detail={
+                  diagnostics.corpus.error ??
+                  (diagnostics.corpus.ok
+                    ? `${diagnostics.corpus.canonical_verse_count.toLocaleString()} canonical verses · ${diagnostics.corpus.mapping_count.toLocaleString()} edition mappings · ${diagnostics.corpus.embedding_count.toLocaleString()} embeddings`
+                    : diagnostics.corpus.issues.join("; "))
+                }
               />
               <DiagnosticRow
                 label="Claude"
@@ -1142,22 +1156,60 @@ export function SettingsPanel({
                     : diagnostics.checks.ollama.error
                 }
               />
+              <div
+                className="pt-2 border-t border-neutral-800"
+                data-testid="installed-corpus-coverage"
+              >
+                <p className="text-xs text-neutral-500 mb-2">Installed corpus coverage</p>
+                <ul className="grid gap-2 sm:grid-cols-2" aria-label="Installed corpus coverage">
+                  {diagnostics.corpus.translations.map((translation) => (
+                    <li
+                      key={translation.code}
+                      className="rounded border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-xs text-neutral-300"
+                    >
+                      <span className="font-semibold text-neutral-100">{translation.code}</span>
+                      {` · ${translation.text_count.toLocaleString()} texts · ${translation.mapping_count.toLocaleString()} mappings · ${translation.embedding_count.toLocaleString()} embeddings`}
+                    </li>
+                  ))}
+                </ul>
+                {diagnostics.corpus.embedding_builds.map((build) => (
+                  <p
+                    key={`${build.model}:${build.model_digest}`}
+                    className="mt-2 text-xs text-neutral-500"
+                  >
+                    Semantic index: {build.model} for {build.edition_count} editions ·{" "}
+                    {build.embedding_count.toLocaleString()} rows · digest{" "}
+                    <code className="break-all text-neutral-400">{build.model_digest}</code> · built{" "}
+                    {build.generated_at}
+                  </p>
+                ))}
+                <p className="mt-2 text-xs text-neutral-600">
+                  This is a lightweight runtime inventory. Full source-lock, checksum, and SQLite
+                  integrity verification remains part of the build and release gate.
+                </p>
+              </div>
               <div className="pt-2 border-t border-neutral-800">
                 <p className="text-xs text-neutral-500 mb-2">Council voices</p>
                 <div className="flex flex-wrap gap-2">
-                  {diagnostics.providers.map((p) => (
-                    <span
-                      key={p.name}
-                      className={
-                        "text-xs px-2 py-1 rounded border " +
-                        (p.available
-                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                          : "border-neutral-800 bg-neutral-900 text-neutral-500")
-                      }
-                    >
-                      {p.display_name}
+                  {diagnostics.providers.length > 0 ? (
+                    diagnostics.providers.map((p) => (
+                      <span
+                        key={p.name}
+                        className={
+                          "text-xs px-2 py-1 rounded border " +
+                          (p.available
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                            : "border-neutral-800 bg-neutral-900 text-neutral-500")
+                        }
+                      >
+                        {p.display_name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-neutral-500">
+                      No voice status was returned because the sidecar is unavailable.
                     </span>
-                  ))}
+                  )}
                 </div>
               </div>
             </>

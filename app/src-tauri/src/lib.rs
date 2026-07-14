@@ -1186,7 +1186,7 @@ async fn check_app_setup(
         .claude_model
         .clone()
         .unwrap_or_else(|| "sonnet".to_string());
-    let mut diagnostics = state
+    let mut diagnostics = match state
         .request(
             &app,
             "diagnostics",
@@ -1195,7 +1195,36 @@ async fn check_app_setup(
                 "model": model,
             }),
         )
-        .await?;
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => {
+            let unavailable = |label: &str| {
+                serde_json::json!({
+                    "configured": false,
+                    "ok": false,
+                    "error": format!("{label} was not checked because the sidecar is unavailable"),
+                })
+            };
+            serde_json::json!({
+                "sidecar": {
+                    "ok": false,
+                    "node": "unavailable",
+                    "platform": std::env::consts::OS,
+                    "arch": std::env::consts::ARCH,
+                    "error": error,
+                },
+                "providers": [],
+                "checks": {
+                    "claude": unavailable("Claude"),
+                    "google": unavailable("Google"),
+                    "openai": unavailable("OpenAI"),
+                    "anthropic": unavailable("Anthropic"),
+                    "gateway": unavailable("Managed Gateway"),
+                },
+            })
+        }
+    };
 
     diagnostics["checks"]["ollama"] = match check_ollama(settings.ollama_host.as_deref()).await {
         Ok(value) => value,
@@ -1203,6 +1232,25 @@ async fn check_app_setup(
             "configured": true,
             "ok": false,
             "error": e,
+        }),
+    };
+    diagnostics["corpus"] = match open_corpus(&app)
+        .and_then(|conn| db::corpus_diagnostics(&conn).map_err(|e| e.to_string()))
+    {
+        Ok(value) => {
+            serde_json::to_value(value).map_err(|e| format!("serialize corpus diagnostics: {e}"))?
+        }
+        Err(error) => serde_json::json!({
+            "ok": false,
+            "error": error,
+            "canonical_verse_count": 0,
+            "translation_text_count": 0,
+            "mapping_count": 0,
+            "fts_count": 0,
+            "embedding_count": 0,
+            "translations": [],
+            "embedding_builds": [],
+            "issues": ["the installed corpus could not be inspected"],
         }),
     };
     Ok(diagnostics)
