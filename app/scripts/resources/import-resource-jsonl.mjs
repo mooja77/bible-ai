@@ -73,7 +73,7 @@ const payload = {
   export_version: 1,
   // Keep in sync with USER_SCHEMA_VERSION in app/src-tauri/src/user_db.rs;
   // import rejects payloads whose schema is newer than the app's.
-  user_schema_version: 13,
+  user_schema_version: 14,
   exported_at: new Date().toISOString(),
   tables: {
     resource_sources: [

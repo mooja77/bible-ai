@@ -10,6 +10,8 @@ reference space. Per-translation scripts only need to: (1) fetch their source,
 from __future__ import annotations
 
 import json
+import hashlib
+import os
 import re
 import sqlite3
 import urllib.request
@@ -17,11 +19,36 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 from typing import Iterable
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "data" / "schema.sql"
-CORPUS_DB = ROOT / "data" / "corpus.sqlite"
+CORPUS_DB = Path(
+    os.environ.get("BIBLE_AI_CORPUS_DB", ROOT / "data" / "corpus.sqlite")
+).resolve()
 SOURCES_DIR = ROOT / "data" / "sources"
+
+COMPARISON_VERSIFICATION = "eng-kjv"
+VERSIFICATION_SCHEMES = (
+    (
+        COMPARISON_VERSIFICATION,
+        "English Protestant (KJV-style)",
+        "Canonical comparison anchors used by the current 66-book UI.",
+        "https://ubsicap.github.io/usfm/usfm3.0.1/chapters_verses/index.html",
+    ),
+    (
+        "hebrew-wlc",
+        "Hebrew Masoretic (WLC)",
+        "Edition-local WLC chapter and verse numbering.",
+        "https://github.com/openscriptures/morphhb",
+    ),
+    (
+        "greek-tr",
+        "Greek New Testament (Textus Receptus)",
+        "Edition-local Textus Receptus numbering.",
+        "https://github.com/scrollmapper/bible_databases",
+    ),
+)
 
 # Canonical 66-book Protestant order. ids are stable identifiers used in
 # composite verse_ids across the whole app; do not renumber.
@@ -152,6 +179,17 @@ def open_corpus() -> sqlite3.Connection:
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    conn.executemany(
+        """
+        INSERT INTO versification_schemes (code, name, description, source_url)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(code) DO UPDATE SET
+          name = excluded.name,
+          description = excluded.description,
+          source_url = excluded.source_url
+        """,
+        VERSIFICATION_SCHEMES,
+    )
 
 
 def ensure_books(conn: sqlite3.Connection) -> None:
@@ -302,6 +340,7 @@ def upsert_translation(
     license: str,
     source_url: str,
     kind: str = "translation",
+    versification: str = COMPARISON_VERSIFICATION,
     rows: Iterable[tuple[int, int, int, int, str]],
 ) -> int:
     """Register the translation and write all of its verses + text + FTS rows.
@@ -353,6 +392,30 @@ def upsert_translation(
         text_rows,
     )
 
+    conn.execute(
+        """
+        INSERT INTO translation_versification
+          (translation_code, scheme_code, comparison_scheme_code)
+        VALUES (?, ?, ?)
+        ON CONFLICT(translation_code) DO UPDATE SET
+          scheme_code = excluded.scheme_code,
+          comparison_scheme_code = excluded.comparison_scheme_code
+        """,
+        (code, versification, COMPARISON_VERSIFICATION),
+    )
+    # Rebuild the default identity layer for this edition. Sources with a
+    # different versification replace affected rows after upsert rather than
+    # silently sharing a nominal chapter/verse with the comparison edition.
+    conn.execute("DELETE FROM edition_verse_mappings WHERE translation_code = ?", (code,))
+    conn.executemany(
+        """
+        INSERT INTO edition_verse_mappings
+          (translation_code, local_verse_id, canonical_verse_id, mapping_kind, source)
+        VALUES (?, ?, ?, 'identity', 'edition-local identity')
+        """,
+        [(code, vid, vid) for _translation, vid, _text in text_rows],
+    )
+
     for bid, count in chapter_counts.items():
         # Only raise chapter_count, never lower — different translations may
         # have different max chapters (e.g. an incomplete translation).
@@ -362,3 +425,175 @@ def upsert_translation(
         )
 
     return len(text_rows)
+
+
+def verified_cached_source(url: str, cache_name: str, expected_sha256: str) -> bytes:
+    raw = fetch_cached(url, cache_name)
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual != expected_sha256:
+        raise ValueError(
+            f"Checksum mismatch for {cache_name}: expected {expected_sha256}, got {actual}"
+        )
+    return raw
+
+
+def _parse_osis_reference(value: str) -> tuple[int, int, int, str]:
+    """Parse `Ps.13.6!a` into a local identity plus an optional segment."""
+    ref, _, segment = value.partition("!")
+    parts = ref.split(".")
+    if len(parts) != 3:
+        raise ValueError(f"Unsupported OSIS verse reference: {value!r}")
+    osis, chapter, verse = parts
+    by_osis = {book[1]: book[0] for book in BOOKS}
+    if osis not in by_osis:
+        raise ValueError(f"Unknown OSIS book in verse mapping: {osis!r}")
+    return by_osis[osis], int(chapter), int(verse), segment
+
+
+def apply_wlc_versification_map(
+    conn: sqlite3.Connection,
+    *,
+    xml_bytes: bytes,
+    source_label: str,
+) -> int:
+    """Map WLC-local references to the English/KJV comparison scheme.
+
+    The OpenScriptures map contains full-verse moves plus seven partial-verse
+    boundaries. Local WLC text remains stored at its own reference. Runtime
+    comparison uses this table and may combine a superscription/body pair that
+    maps to the same canonical verse.
+    """
+    root = ET.fromstring(xml_bytes)
+    entries: list[tuple[str, int, int, str, str, str, str]] = []
+    affected_local_ids: set[int] = set()
+    canonical_refs: dict[int, tuple[int, int, int]] = {}
+
+    for element in root.iter():
+        if not element.tag.endswith("verse"):
+            continue
+        wlc_ref = element.get("wlc")
+        canonical_ref = element.get("kjv")
+        mapping_kind = element.get("type", "full")
+        if not wlc_ref or not canonical_ref or mapping_kind not in {"full", "partial"}:
+            continue
+        local_book, local_chapter, local_verse, local_segment = _parse_osis_reference(wlc_ref)
+        canonical_book, canonical_chapter, canonical_verse, canonical_segment = (
+            _parse_osis_reference(canonical_ref)
+        )
+        local_id = verse_id(local_book, local_chapter, local_verse)
+        canonical_id = verse_id(canonical_book, canonical_chapter, canonical_verse)
+        affected_local_ids.add(local_id)
+        canonical_refs[canonical_id] = (canonical_book, canonical_chapter, canonical_verse)
+        entries.append(
+            (
+                "WLC",
+                local_id,
+                canonical_id,
+                mapping_kind,
+                local_segment,
+                canonical_segment,
+                source_label,
+            )
+        )
+
+    # Mapping targets are canonical reference anchors. Ensure they exist even
+    # when WLC is ingested before an English translation.
+    conn.executemany(
+        """
+        INSERT INTO verses (id, book_id, chapter, verse)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(id) DO NOTHING
+        """,
+        [(vid, *ref) for vid, ref in canonical_refs.items()],
+    )
+    conn.executemany(
+        "DELETE FROM edition_verse_mappings WHERE translation_code = 'WLC' AND local_verse_id = ?",
+        [(vid,) for vid in affected_local_ids],
+    )
+    conn.executemany(
+        """
+        INSERT INTO edition_verse_mappings
+          (translation_code, local_verse_id, canonical_verse_id, mapping_kind,
+           local_segment, canonical_segment, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        entries,
+    )
+
+    # Psalm superscriptions remain at the nominal local verse while the body
+    # may also map there. Mark the retained local row honestly as a heading.
+    conn.execute(
+        """
+        UPDATE edition_verse_mappings AS mapping
+        SET mapping_kind = 'heading', source = ?
+        WHERE mapping.translation_code = 'WLC'
+          AND mapping.mapping_kind = 'identity'
+          AND EXISTS (
+            SELECT 1
+            FROM edition_verse_mappings AS other
+            WHERE other.translation_code = mapping.translation_code
+              AND other.canonical_verse_id = mapping.canonical_verse_id
+              AND other.local_verse_id <> mapping.local_verse_id
+          )
+        """,
+        (source_label,),
+    )
+    return len(entries)
+
+
+def backfill_identity_verse_mappings(conn: sqlite3.Connection) -> int:
+    """Add explicit identity mappings for editions ingested before this schema."""
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO translation_versification
+          (translation_code, scheme_code, comparison_scheme_code)
+        SELECT code,
+               CASE code WHEN 'WLC' THEN 'hebrew-wlc'
+                         WHEN 'TR' THEN 'greek-tr'
+                         ELSE ? END,
+               ?
+        FROM translations
+        """,
+        (COMPARISON_VERSIFICATION, COMPARISON_VERSIFICATION),
+    )
+    before = conn.execute("SELECT COUNT(*) FROM edition_verse_mappings").fetchone()[0]
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO edition_verse_mappings
+          (translation_code, local_verse_id, canonical_verse_id, mapping_kind, source)
+        SELECT t.translation_code, t.verse_id, t.verse_id, 'identity',
+               'schema backfill: edition-local identity'
+        FROM translation_text t
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM edition_verse_mappings existing
+          WHERE existing.translation_code = t.translation_code
+            AND existing.local_verse_id = t.verse_id
+        )
+        """
+    )
+    after = conn.execute("SELECT COUNT(*) FROM edition_verse_mappings").fetchone()[0]
+    return after - before
+
+
+def prune_unreferenced_verses(conn: sqlite3.Connection) -> int:
+    """Delete stale verse identities left by removed/changed source editions."""
+    before = conn.execute("SELECT COUNT(*) FROM verses").fetchone()[0]
+    conn.execute(
+        """
+        DELETE FROM verses
+        WHERE NOT EXISTS (SELECT 1 FROM translation_text t WHERE t.verse_id = verses.id)
+          AND NOT EXISTS (SELECT 1 FROM word_tokens w WHERE w.verse_id = verses.id)
+          AND NOT EXISTS (SELECT 1 FROM verse_embeddings e WHERE e.verse_id = verses.id)
+          AND NOT EXISTS (
+            SELECT 1 FROM edition_verse_mappings m
+            WHERE m.local_verse_id = verses.id OR m.canonical_verse_id = verses.id
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM cross_refs c
+            WHERE c.from_verse_id = verses.id OR c.to_verse_id = verses.id
+          )
+        """
+    )
+    after = conn.execute("SELECT COUNT(*) FROM verses").fetchone()[0]
+    return before - after

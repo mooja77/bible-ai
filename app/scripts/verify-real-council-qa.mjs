@@ -20,6 +20,22 @@ const fixturePath = resolve(
 const minQuestions = Number(args.get("min-questions") ?? 20);
 const minProviders = Number(args.get("min-providers") ?? 2);
 const requirePerQuestion = args.get("require-per-question") !== "false";
+const requireGroundedStages = args.get("require-grounded-stages") !== "false";
+
+const normalize = (value) => String(value ?? "")
+  .normalize("NFKC")
+  .toLocaleLowerCase("und")
+  .replace(/[\p{P}\p{S}\p{Z}\s]+/gu, " ")
+  .trim();
+
+function explicitChapterRefs(question) {
+  const refs = [];
+  const pattern = /\b((?:[1-3]\s*)?[A-Z][a-z]+)\s+(\d{1,3})(?::\d{1,3})?/g;
+  for (const match of String(question).matchAll(pattern)) {
+    refs.push({ book: normalize(match[1]), chapter: Number(match[2]) });
+  }
+  return refs;
+}
 
 const failures = [];
 if (!existsSync(fixturePath)) {
@@ -36,6 +52,7 @@ if (!existsSync(fixturePath)) {
   }
 
   const providerCounts = new Map();
+  const groundedStageFailures = [];
   for (const result of payload.results ?? []) {
     const okVoices = (result.response?.voices ?? []).filter(
       (voice) => voice.status === "ok" && voice.provider !== "mock",
@@ -47,6 +64,56 @@ if (!existsSync(fixturePath)) {
       failures.push(
         `question "${result.question}" had ${okVoices.length} successful non-mock provider(s)`,
       );
+    }
+
+    if (requireGroundedStages) {
+      const response = result.response ?? {};
+      const evidence = response.retrieved_evidence ?? result.evidence ?? [];
+      const label = result.slug ?? result.question;
+      const missingStages = ["grounding", "scope", "judge", "soft_layer", "kill_test"]
+        .filter((key) => !response[key]);
+      if (!response.evidence_route_diversity && !response.independence) {
+        missingStages.push("evidence_route_diversity");
+      }
+      if (missingStages.length) {
+        groundedStageFailures.push(`${label}: missing ${missingStages.join(", ")}`);
+      }
+      if (!Array.isArray(evidence) || evidence.length === 0) {
+        groundedStageFailures.push(`${label}: no persisted retrieved evidence`);
+      }
+      if (
+        !response.grounding ||
+        response.grounding.hard_fail !== false ||
+        response.grounding.verification_status !== "verified" ||
+        !(response.grounding.cited_count > 0)
+      ) {
+        groundedStageFailures.push(`${label}: grounding is not positively verified`);
+      }
+      const evidenceById = new Map(evidence.map((row) => [Number(row.verse_id), row]));
+      for (const position of response.synthesis?.positions ?? []) {
+        if (!Array.isArray(position.evidence) || position.evidence.length === 0) {
+          groundedStageFailures.push(`${label}: position "${position.label}" has no visible evidence`);
+          continue;
+        }
+        for (const citation of position.evidence) {
+          const row = evidenceById.get(Number(citation.verse_id));
+          if (!row || normalize(citation.quote) !== normalize(row.text)) {
+            groundedStageFailures.push(
+              `${label}: position "${position.label}" has a quote not hydrated from retrieved evidence`,
+            );
+          }
+        }
+      }
+      for (const ref of explicitChapterRefs(result.question)) {
+        const present = evidence.some(
+          (row) => normalize(row.book_name) === ref.book && Number(row.chapter) === ref.chapter,
+        );
+        if (!present) {
+          groundedStageFailures.push(
+            `${label}: explicit primary passage ${ref.book} ${ref.chapter} was not retrieved`,
+          );
+        }
+      }
     }
   }
 
@@ -61,6 +128,13 @@ if (!existsSync(fixturePath)) {
   ).length;
   if (weakOutputCount > 0) {
     failures.push(`${weakOutputCount} result(s) still have output-level weakness flags`);
+  }
+  if (groundedStageFailures.length > 0) {
+    failures.push(
+      `${groundedStageFailures.length} grounded-stage check(s) failed:\n  ${groundedStageFailures
+        .slice(0, 25)
+        .join("\n  ")}${groundedStageFailures.length > 25 ? "\n  …" : ""}`,
+    );
   }
 
   if (failures.length === 0) {

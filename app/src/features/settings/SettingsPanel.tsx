@@ -6,6 +6,7 @@ import {
   createModule,
   deleteModule,
   exportUserDataJson,
+  getAppSettings,
   importModuleJsonl,
   importUserDataJson,
   listModuleEntriesForTopic,
@@ -20,6 +21,8 @@ import {
   type ModuleTopic,
   type ResourceSource,
   type SetupDiagnostics,
+  type SetupCheck,
+  type SetupCheckScope,
   type Translation,
   type UserDataImportStrategy,
 } from "../../lib/bible";
@@ -45,7 +48,9 @@ interface Props {
   settings: AppSettings;
   translations: Translation[];
   onSave: (settings: AppSettings) => Promise<void>;
-  onUserDataChanged?: () => void;
+  onUserDataChanged?: () => void | Promise<void>;
+  onBeforeSqliteRestore?: () => void | Promise<void>;
+  onSettingsRestored?: (settings: AppSettings) => void | Promise<void>;
   onJumpToVerse?: (verseId: number, translationCode: string) => void;
 }
 
@@ -54,6 +59,10 @@ const MODEL_OPTIONS = [
   { value: "opus", label: "Claude Opus" },
   { value: "haiku", label: "Claude Haiku" },
 ];
+
+function completedDiagnostic(check: SetupCheck | undefined): SetupCheck | undefined {
+  return check?.checked === false ? undefined : check;
+}
 
 
 
@@ -64,6 +73,8 @@ export function SettingsPanel({
   translations,
   onSave,
   onUserDataChanged,
+  onBeforeSqliteRestore,
+  onSettingsRestored,
   onJumpToVerse,
 }: Props) {
   const [draft, setDraft] = useState<AppSettings>(settings);
@@ -142,9 +153,11 @@ export function SettingsPanel({
     setDraft((prev) => ({ ...prev, [key]: value }));
     setSaved(false);
     setSaveError(null);
+    setDiagnostics(null);
   };
 
   const submit = async () => {
+    if (saving || backupBusy) return false;
     setSaving(true);
     setSaved(false);
     setSaveError(null);
@@ -160,12 +173,28 @@ export function SettingsPanel({
     }
   };
 
-  const runChecks = async (scope = "setup") => {
+  const runChecks = async (scope: SetupCheckScope = "all", label?: string) => {
     setChecking(true);
     setDiagnosticError(null);
-    setDiagnosticScope(scope);
+    setDiagnosticScope(label ?? (scope === "all" ? "all providers" : scope));
     try {
-      setDiagnostics(await checkAppSetup(draft));
+      const next = await checkAppSetup(draft, scope);
+      setDiagnostics((previous) => {
+        if (!previous) return next;
+        const retainPreviouslyChecked = (key: keyof SetupDiagnostics["checks"]) =>
+          next.checks[key].checked === false ? previous.checks[key] : next.checks[key];
+        return {
+          ...next,
+          checks: {
+            claude: retainPreviouslyChecked("claude"),
+            google: retainPreviouslyChecked("google"),
+            openai: retainPreviouslyChecked("openai"),
+            anthropic: retainPreviouslyChecked("anthropic"),
+            gateway: retainPreviouslyChecked("gateway"),
+            ollama: retainPreviouslyChecked("ollama"),
+          },
+        };
+      });
     } catch (e) {
       setDiagnosticError(String(e));
       setDiagnostics(null);
@@ -176,7 +205,7 @@ export function SettingsPanel({
 
   const saveAndRunChecks = async () => {
     const ok = await submit();
-    if (ok) await runChecks("guided setup");
+    if (ok) await runChecks("all", "guided setup");
   };
 
   const copyBackup = async () => {
@@ -242,13 +271,22 @@ export function SettingsPanel({
     setBackupBusy(true);
     setConfirmingRestore(false);
     setBackupStatus(null);
+    let safetyPath: string | null = null;
     try {
-      const safetyPath = await restoreUserSqlite(sqliteRestorePath);
-      setBackupStatus(`Restored SQLite. Safety backup: ${safetyPath}`);
+      await onBeforeSqliteRestore?.();
+      safetyPath = await restoreUserSqlite(sqliteRestorePath);
+      const restoredSettings = await getAppSettings();
+      setDraft(restoredSettings);
+      await onSettingsRestored?.(restoredSettings);
       await refreshModules();
-      onUserDataChanged?.();
+      await onUserDataChanged?.();
+      setBackupStatus(`Restored SQLite. Safety backup: ${safetyPath}`);
     } catch (e) {
-      setBackupStatus(`Restore failed: ${String(e)}`);
+      setBackupStatus(
+        safetyPath
+          ? `Restored SQLite, but live state reload failed: ${String(e)}. Safety backup: ${safetyPath}`
+          : `Restore failed: ${String(e)}`,
+      );
     } finally {
       setBackupBusy(false);
     }
@@ -402,16 +440,20 @@ export function SettingsPanel({
   const personalProviderCount = [hasAnthropicKey, hasGoogleKey, hasOpenAiKey]
     .filter(Boolean)
     .length;
-  const passingVoiceCount = diagnostics?.providers.filter((provider) => provider.available)
-    .length ?? 0;
+  const claudeCheck = completedDiagnostic(diagnostics?.checks.claude);
+  const googleCheck = completedDiagnostic(diagnostics?.checks.google);
+  const openAiCheck = completedDiagnostic(diagnostics?.checks.openai);
+  const anthropicCheck = completedDiagnostic(diagnostics?.checks.anthropic);
+  const gatewayCheck = completedDiagnostic(diagnostics?.checks.gateway);
+  const ollamaCheck = completedDiagnostic(diagnostics?.checks.ollama);
+  const passingVoiceCount = [claudeCheck, googleCheck, openAiCheck, gatewayCheck, ollamaCheck]
+    .filter((check) => check?.ok).length;
   const setupReady =
     setupPath === "personal"
       ? hasPersonalKey
       : setupPath === "gateway"
         ? hasGateway
-        : diagnostics?.providers.some(
-            (provider) => provider.name === "claude" && provider.available,
-          ) === true;
+        : claudeCheck?.ok === true;
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
@@ -514,7 +556,7 @@ export function SettingsPanel({
                 <button
                   type="button"
                   onClick={submit}
-                  disabled={saving}
+                  disabled={saving || backupBusy}
                   className="btn-primary px-3 py-1.5 text-sm"
                 >
                   {saving ? "Saving..." : "Save setup"}
@@ -522,7 +564,7 @@ export function SettingsPanel({
                 <button
                   type="button"
                   onClick={() => void saveAndRunChecks()}
-                  disabled={saving || checking}
+                  disabled={saving || checking || backupBusy}
                   className="btn-secondary px-3 py-1.5 text-sm"
                 >
                   {checking ? "Testing..." : "Save & test"}
@@ -677,7 +719,9 @@ export function SettingsPanel({
               Provider Status
             </h2>
             <p className="text-xs text-neutral-500 mt-1">
-              Test each user-owned provider before asking the Council. Keys are saved in the OS credential vault and excluded from JSON backups.
+              Test providers independently before asking the Council. “Test all” runs checks in parallel;
+              Claude Code login verification uses one tiny subscription probe, while API keys are checked
+              without generating a response. Keys stay in the OS credential vault and out of JSON backups.
             </p>
           </div>
           {checking && (
@@ -688,14 +732,14 @@ export function SettingsPanel({
           <ProviderStatusCard
             label="Claude"
             configured
-            status={diagnostics?.checks.claude.ok}
+            status={claudeCheck?.ok}
             detail={
-              diagnostics
-                ? diagnostics.checks.claude.ok
-                  ? diagnostics.checks.claude.mode === "api"
+              claudeCheck
+                ? claudeCheck.ok
+                  ? claudeCheck.mode === "api"
                     ? "Claude voice verified via the Anthropic API key."
                     : "Claude voice verified via the Claude Code login."
-                  : diagnostics.checks.claude.error ?? "Claude voice is not reachable."
+                  : claudeCheck.error ?? "Claude voice is not reachable."
                 : hasSettingValue(draft.anthropic_api_key)
                   ? "Uses the user's Anthropic API subscription."
                   : "Uses the local Claude Code login if available."
@@ -704,10 +748,10 @@ export function SettingsPanel({
           <ProviderStatusCard
             label="Anthropic API"
             configured={hasAnthropicKey}
-            status={diagnostics?.checks.anthropic.ok}
+            status={anthropicCheck?.ok}
             detail={
-              diagnostics
-                ? diagnostics.checks.anthropic.error ?? "Anthropic API key accepted."
+              anthropicCheck
+                ? anthropicCheck.error ?? "Anthropic API key accepted."
                 : hasAnthropicKey
                   ? "Anthropic API key saved in settings."
                   : "Optional: add an Anthropic API key instead of relying on Claude Code login."
@@ -716,10 +760,10 @@ export function SettingsPanel({
           <ProviderStatusCard
             label="Gemini"
             configured={hasGoogleKey}
-            status={diagnostics?.checks.google.ok}
+            status={googleCheck?.ok}
             detail={
-              diagnostics
-                ? diagnostics.checks.google.error ?? "Google API key accepted."
+              googleCheck
+                ? googleCheck.error ?? "Google API key accepted."
                 : hasGoogleKey
                   ? "Google API key saved in settings."
                   : "Add a Google API key to enable Gemini."
@@ -728,10 +772,10 @@ export function SettingsPanel({
           <ProviderStatusCard
             label="OpenAI"
             configured={hasOpenAiKey}
-            status={diagnostics?.checks.openai.ok}
+            status={openAiCheck?.ok}
             detail={
-              diagnostics
-                ? diagnostics.checks.openai.error ?? "OpenAI API key accepted."
+              openAiCheck
+                ? openAiCheck.error ?? "OpenAI API key accepted."
                 : hasOpenAiKey
                   ? "OpenAI API key saved in settings."
                   : "Add an OpenAI API key to enable OpenAI."
@@ -740,10 +784,10 @@ export function SettingsPanel({
           <ProviderStatusCard
             label="Managed Gateway"
             configured={hasGateway}
-            status={diagnostics?.checks.gateway.ok}
+            status={gatewayCheck?.ok}
             detail={
-              diagnostics
-                ? diagnostics.checks.gateway.error ?? "Gateway health check accepted."
+              gatewayCheck
+                ? gatewayCheck.error ?? "Gateway health check accepted."
                 : hasGateway
                   ? "Gateway URL is set; token is stored in the OS credential vault when provided."
                   : "Optional: use an app-specific gateway instead of direct provider keys."
@@ -752,12 +796,12 @@ export function SettingsPanel({
           <ProviderStatusCard
             label="Ollama"
             configured={hasOllama}
-            status={diagnostics?.checks.ollama.ok}
+            status={ollamaCheck?.ok}
             detail={
-              diagnostics
-                ? diagnostics.checks.ollama.ok
-                  ? `Reachable at ${diagnostics.checks.ollama.host}`
-                  : diagnostics.checks.ollama.error
+              ollamaCheck
+                ? ollamaCheck.ok
+                  ? `Reachable at ${ollamaCheck.host}`
+                  : ollamaCheck.error
                 : draft.ollama_host
                   ? `Will test ${draft.ollama_host}.`
                   : "Defaults to http://localhost:11434 for semantic retrieval."
@@ -767,7 +811,7 @@ export function SettingsPanel({
         <div className="action-strip">
           <button
             type="button"
-            onClick={() => void runChecks("all providers")}
+            onClick={() => void runChecks("all")}
             disabled={checking}
             className="btn-ghost px-3 py-1.5 text-sm"
           >
@@ -775,7 +819,15 @@ export function SettingsPanel({
           </button>
           <button
             type="button"
-            onClick={() => void runChecks("Anthropic")}
+            onClick={() => void runChecks("claude")}
+            disabled={checking}
+            className="btn-ghost px-3 py-1.5 text-sm"
+          >
+            Test Claude
+          </button>
+          <button
+            type="button"
+            onClick={() => void runChecks("anthropic")}
             disabled={checking || !hasAnthropicKey}
             className="btn-ghost px-3 py-1.5 text-sm"
           >
@@ -783,7 +835,7 @@ export function SettingsPanel({
           </button>
           <button
             type="button"
-            onClick={() => void runChecks("Google")}
+            onClick={() => void runChecks("google")}
             disabled={checking || !hasGoogleKey}
             className="btn-ghost px-3 py-1.5 text-sm"
           >
@@ -791,7 +843,7 @@ export function SettingsPanel({
           </button>
           <button
             type="button"
-            onClick={() => void runChecks("OpenAI")}
+            onClick={() => void runChecks("openai")}
             disabled={checking || !hasOpenAiKey}
             className="btn-ghost px-3 py-1.5 text-sm"
           >
@@ -799,7 +851,7 @@ export function SettingsPanel({
           </button>
           <button
             type="button"
-            onClick={() => void runChecks("Gateway")}
+            onClick={() => void runChecks("gateway")}
             disabled={checking || !hasGateway}
             className="btn-ghost px-3 py-1.5 text-sm"
           >
@@ -807,7 +859,7 @@ export function SettingsPanel({
           </button>
           <button
             type="button"
-            onClick={() => void runChecks("Ollama")}
+            onClick={() => void runChecks("ollama")}
             disabled={checking}
             className="btn-ghost px-3 py-1.5 text-sm"
           >
@@ -1070,14 +1122,14 @@ export function SettingsPanel({
         <button
           type="button"
           onClick={submit}
-          disabled={saving}
+          disabled={saving || backupBusy}
           className="btn-primary px-3 py-1.5 text-sm"
         >
           {saving ? "Saving..." : "Save settings"}
         </button>
         <button
           type="button"
-          onClick={() => void runChecks("setup")}
+          onClick={() => void runChecks("all", "setup")}
           disabled={checking}
           className="btn-secondary px-3 py-1.5 text-sm"
         >
@@ -1101,63 +1153,117 @@ export function SettingsPanel({
               <DiagnosticRow
                 label="Sidecar"
                 ok={diagnostics.sidecar.ok}
-                detail={`Node ${diagnostics.sidecar.node} · ${diagnostics.sidecar.platform}/${diagnostics.sidecar.arch}`}
+                detail={
+                  diagnostics.sidecar.ok
+                    ? `Node ${diagnostics.sidecar.node} · ${diagnostics.sidecar.platform}/${diagnostics.sidecar.arch}`
+                    : diagnostics.sidecar.error ?? "The local AI sidecar is unavailable."
+                }
+              />
+              <DiagnosticRow
+                label="Installed corpus"
+                ok={diagnostics.corpus.ok}
+                detail={
+                  diagnostics.corpus.error ??
+                  (diagnostics.corpus.ok
+                    ? `${diagnostics.corpus.canonical_verse_count.toLocaleString()} canonical verses · ${diagnostics.corpus.mapping_count.toLocaleString()} edition mappings · ${diagnostics.corpus.embedding_count.toLocaleString()} embeddings`
+                    : diagnostics.corpus.issues.join("; "))
+                }
               />
               <DiagnosticRow
                 label="Claude"
-                ok={diagnostics.checks.claude.ok}
+                ok={claudeCheck?.ok}
                 detail={
-                  diagnostics.checks.claude.error ??
-                  (diagnostics.checks.claude.mode === "api"
+                  claudeCheck?.error ??
+                  (claudeCheck?.mode === "api"
                     ? "Reachable via the Anthropic API key"
-                    : "Reachable via the Claude Code login")
+                    : claudeCheck
+                      ? "Reachable via the Claude Code login"
+                      : "Not tested in this run")
                 }
               />
               <DiagnosticRow
                 label="Google"
-                ok={diagnostics.checks.google.ok}
-                detail={diagnostics.checks.google.error ?? "API key accepted"}
+                ok={googleCheck?.ok}
+                detail={googleCheck?.error ?? (googleCheck ? "API key accepted" : "Not tested in this run")}
               />
               <DiagnosticRow
                 label="OpenAI"
-                ok={diagnostics.checks.openai.ok}
-                detail={diagnostics.checks.openai.error ?? "API key accepted"}
+                ok={openAiCheck?.ok}
+                detail={openAiCheck?.error ?? (openAiCheck ? "API key accepted" : "Not tested in this run")}
               />
               <DiagnosticRow
                 label="Anthropic"
-                ok={diagnostics.checks.anthropic.ok}
-                detail={diagnostics.checks.anthropic.error ?? "API key accepted"}
+                ok={anthropicCheck?.ok}
+                detail={anthropicCheck?.error ?? (anthropicCheck ? "API key accepted" : "Not tested in this run")}
               />
               <DiagnosticRow
                 label="Managed Gateway"
-                ok={diagnostics.checks.gateway.ok}
-                detail={diagnostics.checks.gateway.error ?? "Gateway health check accepted"}
+                ok={gatewayCheck?.ok}
+                detail={gatewayCheck?.error ?? (gatewayCheck ? "Gateway health check accepted" : "Not tested in this run")}
               />
               <DiagnosticRow
                 label="Ollama"
-                ok={diagnostics.checks.ollama.ok}
+                ok={ollamaCheck?.ok}
                 detail={
-                  diagnostics.checks.ollama.ok
-                    ? `Reachable at ${diagnostics.checks.ollama.host}`
-                    : diagnostics.checks.ollama.error
+                  ollamaCheck?.ok
+                    ? `Reachable at ${ollamaCheck.host}`
+                    : ollamaCheck?.error ?? "Not tested in this run"
                 }
               />
+              <div
+                className="pt-2 border-t border-neutral-800"
+                data-testid="installed-corpus-coverage"
+              >
+                <p className="text-xs text-neutral-500 mb-2">Installed corpus coverage</p>
+                <ul className="grid gap-2 sm:grid-cols-2" aria-label="Installed corpus coverage">
+                  {diagnostics.corpus.translations.map((translation) => (
+                    <li
+                      key={translation.code}
+                      className="rounded border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-xs text-neutral-300"
+                    >
+                      <span className="font-semibold text-neutral-100">{translation.code}</span>
+                      {` · ${translation.text_count.toLocaleString()} texts · ${translation.mapping_count.toLocaleString()} mappings · ${translation.embedding_count.toLocaleString()} embeddings`}
+                    </li>
+                  ))}
+                </ul>
+                {diagnostics.corpus.embedding_builds.map((build) => (
+                  <p
+                    key={`${build.model}:${build.model_digest}`}
+                    className="mt-2 text-xs text-neutral-500"
+                  >
+                    Semantic index: {build.model} for {build.edition_count} editions ·{" "}
+                    {build.embedding_count.toLocaleString()} rows · digest{" "}
+                    <code className="break-all text-neutral-400">{build.model_digest}</code> · built{" "}
+                    {build.generated_at}
+                  </p>
+                ))}
+                <p className="mt-2 text-xs text-neutral-600">
+                  This is a lightweight runtime inventory. Full source-lock, checksum, and SQLite
+                  integrity verification remains part of the build and release gate.
+                </p>
+              </div>
               <div className="pt-2 border-t border-neutral-800">
                 <p className="text-xs text-neutral-500 mb-2">Council voices</p>
                 <div className="flex flex-wrap gap-2">
-                  {diagnostics.providers.map((p) => (
-                    <span
-                      key={p.name}
-                      className={
-                        "text-xs px-2 py-1 rounded border " +
-                        (p.available
-                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                          : "border-neutral-800 bg-neutral-900 text-neutral-500")
-                      }
-                    >
-                      {p.display_name}
+                  {diagnostics.providers.length > 0 ? (
+                    diagnostics.providers.map((p) => (
+                      <span
+                        key={p.name}
+                        className={
+                          "text-xs px-2 py-1 rounded border " +
+                          (p.available
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                            : "border-neutral-800 bg-neutral-900 text-neutral-500")
+                        }
+                      >
+                        {p.display_name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-neutral-500">
+                      No voice status was returned because the sidecar is unavailable.
                     </span>
-                  ))}
+                  )}
                 </div>
               </div>
             </>

@@ -32,6 +32,13 @@ Current coverage includes:
 - Verse panel opens.
 - Council mock workflow submits, renders, persists, restores, and deletes.
 
+The Windows E2E job in `.github/workflows/platform-smoke.yml` builds a
+checksum-locked corpus through every ingestion step, deliberately omits the
+release embeddings, installs the exact EdgeDriver matching the runner's Edge
+version, and executes the real Tauri WebView suite. The release corpus still
+requires the full embedding identity and corpus verifier; the CI-only copy is
+never promoted as a release artifact.
+
 ## Required E2E Tests by Feature
 
 ### Study Workspaces
@@ -138,7 +145,7 @@ Test with mock Council:
 4. Open audit panel.
 5. Verify retrieved evidence is listed.
 6. Verify evidence classification badges render.
-7. Verify the Council process view explains evidence retrieval, independent voices, synthesis clustering, and why the leading argument ranked above the nearest alternative.
+7. Verify the Council process view explains bounded evidence retrieval, provider voices, synthesis clustering, and why the leading argument ranked above the nearest alternative.
 8. Restore session and verify retrieval settings persist.
 
 ### Explain Passage
@@ -268,6 +275,10 @@ Clean-profile install smoke:
 1. Run `npm run release:build`.
 2. If artifacts are already built, run `npm run release:install-smoke`.
 3. Confirm the script installs `target/release/bundle/nsis/Bible AI_0.1.0_x64-setup.exe` into a temporary directory, launches the installed app with temporary `APPDATA` and `LOCALAPPDATA`, keeps it running for at least 8 seconds, runs the generated uninstaller with `/S`, and removes the temp directory.
+4. The default installer/uninstaller limits are 10 and 5 minutes because the
+   bundled corpus is large. Constrained CI hosts may set
+   `RELEASE_INSTALL_TIMEOUT_MS` or `RELEASE_UNINSTALL_TIMEOUT_MS`; a timeout
+   terminates the full installer process tree before cleanup.
 
 For a faster pre-install startup check, run `npm run release:smoke`. It launches the release `app.exe` from `target/release` with temporary `APPDATA` and `LOCALAPPDATA`, waits 8 seconds, then terminates it.
 
@@ -290,6 +301,11 @@ The macOS gate requires:
 - `npm run macos:release:check` passing.
 - Clean macOS profile QA for first launch, Keychain credential storage, Council, export, backup, and restore.
 - Signing and notarization before public distribution.
+
+The platform-smoke workflow also builds an ad-hoc-signed `.app` on a native
+macOS runner and checks the bundled corpus and sidecar resources. That proves
+cross-platform bundle construction only. It does not replace Developer ID
+signing, notarization, stapling, or clean-profile macOS QA.
 
 ## Risks to Watch
 

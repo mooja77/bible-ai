@@ -1,8 +1,9 @@
 [package]
 name = "app"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Offline-first, evidence-auditable Bible study desktop application"
+authors = ["Bible AI contributors"]
+publish = false
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -26,4 +27,4 @@ tokio = { version = "1", features = ["process", "io-util", "sync", "macros", "ti
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 tauri-plugin-dialog = "2"
 keyring = { version = "3", features = ["windows-native"] }
-printpdf = { version = "0.7", default-features = false }
+krilla = { version = "0.8.2", default-features = false, features = ["simple-text"] }

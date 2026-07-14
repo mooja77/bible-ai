@@ -106,7 +106,12 @@ if (-not $MarkChecklistPassed) {
   -CredentialVaultUpgradeProfilePassed \`
   -ExportsSecretLeakCheckPassed \`
   -BackupRestorePassed \`
-  -SqliteBackupRestorePassed
+  -SqliteBackupRestorePassed \`
+  -KeyboardOnlyWorkflowPassed \`
+  -ScreenReaderSmokePassed \`
+  -Zoom200PercentPassed \`
+  -SensitiveTopicWordingReviewPassed \`
+  -LocalizedCrisisResourcesReviewPassed
 
 if (Get-Command node -ErrorAction SilentlyContinue) {
   node "$PSScriptRoot\\scripts\\verify-manual-release-gates.mjs" "$PSScriptRoot\\manual-release-gates.json"
@@ -142,6 +147,11 @@ ${installerList}
 11. Open source data drawers and exported files.
 12. Confirm no local paths, provider keys, raw API credentials, or credential names appear in exports or source drawers.
 13. For upgraded-profile QA, open an existing profile that previously had SQLite-stored provider keys and confirm the keys migrate to the OS credential vault.
+14. Complete the full Study Packet workflow using only the keyboard; verify visible focus, Escape focus return, and no focus traps.
+15. With a screen reader, smoke-test Reader, Council, Settings, overlays, status/error notices, and critical icon-button labels.
+16. Verify Reader, Council, Settings, Theology, Resources, and exports at 200% OS/browser zoom as well as the app's maximum text-size setting.
+17. Review sensitive-topic wording with the named safety reviewer; confirm it does not present the app as emergency, medical, or pastoral care.
+18. Verify the displayed crisis resources against the official source for every target locale and record the reviewer/date in the safety-resource registry or release evidence.
 
 ## Evidence
 
@@ -151,7 +161,7 @@ After the checklist passes, run:
 powershell -ExecutionPolicy Bypass -File .\\RUN-MANUAL-QA.ps1 -Operator "Release QA" -MarkChecklistPassed
 \`\`\`
 
-The script writes \`manual-release-gates.json\`. Copy that file back to \`app/release/manual-release-gates.json\` and run:
+\`-MarkChecklistPassed\` attests that every checklist item above was completed by the named operator. The script writes \`manual-release-gates.json\`. Copy that file back to \`app/release/manual-release-gates.json\` and run:
 
 \`\`\`powershell
 cd app

@@ -28,7 +28,7 @@ export function CouncilVoiceMatrix({
         Voice Agreement Matrix
       </h2>
       <p className="text-xs text-neutral-500 mb-3">
-        This compares the final synthesis against each independent voice. A blank cell means
+        This compares the final synthesis against each provider voice. A blank cell means
         that voice did not name a matching position.
       </p>
       <div className="overflow-x-auto border border-neutral-800 rounded">

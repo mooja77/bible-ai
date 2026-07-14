@@ -451,7 +451,7 @@ function fallbackConfidenceRationale(
     return "The answer is marked low confidence because the visible evidence or voice agreement is limited.";
   }
   if (maxDisagreement >= 0.25) {
-    return "Confidence is limited by meaningful disagreement between independent voices.";
+    return "Confidence is limited by meaningful disagreement between provider voices.";
   }
   if (conflictingCount > 0) {
     return "Confidence accounts for retrieved passages that complicate at least one position.";

@@ -8,6 +8,7 @@
 import {
   VOICE_SYSTEM_PROMPT,
   buildVoicePrompt,
+  createRequestAbort,
   normaliseResult,
   parseResponse,
 } from "./_shared.mjs";
@@ -58,17 +59,16 @@ function gatewayTimeoutMs(env = process.env) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
 }
 
-async function callGateway({ question, evidence, env = process.env, scopedPositions }) {
+async function callGateway({ question, evidence, env = process.env, scopedPositions, signal }) {
   // Bound the request: a hung gateway would otherwise never settle and
   // stall the whole council until the sidecar's outer deadline.
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), gatewayTimeoutMs(env));
+  const request = createRequestAbort(gatewayTimeoutMs(env), signal);
   let resp;
   let text;
   try {
     resp = await fetch(gatewayEndpoint(configuredUrl(env)), {
       method: "POST",
-      signal: controller.signal,
+      signal: request.signal,
       headers: {
         "Content-Type": "application/json",
         ...authHeaders(env),
@@ -83,7 +83,7 @@ async function callGateway({ question, evidence, env = process.env, scopedPositi
     });
     text = await resp.text();
   } finally {
-    clearTimeout(timer);
+    request.cleanup();
   }
 
   if (!resp.ok) {
@@ -109,7 +109,7 @@ export const gateway = {
     }
   },
   isAvailable: (env = process.env) => !!configuredUrl(env),
-  async analyze({ question, evidence, env, scopedPositions }) {
-    return callGateway({ question, evidence, env, scopedPositions });
+  async analyze({ question, evidence, env, scopedPositions, signal }) {
+    return callGateway({ question, evidence, env, scopedPositions, signal });
   },
 };

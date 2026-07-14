@@ -242,6 +242,7 @@ Use this checklist to drive the feature roadmap without losing track of backend,
 - [x] Migrate legacy SQLite provider key rows into the OS credential vault on settings load.
 - [x] Redact provider API keys from JSON backup exports.
 - [x] Add Data Sources screen in Settings.
+- [x] Add exact installed-corpus, index, edition-coverage, and embedding-build diagnostics in Settings.
 - [x] Add WEB corpus source and ingestion script.
 - [x] Defer Douay-Rheims after source assessment found Vulgate/deuterocanonical versification mismatch.
 - [x] Add About & Distribution screen in Settings.

@@ -37,7 +37,7 @@ describe("Release readiness surfaces", () => {
     const distribution = await $('[data-testid="about-distribution-screen"]');
     await distribution.waitForDisplayed({ timeout: 10_000 });
     await expect(distribution).toHaveText("Bible AI 0.1.0", { containing: true, ignoreCase: true });
-    await expect(distribution).toHaveText("Personal-use release candidate", { containing: true, ignoreCase: true });
+    await expect(distribution).toHaveText("Free, non-commercial release candidate", { containing: true, ignoreCase: true });
 
     const attribution = await $('[data-testid="license-attribution-screen"]');
     await attribution.waitForDisplayed({ timeout: 10_000 });
@@ -45,6 +45,18 @@ describe("Release readiness surfaces", () => {
     await expect(attribution).toHaveText("eBible.org", { containing: true, ignoreCase: true });
     await expect(attribution).toHaveText("OpenBible", { containing: true, ignoreCase: true });
     await expect(attribution).toHaveText("PROVIDER CALLS", { containing: true, ignoreCase: true });
+
+    const testSetup = await $("button=Test setup");
+    await testSetup.waitForClickable({ timeout: 10_000 });
+    await testSetup.click();
+    const corpusCoverage = await $('[data-testid="installed-corpus-coverage"]');
+    await corpusCoverage.waitForDisplayed({ timeout: 30_000 });
+    await expect(corpusCoverage).toHaveText("Installed corpus coverage", {
+      containing: true,
+      ignoreCase: true,
+    });
+    await expect(corpusCoverage).toHaveText("texts", { containing: true, ignoreCase: true });
+    await expect(corpusCoverage).toHaveText("mappings", { containing: true, ignoreCase: true });
   });
 
   it("redacts provider keys from JSON backup exports", async () => {

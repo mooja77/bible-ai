@@ -1,0 +1,19 @@
+{
+  "case_id": "QC-RETRIEVAL-001",
+  "severity": "S1",
+  "source": "real_council_qa",
+  "user_workflow": "real-council-release-gate",
+  "prompt": "How should Romans 9 be weighed in debates about election?",
+  "passage_resource_context": "Romans 9 is explicit in the question and therefore a required primary passage.",
+  "provider_model": "recorded non-mock Council fixture; provider IDs preserved in the artifact",
+  "retrieval_mode": "hybrid",
+  "expected_behavior": "Persisted retrieved evidence includes Romans 9 before the run can satisfy the release gate.",
+  "actual_behavior": "The previous fixture verifier counted providers but did not inspect primary-passage coverage.",
+  "failure_class": ["missing_primary_passage"],
+  "status": "fixed",
+  "linked_fix": "app/scripts/verify-real-council-qa.mjs",
+  "linked_regression_fixture": "app/tests/fixtures/council-real-results.json",
+  "accepted_risk_rationale": null,
+  "redaction_status": "not_needed",
+  "repeated": false
+}

@@ -41,6 +41,44 @@ CREATE TABLE IF NOT EXISTS translations (
   kind TEXT NOT NULL CHECK (kind IN ('translation', 'original', 'manuscript'))
 );
 
+-- Verse numbers are edition-local identifiers, not universal passage identity.
+-- The canonical comparison space currently follows the 66-book Protestant/KJV
+-- reference tradition. Editions retain their local verse ids in
+-- translation_text and map them explicitly through edition_verse_mappings.
+CREATE TABLE IF NOT EXISTS versification_schemes (
+  code TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  source_url TEXT
+);
+
+CREATE TABLE IF NOT EXISTS translation_versification (
+  translation_code TEXT PRIMARY KEY REFERENCES translations(code) ON DELETE CASCADE,
+  scheme_code TEXT NOT NULL REFERENCES versification_schemes(code),
+  comparison_scheme_code TEXT NOT NULL REFERENCES versification_schemes(code)
+);
+
+CREATE TABLE IF NOT EXISTS edition_verse_mappings (
+  translation_code TEXT NOT NULL REFERENCES translations(code) ON DELETE CASCADE,
+  local_verse_id INTEGER NOT NULL REFERENCES verses(id),
+  canonical_verse_id INTEGER NOT NULL REFERENCES verses(id),
+  mapping_kind TEXT NOT NULL
+    CHECK (mapping_kind IN ('identity', 'full', 'partial', 'heading', 'unmapped')),
+  local_segment TEXT NOT NULL DEFAULT '',
+  canonical_segment TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL,
+  PRIMARY KEY (
+    translation_code,
+    local_verse_id,
+    canonical_verse_id,
+    local_segment,
+    canonical_segment
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_edition_verse_mappings_canonical
+  ON edition_verse_mappings(translation_code, canonical_verse_id, local_verse_id);
+
 -- The actual text, one row per verse per translation.
 CREATE TABLE IF NOT EXISTS translation_text (
   translation_code TEXT NOT NULL REFERENCES translations(code),
@@ -115,6 +153,22 @@ CREATE TABLE IF NOT EXISTS verse_embeddings (
 
 CREATE INDEX IF NOT EXISTS idx_verse_embeddings_model
   ON verse_embeddings(model, translation_code);
+
+-- Reproducibility record for every generated embedding set. The checksum is
+-- blank only while a resumable build is incomplete; release verification
+-- requires it to match the ordered embedding blobs exactly.
+CREATE TABLE IF NOT EXISTS embedding_builds (
+  translation_code TEXT NOT NULL REFERENCES translations(code),
+  model TEXT NOT NULL,
+  model_digest TEXT NOT NULL,
+  ollama_version TEXT NOT NULL,
+  generator_version TEXT NOT NULL,
+  platform_json TEXT NOT NULL,
+  embedding_count INTEGER NOT NULL,
+  aggregate_sha256 TEXT NOT NULL,
+  generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (translation_code, model)
+);
 
 -- ============================================================================
 -- USER DATA (read-write, created at first app launch, stored per-user)
@@ -310,7 +364,7 @@ CREATE TABLE IF NOT EXISTS guided_study_sessions (
 );
 
 -- App preferences and locally stored provider keys. Runtime migrations use
--- PRAGMA user_version in user.sqlite; this schema mirrors the current v12 shape.
+-- PRAGMA user_version in user.sqlite; this schema mirrors USER_SCHEMA_VERSION=14.
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
@@ -428,3 +482,19 @@ CREATE TABLE IF NOT EXISTS module_entries (
 
 CREATE INDEX IF NOT EXISTS idx_module_entries_key
   ON module_entries(key_type, key_value);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS item_tags (
+  tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  item_type TEXT NOT NULL CHECK (item_type IN ('bookmark', 'note', 'range_note', 'study_item')),
+  item_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (tag_id, item_type, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_item_tags_item ON item_tags(item_type, item_id);

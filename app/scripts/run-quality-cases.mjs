@@ -1,59 +1,85 @@
-// Quality-case schema, validator, and resolution-rule enforcer for the AI
-// quality-ops loop (EP-022; schema per docs/quality-ops-plan.md +
-// docs/ai-risk-eval-plan.md). Pure functions are exported and unit-tested in
-// sidecar/tests/quality-cases.test.mjs; running this file directly validates
-// every case under app/tests/quality-cases/ and exits non-zero on any problem.
+// Canonical quality-case schema and resolution-rule verifier.
+// Contract: docs/quality-ops-plan.md. Running this file validates every JSON
+// case under app/tests/quality-cases and fails closed on schema drift.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-export const SEVERITIES = ["S0", "S1", "S2", "S3"];
-
-export const STATUSES = ["open", "investigating", "resolved", "accepted_risk", "wont_fix"];
+export const SEVERITIES = ["S0", "S1", "S2", "S3", "S4"];
+export const STATUSES = ["open", "fixed", "accepted_risk", "duplicate", "cannot_reproduce"];
+export const REDACTION_STATUSES = ["not_needed", "redacted", "blocked"];
 
 export const FAILURE_CLASSES = [
   "fabricated_citation",
   "misquoted_passage",
   "missing_primary_passage",
   "hidden_disagreement",
-  "overconfident_claim",
-  "tradition_misrepresentation",
-  "sensitive_topic_failure",
-  "prompt_injection",
+  "overconfident_disputed_claim",
+  "tradition_lens_misrepresentation",
+  "sensitive_topic_safety_failure",
+  "prompt_injection_resource_poisoning",
   "retrieval_false_positive",
   "retrieval_false_negative",
   "export_audit_gap",
-  "licensing_gap",
-  "accessibility_issue",
+  "licensing_attribution_gap",
+  "accessibility_readability",
 ];
 
 const REQUIRED_FIELDS = [
-  "id",
+  "case_id",
   "severity",
   "source",
   "user_workflow",
   "prompt",
+  "passage_resource_context",
+  "provider_model",
+  "retrieval_mode",
+  "expected_behavior",
+  "actual_behavior",
   "failure_class",
   "status",
+  "linked_fix",
+  "linked_regression_fixture",
+  "accepted_risk_rationale",
+  "redaction_status",
 ];
 
 function hasText(value) {
   return typeof value === "string" && value.trim() !== "";
 }
 
-/** Return a list of schema errors for one quality case (empty = valid). */
+function hasOwn(record, field) {
+  return Object.prototype.hasOwnProperty.call(record, field);
+}
+
+/** Return canonical schema errors for one quality case (empty means valid). */
 export function validateQualityCase(qualityCase) {
-  if (!qualityCase || typeof qualityCase !== "object") {
+  if (!qualityCase || typeof qualityCase !== "object" || Array.isArray(qualityCase)) {
     return ["quality case must be an object"];
   }
+
   const errors = [];
   for (const field of REQUIRED_FIELDS) {
-    const value = qualityCase[field];
-    if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) {
-      errors.push(`missing required field: ${field}`);
+    if (!hasOwn(qualityCase, field)) errors.push(`missing required field: ${field}`);
+  }
+
+  for (const field of [
+    "case_id",
+    "source",
+    "user_workflow",
+    "prompt",
+    "passage_resource_context",
+    "provider_model",
+    "retrieval_mode",
+    "expected_behavior",
+    "actual_behavior",
+  ]) {
+    if (hasOwn(qualityCase, field) && !hasText(qualityCase[field])) {
+      errors.push(`${field} must be a non-empty string`);
     }
   }
+
   if (qualityCase.severity !== undefined && !SEVERITIES.includes(qualityCase.severity)) {
     errors.push(`unknown severity: ${qualityCase.severity}`);
   }
@@ -61,41 +87,73 @@ export function validateQualityCase(qualityCase) {
     errors.push(`unknown status: ${qualityCase.status}`);
   }
   if (
-    qualityCase.failure_class !== undefined &&
-    !FAILURE_CLASSES.includes(qualityCase.failure_class)
+    qualityCase.redaction_status !== undefined &&
+    !REDACTION_STATUSES.includes(qualityCase.redaction_status)
   ) {
-    errors.push(`unknown failure_class: ${qualityCase.failure_class}`);
+    errors.push(`unknown redaction_status: ${qualityCase.redaction_status}`);
+  }
+  if (!Array.isArray(qualityCase.failure_class) || qualityCase.failure_class.length === 0) {
+    errors.push("failure_class must be a non-empty array");
+  } else {
+    const unknown = qualityCase.failure_class.filter((item) => !FAILURE_CLASSES.includes(item));
+    if (unknown.length > 0) errors.push(`unknown failure_class: ${unknown.join(", ")}`);
+    if (new Set(qualityCase.failure_class).size !== qualityCase.failure_class.length) {
+      errors.push("failure_class must not contain duplicates");
+    }
+  }
+  if (qualityCase.repeated !== undefined && typeof qualityCase.repeated !== "boolean") {
+    errors.push("repeated must be boolean when present");
+  }
+  for (const field of [
+    "linked_fix",
+    "linked_regression_fixture",
+    "accepted_risk_rationale",
+    "accepted_risk_owner",
+  ]) {
+    if (
+      hasOwn(qualityCase, field) &&
+      qualityCase[field] !== null &&
+      !hasText(qualityCase[field])
+    ) {
+      errors.push(`${field} must be null or a non-empty string`);
+    }
   }
   return errors;
 }
 
-/** Cases that must link a regression fixture before they can be "resolved". */
 function isFixtureGated(qualityCase) {
-  if (qualityCase.severity === "S0" || qualityCase.severity === "S1") return true;
-  if (qualityCase.severity === "S2" && qualityCase.repeated === true) return true;
-  return false;
+  return (
+    qualityCase.severity === "S0" ||
+    qualityCase.severity === "S1" ||
+    (qualityCase.severity === "S2" && qualityCase.repeated === true)
+  );
 }
 
-/**
- * Enforce the quality-ops resolution rule: an S0/S1 (or recurred S2) case marked
- * "resolved" must link a regression fixture; a case marked "accepted_risk" must
- * carry a written rationale. Returns a list of human-readable violations.
- */
+/** Enforce the documented fixture-or-accepted-risk resolution rule. */
 export function resolutionViolations(cases) {
   const violations = [];
   for (const qualityCase of cases) {
-    const id = qualityCase.id ?? "(no id)";
+    const id = qualityCase.case_id ?? "(no case_id)";
+    if (qualityCase.redaction_status === "blocked" && qualityCase.status !== "open") {
+      violations.push(`${id}: redaction-blocked content must remain open`);
+    }
     if (qualityCase.status === "accepted_risk") {
-      if (!hasText(qualityCase.accepted_risk)) {
-        violations.push(`${id}: status accepted_risk requires an accepted_risk rationale`);
+      if (!hasText(qualityCase.accepted_risk_rationale)) {
+        violations.push(`${id}: accepted_risk requires accepted_risk_rationale`);
+      }
+      if (!hasText(qualityCase.accepted_risk_owner)) {
+        violations.push(`${id}: accepted_risk requires accepted_risk_owner`);
       }
       continue;
     }
-    if (qualityCase.status === "resolved" && isFixtureGated(qualityCase)) {
-      if (!hasText(qualityCase.linked_fixture)) {
+    if (qualityCase.status === "fixed" && isFixtureGated(qualityCase)) {
+      if (!hasText(qualityCase.linked_regression_fixture)) {
         violations.push(
-          `${id}: a resolved ${qualityCase.severity} case must link a regression fixture (or be recorded as an accepted_risk)`,
+          `${id}: a fixed ${qualityCase.severity} case must link a regression fixture or be an accepted risk`,
         );
+      }
+      if (!hasText(qualityCase.linked_fix)) {
+        violations.push(`${id}: a fixed ${qualityCase.severity} case must link its fix`);
       }
     }
   }
@@ -104,10 +162,10 @@ export function resolutionViolations(cases) {
 
 function loadCases(dir) {
   const cases = [];
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+  for (const file of readdirSync(dir).filter((name) => name.endsWith(".json")).sort()) {
     const raw = JSON.parse(readFileSync(join(dir, file), "utf8"));
-    const arr = Array.isArray(raw) ? raw : Array.isArray(raw.cases) ? raw.cases : [raw];
-    for (const c of arr) cases.push({ ...c, __file: file });
+    const records = Array.isArray(raw) ? raw : Array.isArray(raw.cases) ? raw.cases : [raw];
+    for (const record of records) cases.push({ ...record, __file: file });
   }
   return cases;
 }
@@ -118,28 +176,35 @@ function main() {
   let cases;
   try {
     cases = loadCases(dir);
-  } catch (err) {
-    console.error(`quality-cases: could not load cases from ${dir}: ${err.message}`);
+  } catch (error) {
+    console.error(`quality-cases: could not load cases from ${dir}: ${error.message}`);
     process.exit(1);
   }
-  let problems = 0;
+
+  const problems = [];
+  const ids = new Map();
   for (const qualityCase of cases) {
     for (const error of validateQualityCase(qualityCase)) {
-      console.error(`[${qualityCase.__file}] ${qualityCase.id ?? "(no id)"}: ${error}`);
-      problems += 1;
+      problems.push(`[${qualityCase.__file}] ${qualityCase.case_id ?? "(no case_id)"}: ${error}`);
+    }
+    if (hasText(qualityCase.case_id)) {
+      if (ids.has(qualityCase.case_id)) {
+        problems.push(
+          `[${qualityCase.__file}] duplicate case_id ${qualityCase.case_id}; first seen in ${ids.get(qualityCase.case_id)}`,
+        );
+      } else {
+        ids.set(qualityCase.case_id, qualityCase.__file);
+      }
     }
   }
-  for (const violation of resolutionViolations(cases)) {
-    console.error(`[resolution] ${violation}`);
-    problems += 1;
-  }
-  if (problems > 0) {
-    console.error(`quality-cases: ${problems} problem(s) found`);
+  for (const violation of resolutionViolations(cases)) problems.push(`[resolution] ${violation}`);
+
+  if (problems.length > 0) {
+    for (const problem of problems) console.error(problem);
+    console.error(`quality-cases: ${problems.length} problem(s) found`);
     process.exit(1);
   }
-  console.log(`quality-cases: ${cases.length} case(s) validated OK`);
+  console.log(`quality-cases: ${cases.length} case(s) validated against the canonical schema`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  main();
-}
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main();

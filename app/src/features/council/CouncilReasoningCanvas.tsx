@@ -147,6 +147,10 @@ export function CouncilReasoningCanvas({
   const noVoices = okVoices.length === 0;
   const confidenceWord = response.synthesis?.confidence ?? "unknown";
   const confidenceLevel = CONFIDENCE_LEVEL[confidenceWord] ?? 0;
+  const evidenceRouteDiversity = response.evidence_route_diversity ?? response.independence;
+  const overlappingRouteCount = response.evidence_route_diversity?.overlapping_count
+    ?? response.independence?.correlated_count
+    ?? 0;
 
   return (
     <section
@@ -241,7 +245,7 @@ export function CouncilReasoningCanvas({
         </Band>
 
         {/* 02 · Voices weigh in */}
-        <Band step={2} kicker="The voices weigh in" title="Each model's independent view">
+        <Band step={2} kicker="The voices weigh in" title="Each provider's analysis">
           {noVoices ? (
             <p className="reasoning-note">No voice completed an analysis.</p>
           ) : (
@@ -468,7 +472,7 @@ export function CouncilReasoningCanvas({
         {(response.grounding ||
           response.judge ||
           response.scope ||
-          response.independence ||
+          evidenceRouteDiversity ||
           response.soft_layer?.available ||
           response.kill_test?.available) && (
           <Band step={6} kicker="Verification" title="How this was checked">
@@ -501,7 +505,7 @@ export function CouncilReasoningCanvas({
               )}
               {response.judge?.available ? (
                 <p className="reasoning-note">
-                  <span className="reasoning-verify-label">Independent check</span> —{" "}
+                  <span className="reasoning-verify-label">Cross-family check</span> —{" "}
                   {response.judge.parsed ? (
                     <>
                       a different model family ({response.judge.judge_provider}) judged this{" "}
@@ -525,32 +529,32 @@ export function CouncilReasoningCanvas({
                 </p>
               ) : response.judge ? (
                 <p className="reasoning-note reasoning-faint">
-                  No cross-family check available — configure a second provider family for an
-                  independent review.
+                  No second-family check available — configure another provider family for a
+                  separate review.
                 </p>
               ) : null}
-              {response.independence?.available && (
+              {evidenceRouteDiversity?.available && (
                 <p className="reasoning-note">
-                  <span className="reasoning-verify-label">Independence</span> —{" "}
+                  <span className="reasoning-verify-label">Evidence-route diversity</span> —{" "}
                   <span
                     className={
-                      response.independence.correlated_count > 0
+                      overlappingRouteCount > 0
                         ? "reasoning-verify-mixed"
                         : "reasoning-verify-ok"
                     }
                   >
-                    {response.independence.note}
+                    {evidenceRouteDiversity.note}
                   </span>
                 </p>
               )}
               {response.soft_layer?.available && response.soft_layer.confidence && (
                 <p className="reasoning-note">
-                  <span className="reasoning-verify-label">Calibrated confidence</span> —{" "}
+                  <span className="reasoning-verify-label">Confidence adjustment</span> —{" "}
                   {response.soft_layer.confidence.downgraded ? (
                     <>
                       model said {response.soft_layer.confidence.stated ?? "—"}, read as{" "}
                       <span className="reasoning-verify-mixed">
-                        {response.soft_layer.confidence.calibrated}
+                        {response.soft_layer.confidence.adjusted ?? response.soft_layer.confidence.calibrated}
                       </span>
                       {response.soft_layer.confidence.reasons.length
                         ? ` — ${response.soft_layer.confidence.reasons.join("; ")}`
@@ -558,7 +562,7 @@ export function CouncilReasoningCanvas({
                     </>
                   ) : (
                     <span className="reasoning-verify-ok">
-                      {response.soft_layer.confidence.calibrated} — consistent with the checks
+                      {response.soft_layer.confidence.adjusted ?? response.soft_layer.confidence.calibrated} — consistent with the checks
                     </span>
                   )}
                 </p>
@@ -698,7 +702,7 @@ function DrillInspector({
       const ps = voice.result?.positions ?? [];
       body = (
         <div className="space-y-2">
-          <p className="text-[0.6875rem] text-neutral-500">This voice's independent positions:</p>
+          <p className="text-[0.6875rem] text-neutral-500">This provider's positions:</p>
           {ps.length === 0 ? (
             <p className="text-sm text-neutral-500">No positions recorded.</p>
           ) : (

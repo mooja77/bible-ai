@@ -191,7 +191,7 @@ export function DiagnosticRow({
   detail,
 }: {
   label: string;
-  ok: boolean;
+  ok?: boolean;
   detail?: string | null;
 }) {
   return (
@@ -203,10 +203,14 @@ export function DiagnosticRow({
       <span
         className={
           "text-xs px-2 py-0.5 rounded " +
-          (ok ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/10 text-red-300")
+          (ok === undefined
+            ? "bg-neutral-800 text-neutral-500"
+            : ok
+              ? "bg-emerald-500/15 text-emerald-300"
+              : "bg-red-500/10 text-red-300")
         }
       >
-        {ok ? "ok" : "check"}
+        {ok === undefined ? "not tested" : ok ? "ok" : "check"}
       </span>
     </div>
   );

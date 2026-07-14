@@ -111,7 +111,7 @@ Matching logic:
 Explanation text:
 
 ```text
-This matrix compares the final synthesis against each independent voice. A blank cell means that voice did not name a matching position.
+This matrix compares the final synthesis against each provider voice. A blank cell means that voice did not name a matching position.
 ```
 
 Fallback states:

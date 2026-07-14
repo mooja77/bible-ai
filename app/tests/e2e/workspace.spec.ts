@@ -412,8 +412,11 @@ describe("Workspaces", () => {
     await workspaceTitle.waitForDisplayed({ timeout: 5_000 });
     await workspaceTitle.setValue(title);
     await clickVisibleAddToWorkspaceConfirm();
-    const added = await $("span=Added");
-    await added.waitForDisplayed({ timeout: 10_000 });
+    // "Added" is intentionally visible for only 700ms. Waiting for that
+    // transient label races WebDriver polling on loaded hosted runners; the
+    // menu closing is the durable success signal, and the workspace contents
+    // are verified below.
+    await workspaceSelect.waitForExist({ reverse: true, timeout: 30_000 });
     await browser.execute(() => {
       const input = document.querySelector('input[type="search"]') as HTMLInputElement | null;
       if (!input) return;
@@ -552,8 +555,7 @@ describe("Workspaces", () => {
     await workspaceTitle.waitForDisplayed({ timeout: 5_000 });
     await workspaceTitle.setValue(title);
     await clickVisibleAddToWorkspaceConfirm();
-    const added = await $("span=Added");
-    await added.waitForDisplayed({ timeout: 10_000 });
+    await workspaceSelect.waitForExist({ reverse: true, timeout: 30_000 });
 
     await browser.execute(() => {
       const input = document.querySelector('input[type="search"]') as HTMLInputElement | null;

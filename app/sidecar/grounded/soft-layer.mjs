@@ -4,19 +4,19 @@
 // that may only RANK / FLAG, never block. This module is that soft layer's
 // deterministic core for the Council. It composes the signals the earlier stages
 // already produced — grounding (Channel A), the cross-family judge, and the
-// independence grapher — plus inter-voice disagreement, into three honest outputs:
+// evidence-route diversity report — plus inter-voice disagreement, into three honest outputs:
 //
 //   1. semantic_entropy  — how much the voices actually diverge (0 = consensus).
-//   2. calibrated_confidence — the model's stated confidence, READ DOWN when the
-//      support is not independent, the floor flagged ungrounded citations, the
-//      judge was unsure, or the voices diverge. Advisory only: real calibration
-//      against labelled outcomes is Stage 5 (trust gate closed until then).
+//   2. confidence_adjustment — the model's stated confidence, READ DOWN when the
+//      support uses overlapping evidence routes, the floor flagged ungrounded
+//      citations, the judge was unsure, or the voices diverge. This is a
+//      deterministic heuristic, not empirical calibration against labelled outcomes.
 //   3. tick — an integrity checklist (grounded? corroborated? dissent kept?
 //      cross-examined? limits disclosed? uncertainty surfaced?).
 //
 // The kill-test skeptic (an adversarial LLM refutation pass) is the soft layer's
-// one non-deterministic member and is intentionally NOT here — it needs a live
-// provider and is tracked as a follow-up.
+// one non-deterministic member and is intentionally orchestrated separately in
+// kill-test.mjs because it needs a live provider.
 
 function normalizeLabel(label) {
   return String(label ?? "")
@@ -82,9 +82,10 @@ const SCORE_BAND = (s) => (s >= 3 ? "high" : s === 2 ? "moderate" : s === 1 ? "l
 const BAND_RANK = { contested: 0, low: 1, moderate: 2, high: 3 };
 
 /**
- * Calibrate the stated confidence DOWN for the soft-layer signals. Advisory.
+ * Adjust stated confidence DOWN for the soft-layer signals. Advisory only; the
+ * output is not a calibrated probability or an empirically validated score.
  */
-export function calibrateConfidence({ stated, leaderIndependence, grounding, judge, entropy, killTest }) {
+export function adjustConfidence({ stated, leaderRouteDiversity, grounding, judge, entropy, killTest }) {
   const statedScore = LEVEL_SCORE[stated] ?? 2;
   let score = statedScore;
   const reasons = [];
@@ -111,11 +112,12 @@ export function calibrateConfidence({ stated, leaderIndependence, grounding, jud
       reasons.push("the cross-family judge had mixed findings");
     }
   }
-  if (leaderIndependence) {
-    if (leaderIndependence.independence === "correlated") {
+  if (leaderRouteDiversity) {
+    const classification = leaderRouteDiversity.route_classification ?? leaderRouteDiversity.independence;
+    if (classification === "overlapping" || classification === "correlated") {
       score -= 1;
       reasons.push("the leading view's support is correlated (shared proof-texts), not independent");
-    } else if (leaderIndependence.independence === "single_source") {
+    } else if (classification === "single_source") {
       score -= 1;
       reasons.push("the leading view rests on a single voice");
     }
@@ -129,13 +131,15 @@ export function calibrateConfidence({ stated, leaderIndependence, grounding, jud
   const statedBand = SCORE_BAND(statedScore);
   return {
     stated: stated ?? null,
-    calibrated: band,
+    adjusted: band,
+    empirically_calibrated: false,
+    method: "deterministic_read_down_v1",
     downgraded: BAND_RANK[band] < BAND_RANK[statedBand],
     reasons,
   };
 }
 
-function buildTick({ synthesis, leader, leaderIndependence, grounding, judge, entropy }) {
+function buildTick({ synthesis, leader, leaderRouteDiversity, grounding, judge, entropy }) {
   const positionCount = Array.isArray(synthesis?.positions) ? synthesis.positions.length : 0;
   const checks = [
     {
@@ -148,11 +152,13 @@ function buildTick({ synthesis, leader, leaderIndependence, grounding, judge, en
     },
     {
       id: "corroborated",
-      label: "Leading view independently corroborated",
-      pass: leaderIndependence?.independence === "independent",
-      detail: leaderIndependence
-        ? `leading view is ${leaderIndependence.independence.replace("_", " ")}`
-        : "independence could not be assessed",
+      label: "Leading view supported by distinct evidence routes",
+      pass:
+        (leaderRouteDiversity?.route_classification ?? leaderRouteDiversity?.independence) ===
+        "distinct" || leaderRouteDiversity?.independence === "independent",
+      detail: leaderRouteDiversity
+        ? `evidence-route status is ${(leaderRouteDiversity.route_classification ?? leaderRouteDiversity.independence).replace("_", " ")}`
+        : "evidence-route diversity could not be assessed",
     },
     {
       id: "dissent_preserved",
@@ -184,29 +190,29 @@ function buildTick({ synthesis, leader, leaderIndependence, grounding, judge, en
 
 /**
  * Assemble the deterministic soft layer. Pure; always resolves. Composes the
- * grounding / judge / independence reports already on the response with
- * inter-voice entropy into calibrated confidence + an integrity checklist.
+ * grounding / judge / evidence-route reports already on the response with
+ * inter-voice entropy into a confidence adjustment + an integrity checklist.
  */
-export function buildSoftLayer({ synthesis, voices, grounding, judge, independence, killTest }) {
+export function buildSoftLayer({ synthesis, voices, grounding, judge, evidenceRouteDiversity, killTest }) {
   const positions = Array.isArray(synthesis?.positions) ? synthesis.positions : [];
   if (positions.length === 0) {
     return { available: false };
   }
   const leader = topPosition(positions);
-  const leaderIndependence =
-    leader && Array.isArray(independence?.positions)
-      ? independence.positions.find((p) => labelsOverlap(p.label, leader.label)) ?? null
+  const leaderRouteDiversity =
+    leader && Array.isArray(evidenceRouteDiversity?.positions)
+      ? evidenceRouteDiversity.positions.find((p) => labelsOverlap(p.label, leader.label)) ?? null
       : null;
   const entropy = semanticEntropy(voices);
-  const confidence = calibrateConfidence({
+  const confidence = adjustConfidence({
     stated: synthesis?.confidence ?? null,
-    leaderIndependence,
+    leaderRouteDiversity,
     grounding,
     judge,
     entropy: entropy.value,
     killTest,
   });
-  const tick = buildTick({ synthesis, leader, leaderIndependence, grounding, judge, entropy });
+  const tick = buildTick({ synthesis, leader, leaderRouteDiversity, grounding, judge, entropy });
   const tick_passed = tick.filter((c) => c.pass).length;
   return {
     available: true,
@@ -218,4 +224,4 @@ export function buildSoftLayer({ synthesis, voices, grounding, judge, independen
   };
 }
 
-export const __test = { semanticEntropy, calibrateConfidence, topPosition, labelsOverlap };
+export const __test = { semanticEntropy, adjustConfidence, topPosition, labelsOverlap };

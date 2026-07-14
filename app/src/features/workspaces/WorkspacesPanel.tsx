@@ -464,6 +464,7 @@ export function WorkspacesPanel({
                 <button
                   type="button"
                   onClick={savePdf}
+                  aria-describedby="workspace-export-accessibility-note"
                   className="btn-ghost px-3 py-1.5 text-sm"
                 >
                   Save PDF
@@ -497,6 +498,13 @@ export function WorkspacesPanel({
                   Archive
                 </button>
               </div>
+              <p
+                id="workspace-export-accessibility-note"
+                className="mt-2 text-right text-xs text-neutral-500"
+              >
+                Prefer HTML for accessible, reflowable sharing. PDF is an untagged visual archive;
+                use HTML or Markdown when Hebrew reading order matters.
+              </p>
             </header>
             <div className="editorial-rule mt-4" aria-hidden="true" />
             {savedPath && (

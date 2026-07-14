@@ -237,20 +237,35 @@ export interface CouncilResponse {
   judge?: CouncilJudge;
   /** The scope stage — candidate positions enumerated before analysis. */
   scope?: CouncilScope;
-  /** Channel B — independence grapher: is agreement independent or echoed proof-texts? */
+  /** Channel B — observable diversity of cited evidence routes. */
+  evidence_route_diversity?: CouncilEvidenceRouteDiversity;
+  /** Historical saved-run field; new runs use `evidence_route_diversity`. */
   independence?: CouncilIndependence;
-  /** Channel B — soft layer: calibrated confidence, inter-voice entropy, integrity checklist. */
+  /** Channel B — soft layer: confidence adjustment, inter-voice entropy, integrity checklist. */
   soft_layer?: CouncilSoftLayer;
   /** Channel B — kill-test: an adversarial skeptic's strongest case against the leading view. */
   kill_test?: CouncilKillTest;
   /** Present when a sensitive/crisis prompt was routed away from the Council
    *  before any generation. When set, the normal result is not produced. */
-  sensitive_topic?: { category: string; message: string } | null;
+  sensitive_topic?: {
+    category: string;
+    message: string;
+    resource_locale?: string;
+    jurisdictions?: string[];
+    review_status?: "pending_human_safety_review" | "approved";
+    reviewed_by?: string | null;
+    reviewed_on?: string | null;
+    expires_on?: string | null;
+    source_urls?: string[];
+    registry_version?: string;
+    owner_role?: string;
+  } | null;
 }
 
 export interface CouncilGrounding {
   hard_fail: boolean;
-  citation_accuracy: number;
+  citation_accuracy: number | null;
+  verification_status?: "verified" | "failed" | "unverifiable";
   out_of_corpus_verse_ids: number[];
   violations?: { verse_id: number; position: string; field: string; reason: string }[];
   uncited_positions?: string[];
@@ -297,6 +312,25 @@ export interface CouncilIndependence {
   note: string;
 }
 
+export interface CouncilEvidenceRouteDiversityPosition {
+  label: string;
+  supporting_voice_count: number;
+  distinct_route_count: number;
+  shared_verse_ids: number[];
+  mean_overlap: number;
+  route_classification: "distinct" | "overlapping" | "single_source";
+  note: string;
+}
+
+export interface CouncilEvidenceRouteDiversity {
+  available: boolean;
+  positions: CouncilEvidenceRouteDiversityPosition[];
+  distinct_count: number;
+  overlapping_count: number;
+  single_source_count: number;
+  note: string;
+}
+
 export interface CouncilSemanticEntropy {
   available: boolean;
   value: number | null;
@@ -305,9 +339,13 @@ export interface CouncilSemanticEntropy {
   clusters: number;
 }
 
-export interface CouncilCalibratedConfidence {
+export interface CouncilConfidenceAdjustment {
   stated: "high" | "medium" | "low" | null;
-  calibrated: "high" | "moderate" | "low" | "contested";
+  adjusted?: "high" | "moderate" | "low" | "contested";
+  /** Historical saved-run field; new runs use `adjusted`. */
+  calibrated?: "high" | "moderate" | "low" | "contested";
+  empirically_calibrated?: false;
+  method?: "deterministic_read_down_v1";
   downgraded: boolean;
   reasons: string[];
 }
@@ -322,7 +360,7 @@ export interface CouncilTickCheck {
 export interface CouncilSoftLayer {
   available: boolean;
   semantic_entropy?: CouncilSemanticEntropy;
-  confidence?: CouncilCalibratedConfidence;
+  confidence?: CouncilConfidenceAdjustment;
   tick?: CouncilTickCheck[];
   tick_passed?: number;
   tick_total?: number;
@@ -424,8 +462,11 @@ export const askCouncil = (
     startVerseId: options.start_verse_id,
     endVerseId: options.end_verse_id,
     evidenceLimit: options.evidence_limit,
+    locale: navigator.language,
   });
 };
+
+export const cancelCouncil = () => invoke<void>("cancel_council");
 
 export interface PassageExplanation {
   citation: string;
@@ -475,10 +516,42 @@ export const saveAppSettings = (settings: AppSettings) =>
 export interface SetupCheck {
   configured: boolean;
   ok: boolean;
+  /** False when a scoped diagnostic intentionally did not contact this provider. */
+  checked?: boolean;
   error: string | null;
   host?: string;
   /** For the Claude check: "api", "subscription", or "disabled". */
   mode?: string;
+}
+
+export interface CorpusTranslationCoverage {
+  code: string;
+  name: string;
+  kind: string;
+  text_count: number;
+  mapping_count: number;
+  embedding_count: number;
+}
+
+export interface CorpusEmbeddingBuild {
+  model: string;
+  model_digest: string;
+  edition_count: number;
+  embedding_count: number;
+  generated_at: string;
+}
+
+export interface CorpusDiagnostics {
+  ok: boolean;
+  error: string | null;
+  canonical_verse_count: number;
+  translation_text_count: number;
+  mapping_count: number;
+  fts_count: number;
+  embedding_count: number;
+  translations: CorpusTranslationCoverage[];
+  embedding_builds: CorpusEmbeddingBuild[];
+  issues: string[];
 }
 
 export interface SetupDiagnostics {
@@ -487,7 +560,9 @@ export interface SetupDiagnostics {
     node: string;
     platform: string;
     arch: string;
+    error?: string;
   };
+  corpus: CorpusDiagnostics;
   providers: CouncilProviderInfo[];
   checks: {
     claude: SetupCheck;
@@ -499,8 +574,17 @@ export interface SetupDiagnostics {
   };
 }
 
-export const checkAppSetup = (settings: AppSettings) =>
-  invoke<SetupDiagnostics>("check_app_setup", { settings });
+export type SetupCheckScope =
+  | "all"
+  | "claude"
+  | "google"
+  | "openai"
+  | "anthropic"
+  | "gateway"
+  | "ollama";
+
+export const checkAppSetup = (settings: AppSettings, scope: SetupCheckScope = "all") =>
+  invoke<SetupDiagnostics>("check_app_setup", { settings, scope });
 
 // ---------- Study workspaces ----------
 

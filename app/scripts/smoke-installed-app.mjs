@@ -18,6 +18,8 @@ const appData = join(profileRoot, "AppData", "Roaming");
 const localAppData = join(profileRoot, "AppData", "Local");
 const userDataDir = join(appData, "com.jm.bibleai");
 const minRunMs = Number(process.env.RELEASE_SMOKE_MS ?? 8000);
+const installTimeoutMs = timeoutFromEnv("RELEASE_INSTALL_TIMEOUT_MS", 600_000);
+const uninstallTimeoutMs = timeoutFromEnv("RELEASE_UNINSTALL_TIMEOUT_MS", 300_000);
 const credentialService = `Bible-AI-Install-Smoke-${process.pid}-${Date.now()}`;
 
 if (!installer) {
@@ -28,7 +30,7 @@ if (!installer) {
 
 try {
   await run(installer, ["/S", `/D=${installDir}`], {
-    timeoutMs: 180_000,
+    timeoutMs: installTimeoutMs,
     label: `installer ${basename(installer)}`,
   });
 
@@ -44,7 +46,7 @@ try {
     throw new Error(`uninstaller not found in ${installDir}`);
   }
   await run(uninstaller, ["/S"], {
-    timeoutMs: 120_000,
+    timeoutMs: uninstallTimeoutMs,
     label: `uninstaller ${basename(uninstaller)}`,
   });
 
@@ -101,21 +103,30 @@ async function assertAppStaysRunning(appExe, ms) {
 function run(command, args, { timeoutMs, label }) {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(command, args, { stdio: "ignore", windowsHide: true });
+    let timedOut = false;
     const timeout = setTimeout(() => {
-      child.kill();
+      timedOut = true;
+      taskkillSync(child.pid);
       rejectRun(new Error(`${label} timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
     child.on("error", (error) => {
       clearTimeout(timeout);
+      if (timedOut) return;
       rejectRun(error);
     });
     child.on("exit", (code, signal) => {
       clearTimeout(timeout);
+      if (timedOut) return;
       if (code === 0) resolveRun();
       else rejectRun(new Error(`${label} exited with code ${code} signal ${signal}`));
     });
   });
+}
+
+function timeoutFromEnv(name, fallbackMs) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value >= 1000 ? Math.floor(value) : fallbackMs;
 }
 
 function onceReadyOrError(child) {
@@ -158,6 +169,15 @@ async function taskkill(pid) {
   } catch {
     // Best-effort process cleanup. The later uninstall step will report locked files.
   }
+}
+
+function taskkillSync(pid) {
+  if (!pid) return;
+  spawnSync("taskkill.exe", ["/PID", String(pid), "/T", "/F"], {
+    stdio: "ignore",
+    windowsHide: true,
+    timeout: 15_000,
+  });
 }
 
 function findFirstFile(root, pattern, excludePattern = null) {

@@ -22,6 +22,39 @@ pub struct Translation {
 }
 
 #[derive(Serialize, Clone)]
+pub struct CorpusTranslationCoverage {
+    pub code: String,
+    pub name: String,
+    pub kind: String,
+    pub text_count: i64,
+    pub mapping_count: i64,
+    pub embedding_count: i64,
+}
+
+#[derive(Serialize, Clone)]
+pub struct CorpusEmbeddingBuild {
+    pub model: String,
+    pub model_digest: String,
+    pub edition_count: i64,
+    pub embedding_count: i64,
+    pub generated_at: String,
+}
+
+#[derive(Serialize, Clone)]
+pub struct CorpusDiagnostics {
+    pub ok: bool,
+    pub error: Option<String>,
+    pub canonical_verse_count: i64,
+    pub translation_text_count: i64,
+    pub mapping_count: i64,
+    pub fts_count: i64,
+    pub embedding_count: i64,
+    pub translations: Vec<CorpusTranslationCoverage>,
+    pub embedding_builds: Vec<CorpusEmbeddingBuild>,
+    pub issues: Vec<String>,
+}
+
+#[derive(Serialize, Clone)]
 pub struct Verse {
     pub verse_id: i64,
     pub book_name: String,
@@ -161,6 +194,119 @@ pub fn list_translations(conn: &Connection) -> SqlResult<Vec<Translation>> {
     rows.collect()
 }
 
+/// Return lightweight identity and coverage information for the exact corpus
+/// opened by the running app. This intentionally avoids `PRAGMA quick_check` or
+/// hashing the 800MB database during an interactive setup check; the full
+/// checksum/integrity contract remains a build and release gate.
+pub fn corpus_diagnostics(conn: &Connection) -> SqlResult<CorpusDiagnostics> {
+    let canonical_verse_count =
+        conn.query_row("SELECT COUNT(*) FROM verses", [], |row| row.get(0))?;
+    let translation_text_count =
+        conn.query_row("SELECT COUNT(*) FROM translation_text", [], |row| {
+            row.get(0)
+        })?;
+    let mapping_count =
+        conn.query_row("SELECT COUNT(*) FROM edition_verse_mappings", [], |row| {
+            row.get(0)
+        })?;
+    let fts_count = conn.query_row("SELECT COUNT(*) FROM translation_text_fts", [], |row| {
+        row.get(0)
+    })?;
+    let embedding_count = conn.query_row("SELECT COUNT(*) FROM verse_embeddings", [], |row| {
+        row.get(0)
+    })?;
+
+    let mut coverage_stmt = conn.prepare(
+        "SELECT t.code, t.name, t.kind,
+                (SELECT COUNT(*) FROM translation_text tt WHERE tt.translation_code = t.code),
+                (SELECT COUNT(*) FROM edition_verse_mappings m WHERE m.translation_code = t.code),
+                (SELECT COUNT(*) FROM verse_embeddings e WHERE e.translation_code = t.code)
+         FROM translations t
+         ORDER BY t.code",
+    )?;
+    let translations = coverage_stmt
+        .query_map([], |row| {
+            Ok(CorpusTranslationCoverage {
+                code: row.get(0)?,
+                name: row.get(1)?,
+                kind: row.get(2)?,
+                text_count: row.get(3)?,
+                mapping_count: row.get(4)?,
+                embedding_count: row.get(5)?,
+            })
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+
+    let mut builds_stmt = conn.prepare(
+        "SELECT model, model_digest, COUNT(*), SUM(embedding_count), MAX(generated_at)
+         FROM embedding_builds
+         GROUP BY model, model_digest
+         ORDER BY model, model_digest",
+    )?;
+    let embedding_builds = builds_stmt
+        .query_map([], |row| {
+            Ok(CorpusEmbeddingBuild {
+                model: row.get(0)?,
+                model_digest: row.get(1)?,
+                edition_count: row.get(2)?,
+                embedding_count: row.get(3)?,
+                generated_at: row.get(4)?,
+            })
+        })?
+        .collect::<SqlResult<Vec<_>>>()?;
+
+    let mut issues = Vec::new();
+    if canonical_verse_count <= 0 {
+        issues.push("the corpus has no canonical verses".to_string());
+    }
+    if translations.is_empty() || translation_text_count <= 0 {
+        issues.push("the corpus has no translation text".to_string());
+    }
+    if fts_count != translation_text_count {
+        issues.push(format!(
+            "the search index has {fts_count} rows but translation text has {translation_text_count}"
+        ));
+    }
+    if mapping_count < translation_text_count {
+        issues.push(format!(
+            "only {mapping_count} edition mappings exist for {translation_text_count} text rows"
+        ));
+    }
+    if embedding_count <= 0 || embedding_builds.is_empty() {
+        issues.push("the corpus has no recorded semantic index build".to_string());
+    }
+    for translation in &translations {
+        if translation.text_count <= 0 {
+            issues.push(format!("{} has no text rows", translation.code));
+        }
+        if translation.mapping_count < translation.text_count {
+            issues.push(format!(
+                "{} has fewer mappings than text rows",
+                translation.code
+            ));
+        }
+        if translation.embedding_count < translation.text_count {
+            issues.push(format!(
+                "{} has fewer embeddings than text rows",
+                translation.code
+            ));
+        }
+    }
+
+    Ok(CorpusDiagnostics {
+        ok: issues.is_empty(),
+        error: None,
+        canonical_verse_count,
+        translation_text_count,
+        mapping_count,
+        fts_count,
+        embedding_count,
+        translations,
+        embedding_builds,
+        issues,
+    })
+}
+
 pub fn get_chapter(
     conn: &Connection,
     translation_code: &str,
@@ -168,11 +314,30 @@ pub fn get_chapter(
     chapter: i64,
 ) -> SqlResult<Vec<Verse>> {
     let mut stmt = conn.prepare(
-        "SELECT v.id, b.name, v.chapter, v.verse, t.text
+        "SELECT v.id, b.name, v.chapter, v.verse,
+                (SELECT group_concat(piece, ' ') FROM (
+                   SELECT CASE WHEN m.mapping_kind = 'heading'
+                               THEN '[' || t.text || ']'
+                               ELSE t.text END AS piece
+                   FROM edition_verse_mappings m
+                   JOIN translation_text t
+                     ON t.translation_code = m.translation_code
+                    AND t.verse_id = m.local_verse_id
+                   WHERE m.translation_code = ?1
+                     AND m.canonical_verse_id = v.id
+                   ORDER BY CASE m.mapping_kind WHEN 'heading' THEN 0 ELSE 1 END,
+                            m.local_verse_id, m.local_segment
+                )) AS text
          FROM verses v
-         JOIN translation_text t ON t.verse_id = v.id
          JOIN books b ON b.id = v.book_id
-         WHERE t.translation_code = ?1 AND v.book_id = ?2 AND v.chapter = ?3
+         WHERE v.book_id = ?2 AND v.chapter = ?3
+           AND EXISTS (
+             SELECT 1 FROM edition_verse_mappings m
+             JOIN translation_text t
+               ON t.translation_code = m.translation_code
+              AND t.verse_id = m.local_verse_id
+             WHERE m.translation_code = ?1 AND m.canonical_verse_id = v.id
+           )
          ORDER BY v.verse",
     )?;
     let rows = stmt.query_map(
@@ -198,11 +363,30 @@ pub fn get_verse_range(
     limit: i64,
 ) -> SqlResult<Vec<Verse>> {
     let mut stmt = conn.prepare(
-        "SELECT v.id, b.name, v.chapter, v.verse, t.text
+        "SELECT v.id, b.name, v.chapter, v.verse,
+                (SELECT group_concat(piece, ' ') FROM (
+                   SELECT CASE WHEN m.mapping_kind = 'heading'
+                               THEN '[' || t.text || ']'
+                               ELSE t.text END AS piece
+                   FROM edition_verse_mappings m
+                   JOIN translation_text t
+                     ON t.translation_code = m.translation_code
+                    AND t.verse_id = m.local_verse_id
+                   WHERE m.translation_code = ?1
+                     AND m.canonical_verse_id = v.id
+                   ORDER BY CASE m.mapping_kind WHEN 'heading' THEN 0 ELSE 1 END,
+                            m.local_verse_id, m.local_segment
+                )) AS text
          FROM verses v
-         JOIN translation_text t ON t.verse_id = v.id
          JOIN books b ON b.id = v.book_id
-         WHERE t.translation_code = ?1 AND v.id >= ?2 AND v.id <= ?3
+         WHERE v.id >= ?2 AND v.id <= ?3
+           AND EXISTS (
+             SELECT 1 FROM edition_verse_mappings m
+             JOIN translation_text t
+               ON t.translation_code = m.translation_code
+              AND t.verse_id = m.local_verse_id
+             WHERE m.translation_code = ?1 AND m.canonical_verse_id = v.id
+           )
          ORDER BY v.id
          LIMIT ?4",
     )?;
@@ -251,7 +435,9 @@ fn sanitise_fts_query(q: &str) -> String {
 
 #[cfg(test)]
 mod fts_query_tests {
-    use super::{sanitise_fts_query, search, semantic_search, VerseSearchScope};
+    use super::{
+        corpus_diagnostics, sanitise_fts_query, search, semantic_search, VerseSearchScope,
+    };
     use rusqlite::Connection;
 
     #[test]
@@ -290,11 +476,57 @@ mod fts_query_tests {
     }
 
     #[test]
+    fn corpus_diagnostics_reports_exact_coverage_and_detects_index_drift() {
+        let conn = Connection::open_in_memory().expect("create sqlite");
+        conn.execute_batch(
+            "CREATE TABLE translations(code TEXT PRIMARY KEY, name TEXT, kind TEXT);
+             CREATE TABLE verses(id INTEGER PRIMARY KEY);
+             CREATE TABLE translation_text(translation_code TEXT, verse_id INTEGER, text TEXT);
+             CREATE VIRTUAL TABLE translation_text_fts USING fts5(verse_id UNINDEXED, translation_code UNINDEXED, text);
+             CREATE TABLE edition_verse_mappings(translation_code TEXT, local_verse_id INTEGER, canonical_verse_id INTEGER);
+             CREATE TABLE verse_embeddings(translation_code TEXT, verse_id INTEGER, embedding BLOB);
+             CREATE TABLE embedding_builds(
+               translation_code TEXT, model TEXT, model_digest TEXT,
+               embedding_count INTEGER, generated_at TEXT
+             );
+             INSERT INTO translations VALUES ('KJV', 'King James Version', 'translation');
+             INSERT INTO verses VALUES (1001001);
+             INSERT INTO translation_text VALUES ('KJV', 1001001, 'In the beginning');
+             INSERT INTO translation_text_fts VALUES (1001001, 'KJV', 'In the beginning');
+             INSERT INTO edition_verse_mappings VALUES ('KJV', 1001001, 1001001);
+             INSERT INTO verse_embeddings VALUES ('KJV', 1001001, X'00000000');
+             INSERT INTO embedding_builds VALUES ('KJV', 'test-model', 'abc123', 1, '2026-07-14');",
+        )
+        .expect("seed diagnostic schema");
+
+        let diagnostics = corpus_diagnostics(&conn).expect("read diagnostics");
+        assert!(diagnostics.ok, "{:?}", diagnostics.issues);
+        assert_eq!(diagnostics.canonical_verse_count, 1);
+        assert_eq!(diagnostics.translation_text_count, 1);
+        assert_eq!(diagnostics.mapping_count, 1);
+        assert_eq!(diagnostics.fts_count, 1);
+        assert_eq!(diagnostics.embedding_count, 1);
+        assert_eq!(diagnostics.translations.len(), 1);
+        assert_eq!(diagnostics.translations[0].embedding_count, 1);
+        assert_eq!(diagnostics.embedding_builds[0].model_digest, "abc123");
+
+        conn.execute("DELETE FROM translation_text_fts", [])
+            .expect("create index drift");
+        let drifted = corpus_diagnostics(&conn).expect("read drifted diagnostics");
+        assert!(!drifted.ok);
+        assert!(drifted
+            .issues
+            .iter()
+            .any(|issue| issue.contains("search index")));
+    }
+
+    #[test]
     fn search_applies_verse_window_before_limit() {
         let conn = Connection::open_in_memory().expect("create sqlite");
         conn.execute_batch(
             "CREATE TABLE books(id INTEGER PRIMARY KEY, osis_code TEXT, name TEXT, testament TEXT, chapter_count INTEGER);
              CREATE TABLE verses(id INTEGER PRIMARY KEY, book_id INTEGER, chapter INTEGER, verse INTEGER);
+             CREATE TABLE edition_verse_mappings(translation_code TEXT, local_verse_id INTEGER, canonical_verse_id INTEGER);
              CREATE VIRTUAL TABLE translation_text_fts USING fts5(verse_id UNINDEXED, translation_code UNINDEXED, text);
              INSERT INTO books(id, osis_code, name, testament, chapter_count) VALUES
                (1, 'GEN', 'Genesis', 'OT', 50),
@@ -302,6 +534,9 @@ mod fts_query_tests {
              INSERT INTO verses(id, book_id, chapter, verse) VALUES
                (1001001, 1, 1, 1),
                (43003016, 43, 3, 16);
+             INSERT INTO edition_verse_mappings(translation_code, local_verse_id, canonical_verse_id) VALUES
+               ('KJV', 1001001, 1001001),
+               ('KJV', 43003016, 43003016);
              INSERT INTO translation_text_fts(verse_id, translation_code, text) VALUES
                (1001001, 'KJV', 'love love love'),
                (43003016, 'KJV', 'love');",
@@ -331,6 +566,7 @@ mod fts_query_tests {
         conn.execute_batch(
             "CREATE TABLE books(id INTEGER PRIMARY KEY, osis_code TEXT, name TEXT, testament TEXT, chapter_count INTEGER);
              CREATE TABLE verses(id INTEGER PRIMARY KEY, book_id INTEGER, chapter INTEGER, verse INTEGER);
+             CREATE TABLE edition_verse_mappings(translation_code TEXT, local_verse_id INTEGER, canonical_verse_id INTEGER);
              CREATE TABLE translation_text(verse_id INTEGER, translation_code TEXT, text TEXT);
              CREATE TABLE verse_embeddings(verse_id INTEGER, translation_code TEXT, model TEXT, dim INTEGER, embedding BLOB);
              INSERT INTO books(id, osis_code, name, testament, chapter_count) VALUES
@@ -339,6 +575,9 @@ mod fts_query_tests {
              INSERT INTO verses(id, book_id, chapter, verse) VALUES
                (1001001, 1, 1, 1),
                (43003016, 43, 3, 16);
+             INSERT INTO edition_verse_mappings(translation_code, local_verse_id, canonical_verse_id) VALUES
+               ('KJV', 1001001, 1001001),
+               ('KJV', 43003016, 43003016);
              INSERT INTO translation_text(verse_id, translation_code, text) VALUES
                (1001001, 'KJV', 'outside'),
                (43003016, 'KJV', 'inside');",
@@ -397,11 +636,17 @@ pub fn search(
     }
 
     let mut sql = String::from(
-        "SELECT fts.verse_id, fts.translation_code, v.book_id, b.name, b.osis_code,
+        "SELECT COALESCE(m.canonical_verse_id, fts.verse_id),
+                fts.translation_code, v.book_id, b.name, b.osis_code,
                 v.chapter, v.verse, fts.text,
                 snippet(translation_text_fts, 2, '<mark>', '</mark>', '…', 12)
          FROM translation_text_fts fts
-         JOIN verses v ON v.id = fts.verse_id
+         LEFT JOIN (
+           SELECT translation_code, local_verse_id, MIN(canonical_verse_id) AS canonical_verse_id
+           FROM edition_verse_mappings
+           GROUP BY translation_code, local_verse_id
+         ) m ON m.translation_code = fts.translation_code AND m.local_verse_id = fts.verse_id
+         JOIN verses v ON v.id = COALESCE(m.canonical_verse_id, fts.verse_id)
          JOIN books b ON b.id = v.book_id
          WHERE fts.text MATCH ?",
     );
@@ -419,11 +664,11 @@ pub fn search(
         params.push(Value::Text(t.to_string()));
     }
     if let Some(start) = scope.start_verse_id {
-        sql.push_str(" AND fts.verse_id >= ?");
+        sql.push_str(" AND COALESCE(m.canonical_verse_id, fts.verse_id) >= ?");
         params.push(Value::Integer(start));
     }
     if let Some(end) = scope.end_verse_id {
-        sql.push_str(" AND fts.verse_id <= ?");
+        sql.push_str(" AND COALESCE(m.canonical_verse_id, fts.verse_id) <= ?");
         params.push(Value::Integer(end));
     }
     sql.push_str(" ORDER BY rank LIMIT ?");
@@ -460,10 +705,13 @@ pub fn get_word_tokens(
     let lo = book_id * 1_000_000 + chapter * 1_000;
     let hi = lo + 1_000;
     let mut stmt = conn.prepare(
-        "SELECT verse_id, position, surface, lemma, strongs, morph
-         FROM word_tokens
-         WHERE translation_code = ?1 AND verse_id >= ?2 AND verse_id < ?3
-         ORDER BY verse_id, position",
+        "SELECT m.canonical_verse_id, wt.position, wt.surface, wt.lemma, wt.strongs, wt.morph
+         FROM word_tokens wt
+         JOIN edition_verse_mappings m
+           ON m.translation_code = wt.translation_code AND m.local_verse_id = wt.verse_id
+         WHERE wt.translation_code = ?1
+           AND m.canonical_verse_id >= ?2 AND m.canonical_verse_id < ?3
+         ORDER BY m.canonical_verse_id, wt.position",
     )?;
     let rows = stmt.query_map(rusqlite::params![translation_code, lo, hi], |row| {
         Ok(WordToken {
@@ -516,10 +764,16 @@ pub fn get_strongs_occurrences(
     limit: i64,
 ) -> SqlResult<Vec<StrongsOccurrence>> {
     let mut stmt = conn.prepare(
-        "SELECT wt.translation_code, wt.verse_id, wt.surface, wt.lemma, wt.morph,
+        "SELECT wt.translation_code, COALESCE(m.canonical_verse_id, wt.verse_id),
+                wt.surface, wt.lemma, wt.morph,
                 v.book_id, b.name, b.osis_code, v.chapter, v.verse, tt.text
          FROM word_tokens wt
-         JOIN verses v ON v.id = wt.verse_id
+         LEFT JOIN (
+           SELECT translation_code, local_verse_id, MIN(canonical_verse_id) AS canonical_verse_id
+           FROM edition_verse_mappings
+           GROUP BY translation_code, local_verse_id
+         ) m ON m.translation_code = wt.translation_code AND m.local_verse_id = wt.verse_id
+         JOIN verses v ON v.id = COALESCE(m.canonical_verse_id, wt.verse_id)
          JOIN books b ON b.id = v.book_id
          JOIN translation_text tt
            ON tt.verse_id = wt.verse_id AND tt.translation_code = wt.translation_code
@@ -627,10 +881,16 @@ pub fn semantic_search(
     scope: VerseSearchScope<'_>,
 ) -> SqlResult<Vec<SemanticHit>> {
     let mut sql = String::from(
-        "SELECT e.verse_id, e.embedding, v.book_id, b.name, b.osis_code,
+        "SELECT COALESCE(m.canonical_verse_id, e.verse_id), e.embedding,
+                v.book_id, b.name, b.osis_code,
                 v.chapter, v.verse, t.text
          FROM verse_embeddings e
-         JOIN verses v ON v.id = e.verse_id
+         LEFT JOIN (
+           SELECT translation_code, local_verse_id, MIN(canonical_verse_id) AS canonical_verse_id
+           FROM edition_verse_mappings
+           GROUP BY translation_code, local_verse_id
+         ) m ON m.translation_code = e.translation_code AND m.local_verse_id = e.verse_id
+         JOIN verses v ON v.id = COALESCE(m.canonical_verse_id, e.verse_id)
          JOIN books b ON b.id = v.book_id
          JOIN translation_text t
            ON t.verse_id = e.verse_id AND t.translation_code = e.translation_code
@@ -649,11 +909,11 @@ pub fn semantic_search(
         params.push(Value::Text(t.to_string()));
     }
     if let Some(start) = scope.start_verse_id {
-        sql.push_str(" AND e.verse_id >= ?");
+        sql.push_str(" AND COALESCE(m.canonical_verse_id, e.verse_id) >= ?");
         params.push(Value::Integer(start));
     }
     if let Some(end) = scope.end_verse_id {
-        sql.push_str(" AND e.verse_id <= ?");
+        sql.push_str(" AND COALESCE(m.canonical_verse_id, e.verse_id) <= ?");
         params.push(Value::Integer(end));
     }
     let mut stmt = conn.prepare(&sql)?;

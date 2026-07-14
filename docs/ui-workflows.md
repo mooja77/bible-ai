@@ -93,8 +93,10 @@ Preview requirements:
 Export format note: Markdown, HTML, and PDF exports all preserve Unicode — PDF
 embeds the DejaVu Sans font, which covers accented Latin, Greek, and Hebrew.
 PDF lays text out left-to-right with no bidirectional reordering, so Hebrew
-appears in logical (not visual) order; prefer Markdown or HTML when Hebrew word
-order matters.
+appears in logical (not visual) order. It is not a tagged PDF/UA artifact.
+The UI explicitly identifies HTML as the preferred accessible, reflowable
+workspace export and Markdown as the preferred theology export; use those
+formats whenever assistive technology or Hebrew word order matters.
 
 ## Reader Navigation
 
@@ -205,7 +207,7 @@ Audit view:
 - Retrieved evidence rows show classification badges: used, supporting, conflicting, ignored.
 - Classification reasoning appears below the verse text when the provider supplies it.
 - Every verse links back to Reader.
-- A process view above the raw audit explains the Council flow in inspectable steps: retrieve evidence, run independent voices, cluster arguments, and expose the audit.
+- A process view above the raw audit explains the Council flow in inspectable steps: retrieve bounded evidence, run provider voices, cluster arguments, and expose the audit.
 - The leading-argument comparison explains why the top weighted position ranked above the nearest alternative using visible data: final weight, cited passages, voice agreement, and conflicting evidence.
 
 ## Explain Passage Mode

@@ -40,7 +40,10 @@ MORPHHB_FILES = [
     "Mic", "Nah", "Hab", "Zeph", "Hag", "Zech", "Mal",
 ]
 
-BASE_URL = "https://raw.githubusercontent.com/openscriptures/morphhb/master/wlc"
+BASE_URL = (
+    "https://raw.githubusercontent.com/openscriptures/morphhb/"
+    "3d15126fb1ef74867fc1434be1942e837932691f/wlc"
+)
 
 # Match a Strong's number from a lemma part: digits optionally followed by
 # a single lowercase letter (e.g. "1254", "1254a"). morphhb uses uppercase

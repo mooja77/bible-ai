@@ -14,10 +14,10 @@
  */
 
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { basename, dirname, join, resolve, sep } from "node:path";
+import { basename, delimiter, dirname, join, resolve, sep } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -73,6 +73,12 @@ function e2eEnv(overrides: Record<string, string>) {
   for (const key of keep) {
     if (process.env[key]) env[key] = process.env[key];
   }
+  const driverDirectory = resolve(__dirname, ".drivers");
+  if (process.platform === "win32" && existsSync(driverDirectory)) {
+    const inheritedPath = process.env.Path ?? process.env.PATH ?? "";
+    env.Path = [driverDirectory, inheritedPath].filter(Boolean).join(delimiter);
+    delete env.PATH;
+  }
   return { ...env, ...overrides };
 }
 
@@ -125,6 +131,7 @@ export const config: WebdriverIO.Config = {
   specs: [
     [
       "./tests/e2e/smoke.spec.ts",
+      "./tests/e2e/axe-accessibility.spec.ts",
       "./tests/e2e/workspace.spec.ts",
       "./tests/e2e/reader-interactions.spec.ts",
       "./tests/e2e/backup-restore.spec.ts",

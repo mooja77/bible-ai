@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ollama, resolveHost, resolveModel, callOllama } from "../providers/ollama.mjs";
+import {
+  ollama,
+  resolveHost,
+  resolveModel,
+  resolveContextSize,
+  callOllama,
+} from "../providers/ollama.mjs";
 
 test("ollama voice is off unless OLLAMA_VOICE_MODEL is set", () => {
   assert.equal(ollama.isAvailable({}), false);
@@ -22,6 +28,13 @@ test("resolveHost defaults to localhost and strips a trailing slash", () => {
 test("resolveModel reads OLLAMA_VOICE_MODEL", () => {
   assert.equal(resolveModel({ OLLAMA_VOICE_MODEL: "  qwen3.6:27b  " }), "qwen3.6:27b");
   assert.equal(resolveModel({}), "");
+});
+
+test("resolveContextSize caps model defaults and accepts a safe override", () => {
+  assert.equal(resolveContextSize({}), 8192);
+  assert.equal(resolveContextSize({ OLLAMA_NUM_CTX: "16384" }), 16384);
+  assert.equal(resolveContextSize({ OLLAMA_NUM_CTX: "1024" }), 8192);
+  assert.equal(resolveContextSize({ OLLAMA_NUM_CTX: "not-a-number" }), 8192);
 });
 
 test("displayName reflects the configured model", () => {
@@ -49,6 +62,7 @@ test("callOllama posts to /api/chat and returns message content", async () => {
     assert.equal(calls[0].body.model, "gemma4:26b");
     assert.equal(calls[0].body.stream, false);
     assert.equal(calls[0].body.format, "json");
+    assert.equal(calls[0].body.options.num_ctx, 8192);
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -75,6 +89,46 @@ test("ollama.analyze parses a CouncilResult from the model JSON", async () => {
     });
     assert.ok(Array.isArray(result.positions));
     assert.equal(result.positions[0].label, "Local view");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("ollama.analyze retries one invalid structured response", async () => {
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        message: {
+          content:
+            calls === 1
+              ? "not valid JSON"
+              : JSON.stringify({
+                  positions: [
+                    {
+                      label: "Recovered view",
+                      weight: 1,
+                      summary: "s",
+                      supporting_evidence_ids: [1],
+                    },
+                  ],
+                  confidence: "low",
+                }),
+        },
+      }),
+    };
+  };
+  try {
+    const result = await ollama.analyze({
+      question: "Q",
+      evidence: [{ verse_id: 1, book_name: "John", chapter: 3, verse: 16, text: "..." }],
+      env: { OLLAMA_VOICE_MODEL: "gemma4:26b" },
+    });
+    assert.equal(calls, 2);
+    assert.equal(result.positions[0].label, "Recovered view");
   } finally {
     globalThis.fetch = realFetch;
   }

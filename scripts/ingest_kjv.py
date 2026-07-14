@@ -22,7 +22,8 @@ from _lib import (
 )
 
 SOURCE_URL = (
-    "https://raw.githubusercontent.com/thiagobodruk/bible/master/json/en_kjv.json"
+    "https://raw.githubusercontent.com/thiagobodruk/bible/"
+    "49a869c278bcd91ced78a5d64fe2d92ac812e2ca/json/en_kjv.json"
 )
 
 

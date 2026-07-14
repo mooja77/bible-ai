@@ -24,10 +24,15 @@ import {
   redactSecrets,
   classifyProviderError,
 } from "./providers/_shared.mjs";
-import { runGroundingFloor, buildRegenNote } from "./grounded/grounding-floor.mjs";
+import {
+  runGroundingFloor,
+  buildRegenNote,
+  hydrateEvidenceQuotes,
+  repairRetrievedEvidenceQuotes,
+} from "./grounded/grounding-floor.mjs";
 import { runCrossFamilyJudge } from "./grounded/cross-family-judge.mjs";
 import { runScope } from "./grounded/scope.mjs";
-import { buildIndependenceReport } from "./grounded/independence.mjs";
+import { buildEvidenceRouteDiversityReport } from "./grounded/independence.mjs";
 import { buildSoftLayer } from "./grounded/soft-layer.mjs";
 import { runKillTest } from "./grounded/kill-test.mjs";
 
@@ -37,17 +42,20 @@ const SYNTHESIS_FALLBACK_REASON = "synthesis failed; using the lead voice";
 
 /**
  * Race a promise against a wall-clock timeout. On timeout, rejects with a
- * labeled Error. Does NOT cancel the underlying work (the loser keeps running
- * in the background and its result is discarded). The `.finally` clears the
- * timer so it can't keep the event loop alive after the race settles.
+ * labeled Error. The optional callback lets callers cancel the underlying
+ * provider request before its late result can leak work in the background.
  */
-export function withTimeout(promise, ms, label) {
+export function withTimeout(promise, ms, label, { onTimeout } = {}) {
   let timer;
   const timeout = new Promise((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)),
-      ms,
-    );
+    timer = setTimeout(() => {
+      const error = new Error(`${label} timed out after ${Math.round(ms / 1000)}s`);
+      try {
+        onTimeout?.(error);
+      } finally {
+        reject(error);
+      }
+    }, ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
@@ -61,12 +69,21 @@ function voiceTimeoutMs(env = process.env) {
 async function runOneVoice(provider, { question, evidence, env, model, emit, scopedPositions }) {
   const started = Date.now();
   const displayName = provider.displayName?.({ env, model }) ?? provider.display_name;
+  const controller = new AbortController();
   emit?.("voice_started", { provider: provider.name, display_name: displayName });
   try {
     const result = await withTimeout(
-      provider.analyze({ question, evidence, env, model, scopedPositions }),
+      provider.analyze({
+        question,
+        evidence,
+        env,
+        model,
+        scopedPositions,
+        signal: controller.signal,
+      }),
       voiceTimeoutMs(env),
       displayName,
+      { onTimeout: (error) => controller.abort(error) },
     );
     emit?.("voice_done", {
       provider: provider.name,
@@ -465,20 +482,20 @@ function mockCouncilResult({ question, evidence, model }) {
       error: null,
       duration_ms: 1,
     }));
-    const mockIndependence = buildIndependenceReport(result, mockVoices);
+    const evidenceRouteDiversity = buildEvidenceRouteDiversityReport(result, mockVoices);
     return {
       synthesis: result,
       voices: mockVoices,
       manifest: defs.map((d) => ({ name: d.provider, display_name: d.display_name, available: true })),
       synthesis_mode: "consensus",
       ...mockVerification,
-      independence: mockIndependence,
+      evidence_route_diversity: evidenceRouteDiversity,
       soft_layer: buildSoftLayer({
         synthesis: result,
         voices: mockVoices,
         grounding: mockVerification.grounding,
         judge: mockVerification.judge,
-        independence: mockIndependence,
+        evidenceRouteDiversity,
         killTest: mockVerification.kill_test,
       }),
     };
@@ -505,13 +522,13 @@ function mockCouncilResult({ question, evidence, model }) {
     ],
     synthesis_mode: "consensus",
     ...mockVerification,
-    independence: buildIndependenceReport(result, soloVoices),
+    evidence_route_diversity: buildEvidenceRouteDiversityReport(result, soloVoices),
     soft_layer: buildSoftLayer({
       synthesis: result,
       voices: soloVoices,
       grounding: mockVerification.grounding,
       judge: mockVerification.judge,
-      independence: buildIndependenceReport(result, soloVoices),
+      evidenceRouteDiversity: buildEvidenceRouteDiversityReport(result, soloVoices),
       killTest: mockVerification.kill_test,
     }),
   };
@@ -587,7 +604,7 @@ function emitMockVerification(result, emit) {
     emit("grounding_started", {});
     emit("grounding_done", {
       hard_fail: !!result.grounding.hard_fail,
-      citation_accuracy: result.grounding.citation_accuracy ?? 1,
+      citation_accuracy: result.grounding.citation_accuracy ?? null,
       out_of_corpus: (result.grounding.out_of_corpus_verse_ids ?? []).length,
       regen_attempts: result.grounding.regen_attempts ?? 0,
     });
@@ -652,6 +669,17 @@ export async function runCouncil({
     if (question.includes("__FORCE_COUNCIL_SLOW__")) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
+    // Test-only active-but-slow path: total runtime exceeds the test's client
+    // backstop, but regular progress events prove the UI uses inactivity rather
+    // than total wall-clock time.
+    if (question.includes("__FORCE_COUNCIL_PROGRESS_SLOW__")) {
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      emit("run_started", {});
+      for (const kind of ["safety_checked", "retrieval_started", "retrieval_done", "synthesis_started"]) {
+        await sleep(500);
+        emit(kind, kind === "retrieval_done" ? { count: evidence.length } : {});
+      }
+    }
     const mock = mockCouncilResult({ question, evidence, model });
     const mockDelayMs = parseInt(process.env.BIBLE_AI_MOCK_DELAY_MS ?? "0", 10) || 0;
     if (mockDelayMs > 0) {
@@ -711,7 +739,7 @@ export async function runCouncil({
         await sleep(mockDelayMs);
         emit("grounding_done", {
           hard_fail: !!mock.grounding.hard_fail,
-          citation_accuracy: mock.grounding.citation_accuracy ?? 1,
+          citation_accuracy: mock.grounding.citation_accuracy ?? null,
           out_of_corpus: (mock.grounding.out_of_corpus_verse_ids ?? []).length,
           regen_attempts: mock.grounding.regen_attempts ?? 0,
         });
@@ -835,6 +863,11 @@ export async function runCouncil({
   // multi-voice run is required to regen (single-voice is a pass-through).
   emit("grounding_started", {});
   let grounding = runGroundingFloor(synthesis, evidence);
+  let quoteHydrationCount = 0;
+  const initialQuoteRepair = repairRetrievedEvidenceQuotes(synthesis, evidence, grounding);
+  synthesis = initialQuoteRepair.synthesis;
+  grounding = initialQuoteRepair.grounding;
+  quoteHydrationCount += initialQuoteRepair.quote_hydration_count;
   let regenAttempts = 0;
   const MAX_REGEN = 2;
   while (grounding.hard_fail && regenAttempts < MAX_REGEN && ok.length > 1) {
@@ -858,14 +891,18 @@ export async function runCouncil({
       emit("regen_done", { attempt: regenAttempts, adopted: false });
       break;
     }
-    const candidateGrounding = runGroundingFloor(candidate, evidence);
-    // Monotonic gate: adopt only if strictly fewer hallucinated citations.
-    if (
-      candidateGrounding.out_of_corpus_verse_ids.length <
-      grounding.out_of_corpus_verse_ids.length
-    ) {
+    let candidateGrounding = runGroundingFloor(candidate, evidence);
+    const candidateQuoteRepair = repairRetrievedEvidenceQuotes(candidate, evidence, candidateGrounding);
+    candidate = candidateQuoteRepair.synthesis;
+    candidateGrounding = candidateQuoteRepair.grounding;
+    // Monotonic gate: adopt only if the deterministic issue count improves.
+    const issueCount = (report) =>
+      report.violations.length + report.uncited_positions.length +
+      (report.verification_status === "unverifiable" ? 1 : 0);
+    if (issueCount(candidateGrounding) < issueCount(grounding)) {
       synthesis = candidate;
       grounding = candidateGrounding;
+      quoteHydrationCount += candidateQuoteRepair.quote_hydration_count;
       emit("regen_done", {
         attempt: regenAttempts,
         adopted: true,
@@ -878,11 +915,14 @@ export async function runCouncil({
     }
   }
   grounding.regen_attempts = regenAttempts;
+  grounding.quote_hydration_count = quoteHydrationCount;
+  synthesis = hydrateEvidenceQuotes(synthesis, evidence);
   emit("grounding_done", {
     hard_fail: grounding.hard_fail,
     citation_accuracy: grounding.citation_accuracy,
     out_of_corpus: grounding.out_of_corpus_verse_ids.length,
     regen_attempts: regenAttempts,
+    quote_hydration_count: quoteHydrationCount,
   });
   // ------------------------------------------------------------------------
 
@@ -908,18 +948,17 @@ export async function runCouncil({
   });
   // ------------------------------------------------------------------------
 
-  // --- CHANNEL B: independence grapher (deterministic; flags only) ----------
-  // When several voices land on the same position, do they corroborate from
-  // DISTINCT proof-texts (independent) or just echo the same verses (correlated)?
-  // Over-counting echoed agreement inflates false confidence. Ranks only.
-  const independence = buildIndependenceReport(synthesis, voices);
+  // --- CHANNEL B: evidence-route diversity (deterministic; flags only) ------
+  // When several voices land on the same position, do they use distinct
+  // proof-text sets or echo the same verses? Ranks/flags only.
+  const evidence_route_diversity = buildEvidenceRouteDiversityReport(synthesis, voices);
   // ------------------------------------------------------------------------
 
   // --- CHANNEL B: kill-test skeptic (adversarial; flags + feeds confidence) -
   // A hostile-but-fair skeptic mounts the strongest case AGAINST the leading
   // position. If the strongest attack lands, that read-down flows into the soft
-  // layer's calibrated confidence. Fail-soft: no provider / bad result → skipped.
-  // A result property (like the independence grapher), surfaced in the completed
+  // layer's confidence adjustment. Fail-soft: no provider / bad result → skipped.
+  // A result property (like evidence-route diversity), surfaced in the completed
   // canvas — not a live stage. The lead voice is "claude"; the skeptic prefers a
   // different family.
   const kill_test = await runKillTest({
@@ -933,9 +972,16 @@ export async function runCouncil({
   // ------------------------------------------------------------------------
 
   // --- CHANNEL B: soft layer (deterministic; ranks/flags only) -------------
-  // Compose grounding + judge + independence + inter-voice entropy + the
-  // kill-test into honest calibrated confidence + an integrity checklist.
-  const soft_layer = buildSoftLayer({ synthesis, voices, grounding, judge, independence, killTest: kill_test });
+  // Compose grounding + judge + evidence-route diversity + inter-voice entropy
+  // + the kill-test into a conservative confidence adjustment and checklist.
+  const soft_layer = buildSoftLayer({
+    synthesis,
+    voices,
+    grounding,
+    judge,
+    evidenceRouteDiversity: evidence_route_diversity,
+    killTest: kill_test,
+  });
   // ------------------------------------------------------------------------
 
   const judged = judgedEventPayload(synthesis);
@@ -950,7 +996,7 @@ export async function runCouncil({
     grounding,
     judge,
     scope,
-    independence,
+    evidence_route_diversity,
     kill_test,
     soft_layer,
   };

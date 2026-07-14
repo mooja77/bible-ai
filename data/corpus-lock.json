@@ -1,0 +1,145 @@
+{
+  "format_version": 1,
+  "comparison_versification": "eng-kjv",
+  "generated_on": "2026-07-13",
+  "artifacts": [
+    {
+      "id": "KJV",
+      "path": "data/sources/en_kjv.json",
+      "version": "thiagobodruk/bible@49a869c278bcd91ced78a5d64fe2d92ac812e2ca",
+      "source_url": "https://raw.githubusercontent.com/thiagobodruk/bible/49a869c278bcd91ced78a5d64fe2d92ac812e2ca/json/en_kjv.json",
+      "sha256": "cb31a8aec26786c967e8cd52c325bbbca82a34d4e6c0aec2d2901166f2dec483",
+      "bytes": 4555098,
+      "license": "Public Domain (distribution review required for target territories)",
+      "attribution": "King James Version"
+    },
+    {
+      "id": "ASV",
+      "path": "data/sources/ASV.json",
+      "version": "scrollmapper/bible_databases@ba07bc991644d82b24426b920245eb4422daa769",
+      "source_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/ba07bc991644d82b24426b920245eb4422daa769/formats/json/ASV.json",
+      "sha256": "61f53a4dd0ae412f7c925ec7113bc02c6de44d0402b94d0cee264bcd69417ea8",
+      "bytes": 8427944,
+      "license": "Public Domain",
+      "attribution": "American Standard Version (1901); upstream compilation by scrollmapper"
+    },
+    {
+      "id": "WEB",
+      "path": "data/sources/engwebp_usfm.zip",
+      "version": "ENGWEBP repository snapshot acquired 2026-05-02",
+      "source_url": "https://ebible.org/Scriptures/engwebp_usfm.zip",
+      "fetch_policy": "repository_snapshot",
+      "sha256": "2c77e11f0d26863f7f4a507b40c58651d55399e6d760223b3550908331bc994f",
+      "bytes": 2907339,
+      "license": "Public Domain; World English Bible is a trademark of eBible.org",
+      "attribution": "World English Bible, Protestant edition; do not use the WEB name for modified text"
+    },
+    {
+      "id": "YLT",
+      "path": "data/sources/YLT.json",
+      "version": "scrollmapper/bible_databases@ba07bc991644d82b24426b920245eb4422daa769",
+      "source_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/ba07bc991644d82b24426b920245eb4422daa769/formats/json/YLT.json",
+      "sha256": "853fb222c1a32f3f864c4aaed4c68082ec23d0c450135206e7c5c5f014166888",
+      "bytes": 8466313,
+      "license": "Public Domain",
+      "attribution": "Young's Literal Translation; upstream compilation by scrollmapper"
+    },
+    {
+      "id": "WLC",
+      "path": "data/sources/WLC.json",
+      "version": "scrollmapper/bible_databases@ba07bc991644d82b24426b920245eb4422daa769",
+      "source_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/ba07bc991644d82b24426b920245eb4422daa769/formats/json/WLC.json",
+      "sha256": "ac61c4bb978bc17226e4fff8c97aa3634301c9b46bd0a4b859d47095cac3b597",
+      "bytes": 8594109,
+      "license": "Public Domain text",
+      "attribution": "Westminster Leningrad Codex; upstream compilation by scrollmapper"
+    },
+    {
+      "id": "TR",
+      "path": "data/sources/TR.json",
+      "version": "scrollmapper/bible_databases@ba07bc991644d82b24426b920245eb4422daa769",
+      "source_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/ba07bc991644d82b24426b920245eb4422daa769/formats/json/TR.json",
+      "sha256": "3ee63c508133c65eb2900bef04ed3d5a83137eec4d1b1867cb4a605f2339fb2e",
+      "bytes": 5812610,
+      "license": "Public Domain text",
+      "attribution": "Textus Receptus; upstream compilation by scrollmapper"
+    },
+    {
+      "id": "openbible-xrefs",
+      "path": "data/sources/cross_references.txt",
+      "version": "repository snapshot acquired 2026-05-02",
+      "source_url": "https://a.openbible.info/data/cross-references.zip",
+      "fetch_policy": "repository_snapshot",
+      "sha256": "533e055792af278032f87ab8e4cce6c1b3899f776cea1c711cfd290c2052b4b2",
+      "bytes": 8300549,
+      "license": "CC BY 4.0",
+      "attribution": "OpenBible.info Bible Cross References; primarily Treasury of Scripture Knowledge"
+    },
+    {
+      "id": "strongs-greek",
+      "path": "data/sources/strongs-greek-dictionary.js",
+      "version": "openscriptures/strongs@0acd2f251c2d35ff8db2dece4e0593979d3ac223",
+      "source_url": "https://raw.githubusercontent.com/openscriptures/strongs/0acd2f251c2d35ff8db2dece4e0593979d3ac223/greek/strongs-greek-dictionary.js",
+      "sha256": "7624ee738ae47e80f1a352223e28a26d011c9cd4898822cee52f47a010c04efd",
+      "bytes": 1200839,
+      "license": "CC-BY-SA; exact version requires content-review sign-off",
+      "attribution": "Open Scriptures Strong's Greek Dictionary"
+    },
+    {
+      "id": "strongs-hebrew",
+      "path": "data/sources/strongs-hebrew-dictionary.js",
+      "version": "openscriptures/strongs@0acd2f251c2d35ff8db2dece4e0593979d3ac223",
+      "source_url": "https://raw.githubusercontent.com/openscriptures/strongs/0acd2f251c2d35ff8db2dece4e0593979d3ac223/hebrew/strongs-hebrew-dictionary.js",
+      "sha256": "5ce6aeed551c709f49bcfa341cadf2f34bc7599b85d9de9e6ac2ecbf60fc3739",
+      "bytes": 2003130,
+      "license": "CC-BY-SA; exact version requires content-review sign-off",
+      "attribution": "Open Scriptures Strong's Hebrew Dictionary"
+    },
+    {
+      "id": "morphhb",
+      "path_glob": "data/sources/morphhb/*.xml",
+      "exclude": ["VerseMap.xml"],
+      "version": "openscriptures/morphhb@3d15126fb1ef74867fc1434be1942e837932691f",
+      "source_url": "https://github.com/openscriptures/morphhb",
+      "aggregate_sha256": "c1b448b47e2a09d7edbf35d845e27be0e9022de7587b73df7745e22e12b66c5c",
+      "file_count": 39,
+      "files": [
+        "1Chr.xml", "1Kgs.xml", "1Sam.xml", "2Chr.xml", "2Kgs.xml", "2Sam.xml",
+        "Amos.xml", "Dan.xml", "Deut.xml", "Eccl.xml", "Esth.xml", "Exod.xml",
+        "Ezek.xml", "Ezra.xml", "Gen.xml", "Hab.xml", "Hag.xml", "Hos.xml",
+        "Isa.xml", "Jer.xml", "Job.xml", "Joel.xml", "Jonah.xml", "Josh.xml",
+        "Judg.xml", "Lam.xml", "Lev.xml", "Mal.xml", "Mic.xml", "Nah.xml",
+        "Neh.xml", "Num.xml", "Obad.xml", "Prov.xml", "Ps.xml", "Ruth.xml",
+        "Song.xml", "Zech.xml", "Zeph.xml"
+      ],
+      "bytes": 28527617,
+      "license": "WLC text Public Domain; lemma and morphology CC BY 4.0",
+      "attribution": "Open Scriptures Hebrew Bible Project"
+    },
+    {
+      "id": "wlc-verse-map",
+      "path": "data/sources/morphhb/VerseMap.xml",
+      "version": "openscriptures/morphhb@65214d2bdf57f01feb4822c22c5b0d4de032891f",
+      "source_url": "https://raw.githubusercontent.com/openscriptures/morphhb/65214d2bdf57f01feb4822c22c5b0d4de032891f/wlc/VerseMap.xml",
+      "sha256": "6cd269ca3dccef2cb944b9d9dd8afc950f929dab53a534f1268d23affa983163",
+      "bytes": 106885,
+      "license": "Project source data; content-review sign-off required",
+      "attribution": "Open Scriptures MorphHB VerseMap.xml"
+    }
+  ],
+  "expected_translation_rows": {
+    "ASV": 31086,
+    "KJV": 31100,
+    "TR": 7957,
+    "WEB": 31098,
+    "WLC": 23213,
+    "YLT": 31102
+  },
+  "required_embedding_translations": ["ASV", "KJV", "TR", "WEB", "WLC", "YLT"],
+  "embedding_identity": {
+    "model": "nomic-embed-text",
+    "model_digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+    "dim": 768,
+    "generator_version": "embed_corpus.py@2"
+  }
+}

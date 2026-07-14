@@ -304,13 +304,30 @@ impl Sidecar {
 /// Wrap a Sidecar behind a tokio mutex. `None` means not spawned yet.
 pub struct SidecarState {
     pub inner: tokio::sync::Mutex<Option<Sidecar>>,
+    cancel_epoch: tokio::sync::watch::Sender<u64>,
 }
 
 impl SidecarState {
     pub fn new() -> Self {
+        let (cancel_epoch, _rx) = tokio::sync::watch::channel(0);
         Self {
             inner: tokio::sync::Mutex::new(None),
+            cancel_epoch,
         }
+    }
+
+    /// Snapshot this immediately when a cancellable command starts. If the UI
+    /// cancels while Rust is still retrieving evidence, the later sidecar call
+    /// will observe the changed epoch and will never start provider work.
+    pub fn cancellation_epoch(&self) -> u64 {
+        *self.cancel_epoch.borrow()
+    }
+
+    /// Abort the active sidecar-backed operation. Dropping `Sidecar` kills the
+    /// Node process (`kill_on_drop`); the next request spawns a clean process.
+    pub fn cancel_active(&self) {
+        let next = self.cancellation_epoch().wrapping_add(1);
+        self.cancel_epoch.send_replace(next);
     }
 
     pub async fn request(&self, app: &AppHandle, kind: &str, body: Value) -> Result<Value, String> {
@@ -343,14 +360,22 @@ impl SidecarState {
         }
     }
 
-    pub async fn request_streaming<F: FnMut(Value)>(
+    pub async fn request_streaming_at_epoch<F: FnMut(Value)>(
         &self,
         app: &AppHandle,
         kind: &str,
         body: Value,
+        expected_epoch: u64,
         on_progress: F,
     ) -> Result<Value, String> {
+        let mut cancel_rx = self.cancel_epoch.subscribe();
+        if *cancel_rx.borrow() != expected_epoch {
+            return Err("Council run cancelled".to_string());
+        }
         let mut guard = self.inner.lock().await;
+        if *cancel_rx.borrow() != expected_epoch {
+            return Err("Council run cancelled".to_string());
+        }
         if guard.is_none() {
             *guard = Some(Sidecar::spawn(app).await?);
         }
@@ -358,19 +383,28 @@ impl SidecarState {
         let Some(sidecar) = guard.as_mut() else {
             return Err("sidecar was not initialized".to_string());
         };
-        match tokio::time::timeout(
-            SIDECAR_REQUEST_TIMEOUT,
-            sidecar.request_streaming(kind, body, on_progress),
-        )
-        .await
-        {
-            Ok(Ok(value)) => Ok(value),
-            Ok(Err(err @ SidecarError::App(_))) => Err(err.into_message()),
-            Ok(Err(err @ SidecarError::Transport(_))) => {
+        let outcome = tokio::select! {
+            result = tokio::time::timeout(
+                SIDECAR_REQUEST_TIMEOUT,
+                sidecar.request_streaming(kind, body, on_progress),
+            ) => Some(result),
+            changed = cancel_rx.changed() => {
+                let _ = changed;
+                None
+            }
+        };
+        match outcome {
+            None => {
+                *guard = None;
+                Err("Council run cancelled".to_string())
+            }
+            Some(Ok(Ok(value))) => Ok(value),
+            Some(Ok(Err(err @ SidecarError::App(_)))) => Err(err.into_message()),
+            Some(Ok(Err(err @ SidecarError::Transport(_)))) => {
                 *guard = None;
                 Err(err.into_message())
             }
-            Err(_) => {
+            Some(Err(_)) => {
                 *guard = None;
                 Err(format!(
                     "sidecar request `{kind}` timed out after {}s",
@@ -497,8 +531,16 @@ pub fn build_council_request(
 
 #[cfg(test)]
 mod classify_tests {
-    use super::{classify_sidecar_line, SidecarLine};
+    use super::{classify_sidecar_line, SidecarLine, SidecarState};
     use serde_json::Value;
+
+    #[test]
+    fn cancellation_epoch_invalidates_an_active_snapshot() {
+        let state = SidecarState::new();
+        let before = state.cancellation_epoch();
+        state.cancel_active();
+        assert_ne!(state.cancellation_epoch(), before);
+    }
 
     #[test]
     fn progress_line_is_progress() {

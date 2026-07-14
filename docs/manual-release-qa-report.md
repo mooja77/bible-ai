@@ -1,8 +1,38 @@
 # Manual Release QA Report
 
-Date: 2026-05-02
+Date: 2026-05-02; current status corrected 2026-07-14
 
 ## Current Status
+
+The May run below is retained as historical evidence only. It is **not valid for
+the current public-release contract**. A new 20-case Granite + Claude fixture
+now passes the grounding, scope, cross-family judge, evidence-route diversity,
+confidence-adjustment, kill-test, quote-hydration, primary-passage, and
+two-provider machine gates. Its named confidence review and the clean-profile,
+accessibility, safety, credential-vault, and content-rights attestations remain
+pending. See `docs/ship-readiness.md` for the current sequence.
+
+Current automated Windows artifact evidence (2026-07-14):
+
+- Tauri produced fresh unsigned NSIS and MSI bundles.
+- Source commit:
+  `368af6ea6d4ada4af2ebedb2dfc4298f8078c967`.
+- `npm run release:verify`, `npm run release:smoke`, and
+  `npm run release:install-smoke` passed; the NSIS installer was installed,
+  launched for 8 seconds, and uninstalled.
+- NSIS: 493,762,616 bytes, SHA-256
+  `38151a3fe9253295a1d6da9ec436a09b27b9bac97672d5915a204f7ace5bb5f8`.
+- MSI: 612,086,884 bytes, SHA-256
+  `19cae56baa5ca8e4c085a65b4c880807e645d34d81a06acaf9aa7a0f726d58f8`.
+- Release archive: 1,103,341,590 bytes, SHA-256
+  `71d6676c3c9d9a0e63cb7ae1bfacf52ccd8001a7e1fb96320eb2f6022d500185`.
+- A first install-smoke run hit the old 180-second timeout during transient
+  Windows load. The smoke runner now uses bounded 10-minute install and
+  5-minute uninstall defaults, kills the full process tree on timeout, and the
+  current real install/launch/uninstall run passed in 285 seconds.
+- The source-bound manifest and portable manual-QA package were regenerated
+  and verified against these installers. Regenerate them again after any
+  tracked source change; never reuse a stale package.
 
 Automated release verification is available through:
 
@@ -17,7 +47,7 @@ Automated release verification is available through:
 - `npm run qa:manual-gates:verify`
 - `npm run qa:public-release:verify`
 
-Latest automated run on 2026-05-07:
+Historical automated run on 2026-05-07:
 
 - `npm run check` passed.
 - `npm run tauri build -- --debug --no-bundle` passed.
@@ -29,10 +59,12 @@ Latest automated run on 2026-05-07:
 - The manual gate collector was tested against a temporary clean profile path; the generated JSON passed `npm run qa:manual-gates:verify` when all manual switches were supplied.
 - `npm run qa:manual-gates:package` and `npm run qa:manual-gates:package:verify` passed, producing a portable clean-profile QA package at `app/src-tauri/target/release/manual-qa-package`.
 
-Release-readiness additions since that run:
+Historical release-readiness additions recorded after that run:
 
 - WEB is bundled in the corpus.
-- Real Council QA fixtures were captured from a 20-question Gemini+OpenAI non-mock run that passed the machine-checkable release gate.
+- Real Council QA fixtures were captured from a 20-question Gemini+OpenAI
+  non-mock run that passed the **then-current** machine-checkable release gate;
+  they do not pass the 2026-07-13 contract.
 - Explicit-reference retrieval was added for questions that name passages directly.
 - E2E coverage now checks that Council source JSON does not expose Windows paths or provider key names.
 - Settings includes in-app license, attribution, and privacy disclosures.
@@ -65,7 +97,12 @@ npm run qa:manual-gates:collect -- `
   -CredentialVaultUpgradeProfilePassed `
   -ExportsSecretLeakCheckPassed `
   -BackupRestorePassed `
-  -SqliteBackupRestorePassed
+  -SqliteBackupRestorePassed `
+  -KeyboardOnlyWorkflowPassed `
+  -ScreenReaderSmokePassed `
+  -Zoom200PercentPassed `
+  -SensitiveTopicWordingReviewPassed `
+  -LocalizedCrisisResourcesReviewPassed
 ```
 
 7. The collector detects provider credential targets by name only and scans the profile SQLite file for sensitive-string signals.
@@ -95,10 +132,19 @@ The helper creates or resets a temporary `.\\BibleAIQA` local user and writes si
 9. Create and restore a SQLite backup.
 10. Open source data drawers and exported files.
 11. Confirm no local filesystem paths, provider keys, or raw API credentials appear in exports or source drawers.
+12. Complete the core flow by keyboard only and with a screen reader.
+13. Verify Reader, Council, Settings, and exported content at 200% zoom/text scale.
+14. Review the localized sensitive-topic wording and candidate resources for the
+    target territory with the named safety reviewer.
+15. Verify the named content-rights decision and attribution for every bundled
+    source against the exact release artifact.
 
 ## Public Release Gate
 
-Public release remains blocked until the clean-profile installer checklist and credential-vault profile checks are signed off. Multi-provider Council QA is complete.
+Public release remains blocked until the clean-profile, accessibility,
+credential-vault, safety, content-rights, and human Council confidence checks
+are signed off. The current real-provider machine fixture already passes the
+grounded-pipeline contract.
 
 The final public-release command is:
 
@@ -107,7 +153,9 @@ cd app
 npm run qa:public-release:verify
 ```
 
-It fails until both evidence files are present and valid:
+It fails until all four evidence files are present and valid:
 
 - `app/tests/fixtures/council-real-results.json`
 - `app/release/manual-release-gates.json`
+- `app/release/content-review.json`
+- `app/release/council-confidence-review.json`

@@ -13,6 +13,8 @@ Source decision classes and the full rights bill of materials live in [`content-
 - Keep user-installed modules in `user.sqlite` with module-level `source` and `license` metadata.
 
 This document is an engineering record, not legal advice.
+The evidence dossier for the locked release inputs is
+[`reviews/content-rights-evidence-dossier.md`](reviews/content-rights-evidence-dossier.md).
 
 ## Bundled Corpus Tables
 
@@ -32,7 +34,7 @@ The schema is defined in `data/schema.sql`.
 
 | Code | Name | Kind | Language | License in Ingest | Source |
 |---|---|---|---|---|---|
-| `KJV` | King James Version | translation | English | Public Domain | `thiagobodruk/bible`, cached as `data/sources/en_kjv.json` |
+| `KJV` | King James Version | translation | English | Underlying KJV public domain outside UK; pinned repository says CC BY-NC 2.0 BR; review pending | `thiagobodruk/bible`, cached as `data/sources/en_kjv.json` |
 | `ASV` | American Standard Version | translation | English | Public Domain | `scrollmapper/bible_databases`, cached as `data/sources/ASV.json` |
 | `WEB` | World English Bible | translation | English | Public Domain | `eBible.org` ENGWEBP USFM, cached as `data/sources/engwebp_usfm.zip` |
 | `YLT` | Young's Literal Translation | translation | English | Public Domain | `scrollmapper/bible_databases`, cached as `data/sources/YLT.json` |
@@ -41,6 +43,14 @@ The schema is defined in `data/schema.sql`.
 
 Notes:
 
+- The KJV acquisition repository's pinned README applies CC BY-NC 2.0 BR to
+  the repository and says Bible versions remain the property of their owners.
+  Bible AI's intended public release is free and non-commercial, which removes
+  the anticipated commercial-use conflict but does not remove attribution,
+  modification-marking, or scope obligations. eBible separately identifies UK
+  Letters Patent. The content-review gate must resolve both the repository
+  terms and every intended distribution territory; the lock's short
+  public-domain label is not itself approval.
 - WEB is now bundled from the public-domain Protestant edition. Its source omits or footnotes some verses that appear in KJV/TR traditions; missing rows should be treated as translation-specific absence rather than corpus failure.
 - Douay-Rheims remains deferred. The source is public domain, but direct import would misalign citations because the available DRC JSON uses Vulgate/deuterocanonical versification in places where the app currently uses a 66-book Protestant reference model.
 - The UI translation picker reads actual rows from `translations`, not this document.
@@ -51,8 +61,8 @@ Notes:
 | Data | Target Table | License in Ingest | Source | Notes |
 |---|---|---|---|---|
 | Hebrew morphology and Strong's tags | `word_tokens` for `WLC` | CC-BY 4.0 | `openscriptures/morphhb` | OSIS XML files cached under `data/sources/morphhb/`. |
-| Strong's Greek dictionary | `strongs` | CC-BY-SA in ingest comments, derived from public-domain Strong's | `openscriptures/strongs` | Cached as `data/sources/strongs-greek-dictionary.js`. |
-| Strong's Hebrew dictionary | `strongs` | CC-BY-SA in ingest comments, derived from public-domain Strong's | `openscriptures/strongs` | Cached as `data/sources/strongs-hebrew-dictionary.js`. |
+| Strong's Greek dictionary | `strongs` | Exact file header says CC-BY-SA, version unspecified; derived from public-domain Strong's | `openscriptures/strongs` | Cached as `data/sources/strongs-greek-dictionary.js`; exact terms pending review. |
+| Strong's Hebrew dictionary | `strongs` | Exact file header says CC-BY-SA, version unspecified; derived from public-domain Strong's | `openscriptures/strongs` | Cached as `data/sources/strongs-hebrew-dictionary.js`; exact terms pending review. |
 
 The app treats Strong's and morphology data as study metadata. It does not modify the source lexicon text at runtime.
 
@@ -60,7 +70,7 @@ The app treats Strong's and morphology data as study metadata. It does not modif
 
 | Data | Target Table | License in Ingest | Source | Notes |
 |---|---|---|---|---|
-| Cross-reference links | `cross_refs` | CC-BY | `https://a.openbible.info/data/cross-references.zip` | Cached as `data/sources/cross_references.txt`; stored with source `openbible`. |
+| Cross-reference links | `cross_refs` | CC BY 4.0 | `https://a.openbible.info/data/cross-references.zip` | Cached as `data/sources/cross_references.txt`; stored with source `openbible`; attribution and normalization marking pending named approval. |
 
 Cross-reference rows use:
 
@@ -86,6 +96,14 @@ Stored metadata:
 - `model`
 - `dim`
 - raw little-endian `f32` embedding blob
+
+Each complete set also has an `embedding_builds` identity record containing
+the exact Ollama model digest and version, generator version, Python/platform
+identity, row count, and an ordered aggregate SHA-256 over verse ids,
+dimensions, and vector blobs. Resumable builds refuse to mix a different
+model digest or platform. `--rebuild` is the strict recovery path;
+`--adopt-existing` exists only for a one-time, explicitly reviewed legacy
+corpus migration.
 
 Current implementation stores vectors in SQLite as BLOBs and uses Rust cosine scan. It does not require the `sqlite-vec` extension at runtime.
 
@@ -118,6 +136,14 @@ Supported entry key types:
 
 Downloaded source artifacts are cached under `data/sources/`.
 
+Two exact inputs are intentionally tracked in the repository:
+`engwebp_usfm.zip` and `cross_references.txt`. Their official download URLs are
+mutable and no immutable upstream revision was available for the corpus already
+under review. The committed blobs are therefore the reproducible source of
+record, while `source_url` preserves provenance. The fetcher refuses to replace
+either blob automatically if it is missing or altered. All other fetchable
+inputs use commit-pinned upstream URLs or a commit-pinned file set.
+
 Current cache includes:
 
 - `en_kjv.json`
@@ -138,6 +164,8 @@ The cache allows repeated corpus rebuilds without re-downloading every source.
 
 Current scripts:
 
+- `scripts/fetch_corpus_sources.py`
+- `scripts/build_corpus.py`
 - `scripts/ingest_kjv.py`
 - `scripts/ingest_asv.py`
 - `scripts/ingest_web.py`
@@ -149,6 +177,8 @@ Current scripts:
 - `scripts/ingest_tsk.py`
 - `scripts/ingest_strongs.py`
 - `scripts/embed_corpus.py`
+- `scripts/verify_corpus_lock.py`
+- `scripts/verify_corpus.py`
 
 Shared helpers:
 
@@ -162,15 +192,37 @@ Expected ingestion behavior:
 - Store source/license metadata when the target table supports it.
 - Avoid writing user data into `corpus.sqlite`.
 
+For a release corpus, use the resumable orchestrator rather than invoking the
+individual ingestion scripts. It fetches locked inputs into quarantine,
+verifies every checksum before parsing, builds into a separate database,
+records embedding provenance, runs corpus invariants, and atomically promotes
+only the verified result:
+
+```powershell
+python scripts/build_corpus.py
+```
+
+Use `--offline` to prohibit network access, `--plan` to audit the step graph,
+and `--restart` only when intentionally discarding the orchestrator's own
+temporary database and checkpoint file. See [`corpus-build.md`](corpus-build.md).
+
 ## Distribution Checklist
 
 Before bundling a new source:
 
 - Confirm the source license allows redistribution in a desktop app.
 - Add source URL and license metadata to the relevant ingest script.
-- Cache the source artifact under `data/sources/`.
+- Cache the source artifact under `data/sources/`. If upstream cannot provide an
+  immutable versioned URL, commit the reviewed exact blob and set
+  `fetch_policy` to `repository_snapshot`.
+- Add or update its exact version, URL, byte count, SHA-256, license, and
+  attribution in `data/corpus-lock.json`.
 - Rebuild `data/corpus.sqlite`.
+- Run `python scripts/verify_corpus_lock.py` and
+  `python scripts/verify_corpus.py`.
 - Verify `list_translations` exposes the expected metadata in the app.
+- Obtain named content-review approval for every intended distribution
+  territory; an automated checksum is not a legal determination.
 - Update this document.
 - Run:
 
@@ -186,7 +238,8 @@ Deferred until licensing and UX are explicit:
 
 - Modern copyrighted Bible translations.
 - Manuscript images.
-- Douay-Rheims full import until alternate versification is implemented.
+- Douay-Rheims full import until a DRC/deuterocanon-specific versification map,
+  canonical identity rules, navigation UX, and rights review are approved.
 - LXX and apocrypha/deuterocanonical corpora.
 - Server-hosted paid data feeds.
 

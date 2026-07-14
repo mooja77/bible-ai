@@ -222,7 +222,7 @@ Visible sections:
 
 - Winner summary: why the leading argument ranked highest.
 - Position cards: weighted positions and primary cited evidence.
-- Process view: retrieval, independent analysis, clustering, and audit exposure.
+- Process view: retrieval, provider analyses, clustering, and audit exposure.
 - Position comparison: side-by-side comparison of any two returned positions.
 - Voice matrix: final positions versus each provider voice.
 - Evidence tabs: cited/supporting/challenging/ignored evidence per position.

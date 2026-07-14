@@ -170,7 +170,7 @@ function CouncilWinnerSummary({
         <WinnerMetric
           label="Voice support"
           value={`${leaderMentions}/${successfulVoices.length || 1}`}
-          detail="independent voices named a matching view"
+          detail="provider voices named a matching view"
         />
         <WinnerMetric
           label="Evidence"

@@ -666,50 +666,63 @@ pub fn get_app_settings(conn: &Connection) -> SqlResult<AppSettings> {
 }
 
 pub fn save_app_settings(conn: &Connection, settings: &AppSettings) -> SqlResult<()> {
-    delete_secret_settings(conn)?;
-    upsert_setting(conn, "claude_model", settings.claude_model.as_deref())?;
-    upsert_setting(conn, "openai_model", settings.openai_model.as_deref())?;
-    upsert_setting(conn, "gemini_model", settings.gemini_model.as_deref())?;
-    upsert_setting(conn, "anthropic_model", settings.anthropic_model.as_deref())?;
+    conn.pragma_update(None, "secure_delete", "ON")?;
+    let tx = conn.unchecked_transaction()?;
+    delete_secret_setting_rows(&tx)?;
+    upsert_setting(&tx, "claude_model", settings.claude_model.as_deref())?;
+    upsert_setting(&tx, "openai_model", settings.openai_model.as_deref())?;
+    upsert_setting(&tx, "gemini_model", settings.gemini_model.as_deref())?;
+    upsert_setting(&tx, "anthropic_model", settings.anthropic_model.as_deref())?;
     upsert_setting(
-        conn,
+        &tx,
         "managed_gateway_url",
         settings.managed_gateway_url.as_deref(),
     )?;
-    upsert_setting(conn, "ollama_host", settings.ollama_host.as_deref())?;
+    upsert_setting(&tx, "ollama_host", settings.ollama_host.as_deref())?;
     upsert_setting(
-        conn,
+        &tx,
         "retrieval_translation",
         settings.retrieval_translation.as_deref(),
     )?;
     upsert_setting(
-        conn,
+        &tx,
         "active_translations",
         settings.active_translations.as_deref(),
     )?;
     let font_scale = settings.font_scale.map(|v| v.clamp(0.8, 1.4).to_string());
-    upsert_setting(conn, "font_scale", font_scale.as_deref())?;
-    upsert_setting(conn, "reader_layout", settings.reader_layout.as_deref())?;
-    upsert_setting(conn, "reader_density", settings.reader_density.as_deref())?;
+    upsert_setting(&tx, "font_scale", font_scale.as_deref())?;
+    upsert_setting(&tx, "reader_layout", settings.reader_layout.as_deref())?;
+    upsert_setting(&tx, "reader_density", settings.reader_density.as_deref())?;
     let sync_scroll = settings.sync_scroll.map(|v| v.to_string());
-    upsert_setting(conn, "sync_scroll", sync_scroll.as_deref())?;
-    upsert_setting(conn, "search_strategy", settings.search_strategy.as_deref())?;
-    Ok(())
+    upsert_setting(&tx, "sync_scroll", sync_scroll.as_deref())?;
+    upsert_setting(&tx, "search_strategy", settings.search_strategy.as_deref())?;
+    tx.commit()
 }
 
-pub fn delete_secret_settings(conn: &Connection) -> SqlResult<()> {
-    conn.pragma_update(None, "secure_delete", "ON")?;
+fn delete_secret_setting_rows(conn: &Connection) -> SqlResult<usize> {
     let keys = {
         let mut stmt = conn.prepare("SELECT key FROM app_settings")?;
         let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
         rows.collect::<SqlResult<Vec<_>>>()?
     };
-    let mut deleted = 0;
-    for key in keys.iter().filter(|key| is_secret_setting_key(key)) {
+    let mut deleted = 0usize;
+    for key in keys.into_iter().filter(|key| is_secret_setting_key(key)) {
         deleted += conn.execute("DELETE FROM app_settings WHERE key = ?", params![key])?;
     }
+    Ok(deleted)
+}
+
+pub fn delete_secret_settings(conn: &Connection) -> SqlResult<()> {
+    conn.pragma_update(None, "secure_delete", "ON")?;
+    let tx = conn.unchecked_transaction()?;
+    let deleted = delete_secret_setting_rows(&tx)?;
+    tx.commit()?;
     if deleted > 0 {
-        conn.execute_batch("VACUUM")?;
+        // `secure_delete=ON` has already overwritten the deleted payload. A
+        // VACUUM only compacts the file, so do not report the logical migration
+        // as failed after commit (which could incorrectly roll back the vault
+        // copy and lose the only remaining credential).
+        let _ = conn.execute_batch("VACUUM");
     }
     Ok(())
 }
@@ -997,16 +1010,17 @@ pub fn reorder_study_items(
     if unique_ids.len() != item_ids.len() {
         return Err(rusqlite::Error::InvalidQuery);
     }
-    let existing_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM study_items WHERE workspace_id = ?",
-        params![workspace_id],
-        |r| r.get(0),
-    )?;
-    if existing_count != item_ids.len() as i64 {
+    let existing_ids = {
+        let mut stmt = conn.prepare("SELECT id FROM study_items WHERE workspace_id = ?")?;
+        let rows = stmt.query_map(params![workspace_id], |row| row.get::<_, i64>(0))?;
+        rows.collect::<SqlResult<std::collections::HashSet<_>>>()?
+    };
+    if existing_ids != unique_ids.into_iter().copied().collect() {
         return Err(rusqlite::Error::InvalidQuery);
     }
+    let tx = conn.unchecked_transaction()?;
     for (sort_order, item_id) in item_ids.iter().enumerate() {
-        let changed = conn.execute(
+        let changed = tx.execute(
             "UPDATE study_items
              SET sort_order = ?, updated_at = datetime('now')
              WHERE id = ? AND workspace_id = ?",
@@ -1016,11 +1030,11 @@ pub fn reorder_study_items(
             return Err(rusqlite::Error::InvalidQuery);
         }
     }
-    conn.execute(
+    tx.execute(
         "UPDATE study_workspaces SET updated_at = datetime('now') WHERE id = ?",
         params![workspace_id],
     )?;
-    Ok(())
+    tx.commit()
 }
 
 // ---------- Bookmarks and reading history ----------
@@ -1878,7 +1892,17 @@ fn list_position_judgments(
 }
 
 pub fn upsert_council_judgment(conn: &Connection, judgment: &CouncilJudgment) -> SqlResult<i64> {
-    conn.execute(
+    let mut labels = std::collections::HashSet::new();
+    for position in &judgment.position_judgments {
+        let label = position.position_label.trim();
+        let rating = position.user_rating.trim();
+        if !label.is_empty() && valid_position_rating(rating) && !labels.insert(label) {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+    }
+
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
         "INSERT INTO council_judgments
            (council_session_id, before_judgment, after_judgment, personal_conclusion,
             confidence, changed_mind_note, open_questions)
@@ -1901,12 +1925,12 @@ pub fn upsert_council_judgment(conn: &Connection, judgment: &CouncilJudgment) ->
             clean_optional(&judgment.open_questions),
         ],
     )?;
-    let judgment_id: i64 = conn.query_row(
+    let judgment_id: i64 = tx.query_row(
         "SELECT id FROM council_judgments WHERE council_session_id = ?",
         params![judgment.council_session_id],
         |r| r.get(0),
     )?;
-    conn.execute(
+    tx.execute(
         "DELETE FROM council_position_judgments WHERE council_judgment_id = ?",
         params![judgment_id],
     )?;
@@ -1916,7 +1940,7 @@ pub fn upsert_council_judgment(conn: &Connection, judgment: &CouncilJudgment) ->
         if label.is_empty() || !valid_position_rating(rating) {
             continue;
         }
-        conn.execute(
+        tx.execute(
             "INSERT INTO council_position_judgments
                (council_judgment_id, position_label, user_rating, user_weight,
                 persuasive_evidence, weak_points, notes)
@@ -1932,6 +1956,7 @@ pub fn upsert_council_judgment(conn: &Connection, judgment: &CouncilJudgment) ->
             ],
         )?;
     }
+    tx.commit()?;
     Ok(judgment_id)
 }
 
@@ -4131,6 +4156,17 @@ mod tests {
             items.iter().map(|item| item.sort_order).collect::<Vec<_>>(),
             vec![0, 1]
         );
+
+        assert!(reorder_study_items(&conn, workspace_id, &[first_id, i64::MAX]).is_err());
+        let items = list_study_items(&conn, workspace_id).expect("list items after bad id");
+        assert_eq!(
+            items.iter().map(|item| item.id).collect::<Vec<_>>(),
+            vec![first_id, second_id]
+        );
+        assert_eq!(
+            items.iter().map(|item| item.sort_order).collect::<Vec<_>>(),
+            vec![0, 1]
+        );
     }
 
     #[test]
@@ -4272,6 +4308,71 @@ mod tests {
             },
         )
         .is_err());
+    }
+
+    #[test]
+    fn duplicate_position_labels_do_not_replace_an_existing_judgment() {
+        let conn = test_conn();
+        let session_id = insert_session(
+            &conn,
+            "Which judgment should remain atomic?",
+            "mock",
+            None,
+            None,
+            &minimal_council_response_json(),
+        )
+        .expect("insert council session");
+        let original_position = PositionJudgment {
+            position_label: "Original position".to_string(),
+            user_rating: "persuasive".to_string(),
+            user_weight: Some(0.7),
+            persuasive_evidence: Some("Original evidence".to_string()),
+            weak_points: None,
+            notes: None,
+        };
+        let original = CouncilJudgment {
+            id: None,
+            council_session_id: session_id,
+            before_judgment: Some("Original before judgment".to_string()),
+            after_judgment: Some("Original after judgment".to_string()),
+            personal_conclusion: None,
+            confidence: Some(70),
+            changed_mind_note: None,
+            open_questions: None,
+            position_judgments: vec![original_position.clone()],
+            created_at: None,
+            updated_at: None,
+        };
+        upsert_council_judgment(&conn, &original).expect("save original judgment");
+
+        let duplicate = CouncilJudgment {
+            before_judgment: Some("This update must be rejected".to_string()),
+            position_judgments: vec![
+                PositionJudgment {
+                    position_label: "Duplicate".to_string(),
+                    ..original_position.clone()
+                },
+                PositionJudgment {
+                    position_label: " Duplicate ".to_string(),
+                    ..original_position
+                },
+            ],
+            ..original
+        };
+        assert!(upsert_council_judgment(&conn, &duplicate).is_err());
+
+        let stored = get_council_judgment(&conn, session_id)
+            .expect("read judgment")
+            .expect("judgment remains");
+        assert_eq!(
+            stored.before_judgment.as_deref(),
+            Some("Original before judgment")
+        );
+        assert_eq!(stored.position_judgments.len(), 1);
+        assert_eq!(
+            stored.position_judgments[0].position_label,
+            "Original position"
+        );
     }
 
     #[test]

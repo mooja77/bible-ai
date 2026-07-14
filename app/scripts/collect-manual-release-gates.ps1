@@ -14,7 +14,12 @@ param(
   [switch]$CredentialVaultUpgradeProfilePassed,
   [switch]$ExportsSecretLeakCheckPassed,
   [switch]$BackupRestorePassed,
-  [switch]$SqliteBackupRestorePassed
+  [switch]$SqliteBackupRestorePassed,
+  [switch]$KeyboardOnlyWorkflowPassed,
+  [switch]$ScreenReaderSmokePassed,
+  [switch]$Zoom200PercentPassed,
+  [switch]$SensitiveTopicWordingReviewPassed,
+  [switch]$LocalizedCrisisResourcesReviewPassed
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,7 +36,8 @@ function Get-CredentialTargetCount {
   $providerTargets = @(
     "google_api_key.Bible AI",
     "openai_api_key.Bible AI",
-    "anthropic_api_key.Bible AI"
+    "anthropic_api_key.Bible AI",
+    "managed_gateway_token.Bible AI"
   )
 
   $cmdkeyOutput = ""
@@ -88,9 +94,28 @@ function Test-ArtifactList {
   return $missing
 }
 
+function Get-ArtifactEvidence {
+  param([string[]]$Paths)
+  $items = @()
+  foreach ($path in $Paths) {
+    $resolved = ConvertTo-RepoPath $path
+    if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
+      continue
+    }
+    $file = Get-Item -LiteralPath $resolved
+    $items += [ordered]@{
+      name = $file.Name
+      bytes = [int64]$file.Length
+      sha256 = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+  }
+  return $items
+}
+
 $credentialTargetCount = Get-CredentialTargetCount
 $sqliteSecretSignalCount = Get-SqliteSecretSignalCount
 $missingArtifacts = Test-ArtifactList $InstallerArtifacts
+$artifactEvidence = @(Get-ArtifactEvidence $InstallerArtifacts)
 $vaultCleanProfilePassed = (
   $credentialTargetCount -ge $RequiredProviderCredentialCount -and
   $null -ne $sqliteSecretSignalCount -and
@@ -119,7 +144,7 @@ $evidence = [ordered]@{
   operator = $Operator
   completed_at = (Get-Date).ToUniversalTime().ToString("o")
   windows_profile = $WindowsProfile
-  installer_artifacts = $InstallerArtifacts
+  installer_artifacts = $artifactEvidence
   clean_profile_install_passed = [bool]$CleanProfileInstallPassed
   first_launch_passed = [bool]$FirstLaunchPassed
   settings_provider_keys_passed = [bool]$SettingsProviderKeysPassed
@@ -128,6 +153,11 @@ $evidence = [ordered]@{
   exports_secret_leak_check_passed = [bool]$ExportsSecretLeakCheckPassed
   backup_restore_passed = [bool]$BackupRestorePassed
   sqlite_backup_restore_passed = [bool]$SqliteBackupRestorePassed
+  keyboard_only_workflow_passed = [bool]$KeyboardOnlyWorkflowPassed
+  screen_reader_smoke_passed = [bool]$ScreenReaderSmokePassed
+  zoom_200_percent_passed = [bool]$Zoom200PercentPassed
+  sensitive_topic_wording_review_passed = [bool]$SensitiveTopicWordingReviewPassed
+  localized_crisis_resources_review_passed = [bool]$LocalizedCrisisResourcesReviewPassed
   notes = $notes
 }
 

@@ -3,7 +3,12 @@
  * Uses OPENAI_API_KEY from the environment.
  */
 
-import { parseResponse, VOICE_SYSTEM_PROMPT, buildVoicePrompt } from "./_shared.mjs";
+import {
+  createRequestAbort,
+  parseResponse,
+  VOICE_SYSTEM_PROMPT,
+  buildVoicePrompt,
+} from "./_shared.mjs";
 
 const DEFAULT_MODEL = "gpt-5";
 const ENDPOINT = "https://api.openai.com/v1/chat/completions";
@@ -20,15 +25,21 @@ function timeoutMs(env = process.env) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
 }
 
-async function callOpenAI({ apiKey, systemPrompt, userPrompt, model, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+async function callOpenAI({
+  apiKey,
+  systemPrompt,
+  userPrompt,
+  model,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  signal,
+}) {
   let lastError = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const request = createRequestAbort(timeoutMs, signal);
     try {
       const resp = await fetch(ENDPOINT, {
         method: "POST",
-        signal: controller.signal,
+        signal: request.signal,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
@@ -66,6 +77,7 @@ async function callOpenAI({ apiKey, systemPrompt, userPrompt, model, timeoutMs =
       return text;
     } catch (err) {
       lastError = err;
+      if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : err;
       // A classified non-retryable HTTP error: fail fast, don't retry.
       // Network/abort errors carry no `retryable` flag and stay retryable.
       if (err?.retryable === false) {
@@ -76,7 +88,7 @@ async function callOpenAI({ apiKey, systemPrompt, userPrompt, model, timeoutMs =
         continue;
       }
     } finally {
-      clearTimeout(timeout);
+      request.cleanup();
     }
   }
   throw lastError ?? new Error("OpenAI: request failed");
@@ -88,7 +100,7 @@ export const openai = {
   display_name: `OpenAI (${resolveModel()})`,
   displayName: ({ env = process.env } = {}) => `OpenAI (${resolveModel(env)})`,
   isAvailable: (env) => !!env.OPENAI_API_KEY,
-  async analyze({ question, evidence, env, scopedPositions }) {
+  async analyze({ question, evidence, env, scopedPositions, signal }) {
     const userPrompt = buildVoicePrompt({ question, evidence, scopedPositions });
     const text = await callOpenAI({
       apiKey: env.OPENAI_API_KEY,
@@ -96,6 +108,7 @@ export const openai = {
       userPrompt,
       model: resolveModel(env),
       timeoutMs: timeoutMs(env),
+      signal,
     });
     return parseResponse(text, "OpenAI");
   },

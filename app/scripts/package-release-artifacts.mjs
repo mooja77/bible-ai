@@ -6,6 +6,10 @@ const releaseRoot = join(appRoot, "src-tauri", "target", "release");
 const packageDir = join(releaseRoot, "release-package");
 const manifestPath = join(releaseRoot, "release-manifest.json");
 const summaryPath = join(releaseRoot, "release-summary.md");
+const sbomPaths = [
+  join(appRoot, "release", "sbom-npm.cdx.json"),
+  join(appRoot, "release", "sbom-cargo.cdx.json"),
+];
 
 if (!existsSync(manifestPath)) {
   console.error(`Release package failed: missing ${manifestPath}`);
@@ -14,6 +18,12 @@ if (!existsSync(manifestPath)) {
 if (!existsSync(summaryPath)) {
   console.error(`Release package failed: missing ${summaryPath}`);
   process.exit(1);
+}
+for (const sbomPath of sbomPaths) {
+  if (!existsSync(sbomPath)) {
+    console.error(`Release package failed: missing ${sbomPath}; run npm run sbom:generate`);
+    process.exit(1);
+  }
 }
 
 const manifest = JSON.parse(await readText(manifestPath));
@@ -34,6 +44,9 @@ for (const artifact of installers) {
 }
 copyArtifact(manifestPath, join(packageDir, "release-manifest.json"));
 copyArtifact(summaryPath, join(packageDir, "release-summary.md"));
+for (const sbomPath of sbomPaths) {
+  copyArtifact(sbomPath, join(packageDir, lastPathSegment(sbomPath)));
+}
 
 console.log(`Release package written: ${packageDir}`);
 

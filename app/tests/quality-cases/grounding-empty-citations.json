@@ -1,0 +1,19 @@
+{
+  "case_id": "QC-GROUNDING-001",
+  "severity": "S1",
+  "source": "security_review",
+  "user_workflow": "council",
+  "prompt": "Return a confident position without any citations.",
+  "passage_resource_context": "Synthetic Council response with no citation evidence.",
+  "provider_model": "deterministic sidecar fixture; no live provider",
+  "retrieval_mode": "synthetic_fixture",
+  "expected_behavior": "The deterministic grounding floor marks the response unverifiable and blocks normal completion.",
+  "actual_behavior": "The former floor reported an uncited response as fully grounded.",
+  "failure_class": ["fabricated_citation"],
+  "status": "fixed",
+  "linked_fix": "app/sidecar/grounded/grounding-floor.mjs",
+  "linked_regression_fixture": "app/sidecar/tests/grounding-floor.test.mjs",
+  "accepted_risk_rationale": null,
+  "redaction_status": "not_needed",
+  "repeated": false
+}

@@ -19,6 +19,8 @@ if (failures.length === 0) {
 
   requireText(summary, expectedTitle, "summary title");
   requireText(summary, `Generated: ${manifest.generated_at}`, "generated timestamp");
+  requireText(summary, `Source commit: \`${manifest.source_control?.git_commit}\``, "source commit");
+  requireText(summary, `Tracked worktree clean: ${manifest.source_control?.tracked_worktree_clean === true ? "yes" : "no"}`, "tracked worktree state");
   requireText(summary, "| Name | Path | Size | SHA-256 |", "artifact table header");
 
   for (const file of files) {

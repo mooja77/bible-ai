@@ -1,8 +1,8 @@
 # Quality Ops Plan
 
-Status: DRAFT (for review)
+Status: Implemented; named policy decisions remain for human confirmation
 
-Last updated: 2026-06-13
+Last updated: 2026-07-13
 
 This document defines how Bible AI converts a reported or observed AI quality
 failure into a structured, severity-graded case, and how those cases become
@@ -57,13 +57,13 @@ Severity threshold notes for human confirmation:
 
 ## Quality case schema
 
-Each case is one record. Suggested home: `app/tests/fixtures/quality-cases/`
+Each case is one record. Canonical home: `app/tests/quality-cases/`
 (one JSON file per case, or one JSONL file per batch). The fields below are the
 contract; tooling may add metadata but must not drop a required field.
 
 | Field | Meaning |
 | --- | --- |
-| `case_id` | Stable identifier, e.g. `qa-2026-06-13-0001`. |
+| `case_id` | Stable, unique identifier, e.g. `qa-2026-06-13-0001`. |
 | `severity` | One of S0, S1, S2, S3, S4 (see taxonomy). |
 | `source` | Where the case came from: `user_report`, `manual_review`, `real_council_qa`, `synthetic_fixture`, `provider_drift`, `security_review`. |
 | `user_workflow` | The workflow that produced it: `council`, `workspace_export`, `resource_search`, `guided_study`, `setup`. |
@@ -73,7 +73,7 @@ contract; tooling may add metadata but must not drop a required field.
 | `retrieval_mode` | Retrieval mode in effect (e.g. semantic, lexical-fallback) and any fallback reason. |
 | `expected_behavior` | What correct output should do, including `must_include` and `must_not_include`. |
 | `actual_behavior` | What the output actually did, with a short excerpt and an artifact path if one exists. |
-| `failure_class` | One or more failure classes from `docs/ai-risk-eval-plan.md`. |
+| `failure_class` | A non-empty array of failure classes from `docs/ai-risk-eval-plan.md`. |
 | `status` | `open`, `fixed`, `accepted_risk`, `duplicate`, `cannot_reproduce`. |
 | `linked_fix` | The commit, PR, or change that addresses the case. |
 | `linked_regression_fixture` | Path to the fixture that now guards against this case. |
@@ -82,6 +82,12 @@ contract; tooling may add metadata but must not drop a required field.
 Privacy: a case that contains private user content cannot enter the fixture set
 until it is redacted. Cases carry a redaction status (`not_needed`, `redacted`,
 `blocked`); a `blocked` case cannot become a fixture.
+
+The canonical status values are `open`, `fixed`, `accepted_risk`, `duplicate`,
+and `cannot_reproduce`. The executable schema and resolution rule live in
+`app/scripts/run-quality-cases.mjs` and run in both `check:trust` and the full
+check. Nullable resolution fields must still be present so missing schema data
+cannot be confused with a deliberate `null`.
 
 Human review: S0 and S1 cases require a human review section that records the
 reviewer role, the rubric version, the dimension scores, and whether the result

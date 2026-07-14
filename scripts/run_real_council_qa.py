@@ -77,11 +77,40 @@ QUESTION_BANK = [
 
 TOPICAL_REFERENCE_SEEDS = [
     {
+        "required_keywords": ["james 2", "romans 4"],
+        # These are the argument centers that a naive opening-verse sample of
+        # two whole chapters misses. The general explicit-reference pass still
+        # supplies the surrounding opening context.
+        "references": "James 2:21-26; Romans 4:3-5; Romans 4:9-12",
+    },
+    {
         "keywords": ["trinity", "triune"],
         "references": (
             "Matthew 28:19; John 1:1-3; John 1:14; John 10:30; "
             "John 14:16-17; 2 Corinthians 13:14; Colossians 2:9; "
             "Acts 5:3-4; Hebrews 1:3"
+        ),
+    },
+    {
+        "keywords": ["eucharist", "eucharistic", "john 6"],
+        "references": "John 6:51-58",
+    },
+    {
+        "keywords": ["assurance", "security", "perseverance"],
+        "references": (
+            "John 10:27-30; Romans 8:31-39; Philippians 1:6; "
+            "1 John 5:11-13; Hebrews 6:4-6; Hebrews 10:26-31; 2 Peter 1:10"
+        ),
+    },
+    {
+        "keywords": ["sermon on the mount"],
+        # The generic FTS terms otherwise over-rank incidental uses of
+        # "mount". Interleave the primary discourse with close apostolic
+        # ethics parallels so the Council can compare substantive positions.
+        "references": (
+            "Matthew 5:17-20; Matthew 5:38-42; Matthew 5:43-48; Matthew 6:33; "
+            "Matthew 7:12; Matthew 7:21-27; Luke 6:27-36; Romans 12:1-21; "
+            "James 1:22-27"
         ),
     },
 ]
@@ -109,9 +138,22 @@ def question_terms(question: str) -> list[str]:
 
 
 def retrieve_evidence(conn: sqlite3.Connection, question: str, limit: int) -> list[dict[str, Any]]:
-    evidence = explicit_reference_evidence(conn, question, limit)
+    # A whole named chapter can be longer than the complete evidence budget.
+    # Reserve one third for topical seeds and FTS so "John 6" does not yield
+    # only verses 1–24 while starving the disputed 51–58 section.
+    explicit_limit = min(limit, max(1, (limit * 2) // 3))
+    evidence = explicit_reference_evidence(conn, question, explicit_limit)
     seen = {row["verse_id"] for row in evidence}
     for row in topical_reference_evidence(conn, question, limit):
+        if len(evidence) >= limit:
+            break
+        if row["verse_id"] in seen:
+            continue
+        seen.add(row["verse_id"])
+        evidence.append(row)
+    # If topical seeds did not use the reserved capacity, give it back to the
+    # explicit passages before falling through to noisier keyword retrieval.
+    for row in explicit_reference_evidence(conn, question, limit):
         if len(evidence) >= limit:
             break
         if row["verse_id"] in seen:
@@ -169,7 +211,11 @@ def topical_reference_evidence(
     lowered = question.lower()
     rows = []
     for seed in TOPICAL_REFERENCE_SEEDS:
-        if not any(keyword in lowered for keyword in seed["keywords"]):
+        required_keywords = seed.get("required_keywords", [])
+        optional_keywords = seed.get("keywords", [])
+        if required_keywords and not all(keyword in lowered for keyword in required_keywords):
+            continue
+        if optional_keywords and not any(keyword in lowered for keyword in optional_keywords):
             continue
         for row in explicit_reference_evidence(
             conn,
@@ -178,7 +224,7 @@ def topical_reference_evidence(
             translation,
         ):
             row["source"] = "qa-topical-reference"
-            row["matched_terms"] = seed["keywords"]
+            row["matched_terms"] = required_keywords or optional_keywords
             rows.append(row)
             if len(rows) >= limit:
                 return rows
@@ -191,15 +237,15 @@ def explicit_reference_evidence(
     limit: int,
     translation: str = "KJV",
 ) -> list[dict[str, Any]]:
-    rows = []
-    seen = set()
+    ranges: list[tuple[int, int, int, str]] = []
+    seen_ranges = set()
     for book_id, book_osis, book_name, _testament, _canonical_order in BOOKS:
         chapter_count = PROTESTANT_CHAPTER_COUNTS[book_id]
         aliases = [book_name, book_osis]
         aliases.extend(short_aliases(book_name))
         for alias in aliases:
             pattern = re.compile(
-                rf"(?<![A-Za-z0-9]){re.escape(alias)}\.?\s+(\d+)(?::(\d+)(?:-(?:(\d+):)?(\d+))?)?",
+                rf"(?<![A-Za-z0-9])(?<![1-3] ){re.escape(alias)}\.?\s+(\d+)(?::(\d+)(?:-(?:(\d+):)?(\d+))?)?",
                 re.IGNORECASE,
             )
             for match in pattern.finditer(question):
@@ -211,38 +257,68 @@ def explicit_reference_evidence(
                 end_verse = int(match.group(4) or (match.group(2) or "999"))
                 start_id = book_id * 1_000_000 + chapter * 1000 + start_verse
                 end_id = book_id * 1_000_000 + end_chapter * 1000 + end_verse
-                if (start_id, end_id) in seen:
+                if (start_id, end_id) in seen_ranges:
                     continue
-                seen.add((start_id, end_id))
-                for row in conn.execute(
-                    """
-                    SELECT v.id, t.translation_code, v.book_id, b.name, b.osis_code,
-                           v.chapter, v.verse, t.text
-                    FROM verses v
-                    JOIN books b ON b.id = v.book_id
-                    JOIN translation_text t ON t.verse_id = v.id
-                    WHERE t.translation_code = ?1 AND v.id >= ?2 AND v.id <= ?3
-                    ORDER BY v.id
-                    LIMIT ?4
-                    """,
-                    (translation, start_id, end_id, limit - len(rows)),
-                ):
-                    rows.append(
-                        {
-                            "verse_id": row[0],
-                            "translation_code": row[1],
-                            "book_id": row[2],
-                            "book_name": row[3],
-                            "book_osis": row[4],
-                            "chapter": row[5],
-                            "verse": row[6],
-                            "text": row[7],
-                            "source": "explicit-reference",
-                            "matched_terms": [alias.lower()],
-                        }
-                    )
-                    if len(rows) >= limit:
-                        return rows
+                seen_ranges.add((start_id, end_id))
+                ranges.append((match.start(), start_id, end_id, alias.lower()))
+
+    # Preserve the question's reference order and interleave ranges. Without
+    # this, canonical-book iteration lets the first retrieved chapter consume
+    # the whole limit (for example Romans 4 before James 2), defeating the
+    # release verifier's primary-passage coverage check.
+    ranges.sort(key=lambda item: item[0])
+    range_rows: list[list[sqlite3.Row | tuple[Any, ...]]] = []
+    range_aliases: list[str] = []
+    for _position, start_id, end_id, alias in ranges:
+        range_rows.append(
+            conn.execute(
+                """
+                SELECT v.id, t.translation_code, v.book_id, b.name, b.osis_code,
+                       v.chapter, v.verse, t.text
+                FROM verses v
+                JOIN books b ON b.id = v.book_id
+                JOIN translation_text t ON t.verse_id = v.id
+                WHERE t.translation_code = ?1 AND v.id >= ?2 AND v.id <= ?3
+                ORDER BY v.id
+                LIMIT ?4
+                """,
+                (translation, start_id, end_id, limit),
+            ).fetchall()
+        )
+        range_aliases.append(alias)
+
+    rows = []
+    seen_verses = set()
+    offset = 0
+    while len(rows) < limit:
+        added = False
+        for candidates, alias in zip(range_rows, range_aliases):
+            if offset >= len(candidates):
+                continue
+            row = candidates[offset]
+            if row[0] in seen_verses:
+                continue
+            seen_verses.add(row[0])
+            rows.append(
+                {
+                    "verse_id": row[0],
+                    "translation_code": row[1],
+                    "book_id": row[2],
+                    "book_name": row[3],
+                    "book_osis": row[4],
+                    "chapter": row[5],
+                    "verse": row[6],
+                    "text": row[7],
+                    "source": "explicit-reference",
+                    "matched_terms": [alias],
+                }
+            )
+            added = True
+            if len(rows) >= limit:
+                break
+        if not added:
+            break
+        offset += 1
     return rows
 
 
@@ -265,15 +341,28 @@ def short_aliases(book_name: str) -> list[str]:
 def send_sidecar(proc: subprocess.Popen[str], payload: dict[str, Any]) -> dict[str, Any]:
     assert proc.stdin is not None
     assert proc.stdout is not None
+    request_id = payload.get("id")
     proc.stdin.write(json.dumps(payload, ensure_ascii=False) + "\n")
     proc.stdin.flush()
-    line = proc.stdout.readline()
-    if not line:
-        raise RuntimeError("sidecar closed stdout")
-    message = json.loads(line)
-    if message.get("type") == "error":
-        raise RuntimeError(message.get("error", "unknown sidecar error"))
-    return message["result"]
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            raise RuntimeError("sidecar closed stdout")
+        message = json.loads(line)
+        if message.get("id") != request_id:
+            raise RuntimeError(
+                f"sidecar response id mismatch: expected {request_id!r}, "
+                f"received {message.get('id')!r}"
+            )
+        if message.get("type") == "council_progress":
+            continue
+        if message.get("type") == "error":
+            raise RuntimeError(message.get("error", "unknown sidecar error"))
+        if "result" not in message:
+            raise RuntimeError(
+                f"sidecar terminal response omitted result: {message.get('type')!r}"
+            )
+        return message["result"]
 
 
 def terminate_process_tree(proc: subprocess.Popen[str]) -> None:
@@ -361,11 +450,55 @@ def weakness_flags(response: dict[str, Any]) -> list[str]:
             break
     if any(not (position.get("evidence") or []) for position in positions):
         flags.append("position_without_cited_evidence")
+    required_stages = {"grounding", "scope", "judge", "soft_layer", "kill_test"}
+    if not required_stages.issubset(response):
+        flags.append("missing_trust_stage")
+    grounding = response.get("grounding") or {}
+    if grounding.get("hard_fail") is not False or grounding.get("verification_status") != "verified":
+        flags.append("grounding_failure")
+    for stage_name in ("scope", "judge", "kill_test"):
+        stage = response.get(stage_name) or {}
+        if stage.get("available") is not True or stage.get("parsed") is not True:
+            flags.append(f"{stage_name}_unavailable")
     return sorted(set(flags))
 
 
 def has_output_weakness(result: dict[str, Any]) -> bool:
     return any(flag not in RUN_LEVEL_FLAGS for flag in result.get("weakness_flags", []))
+
+
+def reusable_verified_result(result: dict[str, Any]) -> bool:
+    """Return true only for a persisted result that already meets local trust checks."""
+    if has_output_weakness(result):
+        return False
+    response = result.get("response") or {}
+    required_stages = {"grounding", "scope", "judge", "soft_layer", "kill_test"}
+    if not required_stages.issubset(response) or not (
+        response.get("evidence_route_diversity") or response.get("independence")
+    ):
+        return False
+    grounding = response.get("grounding") or {}
+    if (
+        grounding.get("hard_fail") is not False
+        or grounding.get("verification_status") != "verified"
+        or not (grounding.get("cited_count", 0) > 0)
+    ):
+        return False
+
+    evidence = result.get("evidence") or response.get("retrieved_evidence") or []
+    evidence_by_id = {int(row.get("verse_id", 0)): row for row in evidence}
+    positions = (response.get("synthesis") or {}).get("positions") or []
+    if not positions:
+        return False
+    for position in positions:
+        citations = position.get("evidence") or []
+        if not citations:
+            return False
+        for citation in citations:
+            row = evidence_by_id.get(int(citation.get("verse_id", 0)))
+            if not row or citation.get("quote") != row.get("text"):
+                return False
+    return True
 
 
 def slugify(value: str) -> str:
@@ -378,7 +511,15 @@ def iso_now() -> str:
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temporary.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 class FILETIME(ctypes.Structure):
@@ -536,6 +677,14 @@ def main() -> int:
     parser.add_argument("--weak-out", type=Path, default=DEFAULT_WEAK_OUT)
     parser.add_argument("--continue-on-error", action="store_true")
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help=(
+            "Reuse only already-verified results from --out and rerun the remaining "
+            "selected questions. Provider/model diagnostics must match."
+        ),
+    )
+    parser.add_argument(
         "--no-credential-vault",
         action="store_true",
         help="Do not load provider credentials from the Windows Credential Manager.",
@@ -590,8 +739,35 @@ def main() -> int:
             raise RuntimeError("No non-mock providers available")
 
         selected_questions = QUESTION_BANK[args.start - 1 : args.start - 1 + args.limit]
+        reusable_by_question: dict[str, dict[str, Any]] = {}
+        if args.resume and args.out.exists():
+            existing = json.loads(args.out.read_text(encoding="utf-8"))
+            existing_available = sorted(
+                provider.get("display_name")
+                for provider in (existing.get("provider_diagnostics") or {}).get("providers", [])
+                if provider.get("available")
+            )
+            current_available = sorted(provider.get("display_name") for provider in available)
+            if existing.get("model") != args.model or existing_available != current_available:
+                raise RuntimeError(
+                    "Cannot resume: saved model/provider diagnostics do not match this run"
+                )
+            reusable_by_question = {
+                result.get("question"): result
+                for result in existing.get("results", [])
+                if result.get("question") in selected_questions and reusable_verified_result(result)
+            }
+            print(
+                f"Resume accepted {len(reusable_by_question)}/{len(selected_questions)} "
+                "already-verified result(s)."
+            )
+
         for offset, question in enumerate(selected_questions, start=0):
             index = args.start + offset
+            if question in reusable_by_question:
+                print(f"[{index}/{len(QUESTION_BANK)}] reuse verified: {question}")
+                results.append(reusable_by_question[question])
+                continue
             evidence = retrieve_evidence(conn, question, args.evidence_limit)
             print(f"[{index}/{len(QUESTION_BANK)}] {question} ({len(evidence)} evidence rows)")
             try:

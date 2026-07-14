@@ -5,7 +5,12 @@
  */
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { parseResponse, VOICE_SYSTEM_PROMPT, buildVoicePrompt } from "./_shared.mjs";
+import {
+  createRequestAbort,
+  parseResponse,
+  VOICE_SYSTEM_PROMPT,
+  buildVoicePrompt,
+} from "./_shared.mjs";
 
 // Sonnet by default — Opus is excellent but its latency (~5 min on a council
 // prompt) makes a multi-voice + synthesis flow feel broken. Sonnet runs in
@@ -54,13 +59,36 @@ function resultToText(msg) {
   }
 }
 
-async function callClaude({ systemPrompt, userPrompt, model = CLAUDE_CODE_MODEL }) {
-  const iter = query({
+export async function callClaude({
+  systemPrompt,
+  userPrompt,
+  model = CLAUDE_CODE_MODEL,
+  timeoutMs = ANTHROPIC_API_TIMEOUT_MS,
+  signal,
+  queryFn = query,
+}) {
+  const controller = new AbortController();
+  const abortFromParent = () => controller.abort(signal?.reason);
+  if (signal?.aborted) abortFromParent();
+  else signal?.addEventListener("abort", abortFromParent, { once: true });
+
+  let timeoutError = null;
+  let timeout;
+  const deadline = new Promise((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      timeoutError = new Error(`Claude timed out after ${Math.round(timeoutMs / 1000)}s`);
+      controller.abort(timeoutError);
+      reject(timeoutError);
+    }, timeoutMs);
+  });
+
+  const iter = queryFn({
     prompt: userPrompt,
     options: {
       model,
       maxTurns: 1,
-      allowedTools: [],
+      abortController: controller,
+      tools: [],
       // Disable everything the SDK might otherwise auto-load. With user-level
       // MCP servers configured globally (windows-mcp, playwright, etc.), the
       // default spawn tried to connect to all of them, ballooning latency
@@ -74,23 +102,35 @@ async function callClaude({ systemPrompt, userPrompt, model = CLAUDE_CODE_MODEL 
     },
   });
 
-  let rawText = null;
-  let lastMsg = null;
-  for await (const msg of iter) {
-    lastMsg = msg;
-    if (msg.type === "result") {
-      rawText = resultToText(msg);
-      break;
+  const consume = async () => {
+    let rawText = null;
+    let lastMsg = null;
+    for await (const msg of iter) {
+      lastMsg = msg;
+      if (msg.type === "result") {
+        rawText = resultToText(msg);
+        break;
+      }
+      if (msg.type === "assistant" && !rawText) {
+        rawText = resultToText(msg);
+      }
     }
-    if (msg.type === "assistant" && !rawText) {
-      rawText = resultToText(msg);
-    }
-  }
 
-  if (!rawText) {
-    throw new Error(`Claude: no text response (last msg type: ${lastMsg?.type ?? "none"})`);
+    if (!rawText) {
+      throw new Error(`Claude: no text response (last msg type: ${lastMsg?.type ?? "none"})`);
+    }
+    return rawText;
+  };
+
+  try {
+    return await Promise.race([consume(), deadline]);
+  } catch (err) {
+    if (timeoutError) throw timeoutError;
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", abortFromParent);
   }
-  return rawText;
 }
 
 async function callAnthropicApi({
@@ -99,53 +139,69 @@ async function callAnthropicApi({
   userPrompt,
   model,
   timeoutMs = ANTHROPIC_API_TIMEOUT_MS,
+  signal,
 }) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const request = createRequestAbort(timeoutMs, signal);
   try {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    signal: controller.signal,
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 16000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
-  });
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => "");
-    throw new Error(`Anthropic ${resp.status} ${resp.statusText}: ${errText.slice(0, 300)}`);
-  }
-  const data = await resp.json();
-  const text = Array.isArray(data?.content)
-    ? data.content.map((part) => part?.text ?? "").filter(Boolean).join("\n")
-    : "";
-  if (!text) {
-    throw new Error(`Anthropic: no text content in response (${JSON.stringify(data).slice(0, 300)})`);
-  }
-  return text;
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: request.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 16000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
+      throw new Error(`Anthropic ${resp.status} ${resp.statusText}: ${errText.slice(0, 300)}`);
+    }
+    const data = await resp.json();
+    const text = Array.isArray(data?.content)
+      ? data.content.map((part) => part?.text ?? "").filter(Boolean).join("\n")
+      : "";
+    if (!text) {
+      throw new Error(
+        `Anthropic: no text content in response (${JSON.stringify(data).slice(0, 300)})`,
+      );
+    }
+    return text;
   } finally {
-    clearTimeout(timeout);
+    request.cleanup();
   }
 }
 
-async function callClaudeVoice({ systemPrompt, userPrompt, env = process.env, model }) {
+async function callClaudeVoice({
+  systemPrompt,
+  userPrompt,
+  env = process.env,
+  model,
+  signal,
+  timeoutMs = anthropicTimeoutMs(env),
+}) {
   if (env.ANTHROPIC_API_KEY) {
     return callAnthropicApi({
       apiKey: env.ANTHROPIC_API_KEY,
       systemPrompt,
       userPrompt,
       model: resolveModel(model, env),
-      timeoutMs: anthropicTimeoutMs(env),
+      timeoutMs,
+      signal,
     });
   }
-  return callClaude({ systemPrompt, userPrompt, model: resolveModel(model, env) });
+  return callClaude({
+    systemPrompt,
+    userPrompt,
+    model: resolveModel(model, env),
+    signal,
+    timeoutMs,
+  });
 }
 
 export const claude = {
@@ -160,13 +216,14 @@ export const claude = {
   // already a Claude Code session (subscription contention).
   isAvailable: (env = process.env) =>
     !!env.ANTHROPIC_API_KEY || env.DISABLE_CLAUDE_VOICE !== "1",
-  async analyze({ question, evidence, env = process.env, model, scopedPositions }) {
+  async analyze({ question, evidence, env = process.env, model, scopedPositions, signal }) {
     const userPrompt = buildVoicePrompt({ question, evidence, scopedPositions });
     const rawText = await callClaudeVoice({
       systemPrompt: VOICE_SYSTEM_PROMPT,
       userPrompt,
       env,
       model,
+      signal,
     });
     return parseResponse(rawText, "Claude");
   },
@@ -196,19 +253,12 @@ export async function probeClaudeVoice({ env = process.env, timeoutMs = 60_000 }
   }
   const mode = env.ANTHROPIC_API_KEY ? "api" : "subscription";
   try {
-    const text = await Promise.race([
-      callClaudeVoice({
-        systemPrompt: "You are a connectivity probe. Reply with exactly: ok",
-        userPrompt: "ok",
-        env,
-      }),
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`Claude probe timed out after ${timeoutMs}ms`)),
-          timeoutMs,
-        ),
-      ),
-    ]);
+    const text = await callClaudeVoice({
+      systemPrompt: "You are a connectivity probe. Reply with exactly: ok",
+      userPrompt: "ok",
+      env,
+      timeoutMs,
+    });
     return {
       configured: true,
       ok: typeof text === "string" && text.trim().length > 0,

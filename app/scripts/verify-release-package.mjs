@@ -7,6 +7,10 @@ const releaseRoot = join(appRoot, "src-tauri", "target", "release");
 const packageDir = join(releaseRoot, "release-package");
 const manifestPath = join(releaseRoot, "release-manifest.json");
 const summaryPath = join(releaseRoot, "release-summary.md");
+const sbomPaths = [
+  join(appRoot, "release", "sbom-npm.cdx.json"),
+  join(appRoot, "release", "sbom-cargo.cdx.json"),
+];
 
 const failures = [];
 const successes = [];
@@ -24,6 +28,7 @@ if (failures.length === 0) {
     ...installers.map((artifact) => lastPathSegment(artifact.path)),
     "release-manifest.json",
     "release-summary.md",
+    ...sbomPaths.map(lastPathSegment),
   ].sort();
   const actualNames = readdirSync(packageDir)
     .filter((name) => statSync(join(packageDir, name)).isFile())
@@ -41,6 +46,9 @@ if (failures.length === 0) {
   }
   await verifyCopiedFile("release-manifest.json", manifestPath);
   await verifyCopiedFile("release-summary.md", summaryPath);
+  for (const sbomPath of sbomPaths) {
+    await verifyCopiedFile(lastPathSegment(sbomPath), sbomPath);
+  }
 }
 
 if (failures.length > 0) {

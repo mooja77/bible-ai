@@ -116,7 +116,7 @@ function VoiceRow({
         <div className="border-t border-neutral-800 p-4">
           <CouncilResultView
             result={voice.result}
-            heading={`${voice.display_name} — independent analysis`}
+            heading={`${voice.display_name} — provider analysis`}
             onJumpToVerse={onJumpToVerse}
           />
         </div>

@@ -15,7 +15,7 @@ Today's Council is a **2–3 LLM-call prompt-chain** (parallel voices → one Cl
 The Grounded Council adopts TRIANGULON's **two-channel** model:
 
 - **Channel A — the GROUNDING FLOOR. The ONLY thing allowed to HARD-FAIL / force a regen.** Deterministic: every cited `verse_id` and every asserted scripture reference in the synthesis must be a *member* of the retrieved evidence set. A position citing a verse that was never retrieved is a hallucinated citation → fail. On fail, a bounded **regen** re-runs synthesis against the flagged citations; adopted only if strictly fewer violations (never weaker).
-- **Channel B — the SOFT LAYER. May only RANK or FLAG, never hard-fail.** A **cross-family judge** (a different provider family than the synthesizer scores faithfulness/balance/grounding), an **independence grapher** (agreement that echoes the same proof-text ≠ independent corroboration), **calibrated confidence** (bands gated on independent support), a **kill-test** skeptic, **semantic-entropy** stability, and a standing **calibration** loop that turns asserted trust into measured trust.
+- **Channel B — the SOFT LAYER. May only RANK or FLAG, never hard-fail.** A **cross-family judge** (a different provider family than the synthesizer scores faithfulness/balance/grounding), an **evidence-route diversity grapher** (agreement that echoes the same proof-text is correlated), **confidence adjustment** (bands read down by distinct support), a **kill-test** skeptic, **semantic-entropy** stability, and a standing evaluation loop.
 
 The lifecycle becomes genuinely multi-stage — `scope → breadth → depth → synthesize → adversarial → ground` — so it does real work and takes real time, and the existing live "watch it think" canvas + cinematic hero visualize the real stages.
 
@@ -25,7 +25,7 @@ The lifecycle becomes genuinely multi-stage — `scope → breadth → depth →
 | 1 | Grounding floor (verse_id membership) + regen | A | **YES (sole authority)** |
 | 2 | Multi-stage lifecycle (scope→breadth→depth→synth→adversarial) | substrate | no |
 | 3 | Independence grapher (interpretive-lineage) | B (deterministic) | no |
-| 4 | Soft layer (kill-test, calibrated confidence, semantic-entropy, TICK) | B | no |
+| 4 | Soft layer (kill-test, confidence adjustment, semantic-entropy, TICK) | B | no |
 | 5 | Calibration + learning | B (proves the rest) | no |
 
 **Build order ≠ value order.** Stage 1 (floor+regen) and Stage 0 (cross-family judge) are the load-bearing trust gains and ship first; the lifecycle (2) makes it deep; 3–5 add rigor.
@@ -85,7 +85,7 @@ The lifecycle becomes genuinely multi-stage — `scope → breadth → depth →
 
 ### STAGE 3 — Independence grapher (interpretive-lineage)
 
-**Goal.** Deterministic: two voices "agreeing" on a position are independent corroboration only if their cited evidence sets are substantially DISJOINT. Overlap (same single proof-text) = shared origin → discount the agreement weight in confidence. Emit "N independent voices (distinct evidence)" not raw voice count.
+**Goal.** Deterministic: distinguish provider agreement supported by substantially disjoint cited evidence routes from agreement that repeats the same proof-text. This measures evidence-route diversity, not statistical or institutional independence.
 **Acceptance:** two voices citing identical verse_ids → counted as 1 independent; disjoint → 2; confidence uses independent count.
 
 ### STAGE 4 — Soft layer

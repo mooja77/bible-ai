@@ -144,7 +144,7 @@ Install guides:
 
 Prerequisites:
 
-- Node.js 22 or newer
+- Node.js 22.12 or newer (or another version supported by the pinned Vite release)
 - Rust stable toolchain
 - Tauri 2 prerequisites for your operating system
 - Python 3 for corpus ingestion scripts
@@ -167,7 +167,18 @@ Run checks:
 
 ```bash
 npm run check
+npm run check:trust
+npm run test:e2e:build
 ```
+
+`test:e2e:build` verifies the locally installed Microsoft Edge version, installs
+the exact Microsoft-signed EdgeDriver into an ignored project cache, and then
+runs the disposable-profile Tauri WebView suite. See [Testing and Release](docs/testing-and-release-plan.md).
+
+Corpus rebuild and Council evaluation processes:
+
+- [Reproducible corpus build](docs/corpus-build.md)
+- [Council confidence-adjustment review](docs/council-confidence-review.md)
 
 Build a Windows release package:
 
@@ -206,11 +217,14 @@ prompts/             Prompt and planning artifacts
 - [Learning And Systematic Theology Plan](docs/learning-and-systematic-theology-plan.md)
 - [Open Resource Ingestion Plan](docs/open-resource-ingestion-plan.md)
 - [Data Sources](docs/data-sources.md)
+- [Reproducible Corpus Build](docs/corpus-build.md)
 - [Windows Install Guide](docs/install-windows.md)
 - [macOS Install Guide](docs/install-macos.md)
 - [User-Owned AI Provider Setup](docs/user-owned-ai-setup.md)
 - [Privacy And Distribution](docs/privacy-and-distribution.md)
 - [Release Notes](docs/release-notes.md)
+- [2026-07-13 Deep Review and Implementation Report](docs/reviews/2026-07-13-project-deep-review-and-implementation-report.md)
+- [Trust Remediation Programme](docs/reviews/2026-07-13-trust-remediation-programme.md)
 
 ## Contributing
 
