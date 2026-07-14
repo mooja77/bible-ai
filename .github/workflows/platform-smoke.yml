@@ -36,7 +36,7 @@ jobs:
         with:
           workspaces: app/src-tauri
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: data/sources
           key: corpus-sources-${{ hashFiles('data/corpus-lock.json') }}
