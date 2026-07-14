@@ -37,7 +37,7 @@ describe("Release readiness surfaces", () => {
     const distribution = await $('[data-testid="about-distribution-screen"]');
     await distribution.waitForDisplayed({ timeout: 10_000 });
     await expect(distribution).toHaveText("Bible AI 0.1.0", { containing: true, ignoreCase: true });
-    await expect(distribution).toHaveText("Personal-use release candidate", { containing: true, ignoreCase: true });
+    await expect(distribution).toHaveText("Free, non-commercial release candidate", { containing: true, ignoreCase: true });
 
     const attribution = await $('[data-testid="license-attribution-screen"]');
     await attribution.waitForDisplayed({ timeout: 10_000 });

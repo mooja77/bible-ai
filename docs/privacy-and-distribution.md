@@ -4,7 +4,11 @@ Sensitive religious and crisis disclosures are governed by [`sensitive-topic-saf
 
 ## Current Privacy Posture
 
-Bible AI is currently treated as a personal-use local app.
+Bible AI is currently treated as a personal-use local app. Any public build is
+intended to be distributed free of charge for non-commercial Bible study. The
+release scope excludes paid access, subscriptions, advertising, and sale of
+the bundled content. A future change to that scope requires a new content-rights
+review before distribution.
 
 - Provider keys and managed gateway tokens are stored in the operating system credential vault and are intended to belong to the user, team, or app deployment owner.
 - No shared provider keys are bundled, committed, or distributed with the app.
@@ -39,4 +43,6 @@ Before public distribution:
 
 Completed release prerequisite:
 
-- Multi-provider non-mock Council QA passed on 2026-05-07 with Gemini and OpenAI contributing successful answers for all 20 fixture questions.
+- Multi-provider non-mock Council QA passed on 2026-07-14 with Claude Code
+  (`sonnet`) and local Ollama (`granite4.1:8b`) contributing successful,
+  grounded answers for all 20 fixture questions.

@@ -23,6 +23,20 @@ if (!existsSync(reviewPath)) {
   if (!Array.isArray(review.distribution_channels) || review.distribution_channels.length === 0) {
     failures.push("distribution_channels must name every intended release channel");
   }
+  const expectedReleaseScope = {
+    model: "free_noncommercial",
+    free_of_charge: true,
+    paid_access: false,
+    subscriptions: false,
+    advertising: false,
+    bundled_content_sales: false,
+    scope_change_requires_new_review: true,
+  };
+  for (const [field, expected] of Object.entries(expectedReleaseScope)) {
+    if (review?.release_scope?.[field] !== expected) {
+      failures.push(`release_scope.${field} must be ${JSON.stringify(expected)}`);
+    }
+  }
   if (review.approved_for_public_distribution !== true) {
     failures.push("approved_for_public_distribution must be true");
   }

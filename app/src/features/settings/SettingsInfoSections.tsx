@@ -6,9 +6,9 @@ const APP_VERSION = "0.1.0";
 const SOURCE_ATTRIBUTIONS = [
   {
     name: "King James Version",
-    license: "Rights review pending",
+    license: "Public Domain outside UK · source repository CC BY-NC 2.0 BR",
     source: "thiagobodruk/bible pinned JSON",
-    detail: "Underlying 1769 text is represented as public domain outside the UK; the source repository states CC BY-NC 2.0 BR, and UK Letters Patent require territory-specific review.",
+    detail: "Bible AI is intended for free, non-commercial distribution. Attribution, modification marking, and UK territory treatment remain part of the named rights review.",
   },
   {
     name: "World English Bible",
@@ -42,9 +42,9 @@ const SOURCE_ATTRIBUTIONS = [
   },
   {
     name: "OpenBible cross-references",
-    license: "Creative Commons Attribution · version unresolved",
+    license: "CC BY 4.0",
     source: "a.openbible.info cross-reference dataset",
-    detail: "Used for retrieval and reader context; exact license version and attribution obligations remain pending rights review.",
+    detail: "Used for retrieval and reader context; credit OpenBible.info, link CC BY 4.0, and identify the app's normalized/indexed transformations.",
   },
 ];
 
@@ -91,7 +91,7 @@ export function LicenseAttributionSection() {
           />
           <InfoBlock
             label="Distribution decision"
-            value="Default channel is personal use; public release requires identity-bound rights, confidence, safety, accessibility, clean-profile, and multi-provider evidence."
+            value="Free, non-commercial distribution only; public release still requires identity-bound rights, confidence, safety, accessibility, clean-profile, and multi-provider evidence."
           />
         </div>
       </section>
@@ -116,7 +116,7 @@ export function AboutDistributionSection() {
         </div>
         <div className="grid md:grid-cols-2 gap-3">
           <InfoBlock label="Version" value={`${APP_NAME} ${APP_VERSION}`} />
-          <InfoBlock label="Release mode" value="Personal-use release candidate with public-release disclosures included" />
+          <InfoBlock label="Release mode" value="Free, non-commercial release candidate with public-release disclosures included" />
           <InfoBlock label="Privacy" value="User data, provider keys, and backups stay local unless a provider call is submitted." />
           <InfoBlock label="Public release gate" value="Complete clean-profile/accessibility QA, confidence review, content-rights and safety review, and multi-provider Council QA before publishing." />
         </div>

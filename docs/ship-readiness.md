@@ -64,20 +64,22 @@ verification, clean-profile app launch, and NSIS install/launch/uninstall smoke:
 
 ## The exact steps to ship (human)
 
-1. **Complete the human Council confidence review.** The current Granite +
-   Claude machine fixture already passes. Complete every label and blocking-
-   issue field in the generated SHA-bound
-   `app/release/council-confidence-review.json` with a named qualified reviewer,
-   then run `npm run qa:confidence-review:verify`. Do not edit the underlying
-   Council fixture or claim that automated grounding proves theological quality.
-
-2. **Complete content and safety review** with named qualified reviewers:
+1. **Complete content and safety review** with named qualified reviewers:
    run `npm run qa:content-review:template`, record the target territories and every
    distribution channel plus every source's evidence, redistribution, and
-   attribution decision, and run
+   attribution decision, confirm the bound `free_noncommercial` release scope,
+   and run
    `npm run qa:content-review:verify`. A pastoral/crisis professional must also
    review the wording and localized resource candidates in
    `docs/sensitive-topic-safety-policy.md`.
+
+2. **Complete the human Council confidence review.** The current Granite +
+   Claude machine fixture already passes. Run
+   `npm run qa:confidence-review:packet`, then have a named qualified reviewer
+   complete every label and blocking-issue field in the generated SHA-bound
+   `app/release/council-confidence-review.json`. Run
+   `npm run qa:confidence-review:verify`. Do not edit the underlying Council
+   fixture or claim that automated grounding proves theological quality.
 
 3. **Retain the exact release artifacts.** The current NSIS/MSI are built and
    hashed above. If source, corpus, sidecar, SBOM, version, or signing state

@@ -10,6 +10,15 @@ const template = {
   decision_reference: "",
   target_territories: [],
   distribution_channels: [],
+  release_scope: {
+    model: "free_noncommercial",
+    free_of_charge: true,
+    paid_access: false,
+    subscriptions: false,
+    advertising: false,
+    bundled_content_sales: false,
+    scope_change_requires_new_review: true,
+  },
   approved_for_public_distribution: false,
   sources: lock.artifacts.map((artifact) => ({
     source_id: artifact.id,

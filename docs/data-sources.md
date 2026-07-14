@@ -45,9 +45,12 @@ Notes:
 
 - The KJV acquisition repository's pinned README applies CC BY-NC 2.0 BR to
   the repository and says Bible versions remain the property of their owners.
-  eBible separately identifies UK Letters Patent. The content-review gate must
-  resolve both the repository terms and every intended distribution territory;
-  the lock's short public-domain label is not itself approval.
+  Bible AI's intended public release is free and non-commercial, which removes
+  the anticipated commercial-use conflict but does not remove attribution,
+  modification-marking, or scope obligations. eBible separately identifies UK
+  Letters Patent. The content-review gate must resolve both the repository
+  terms and every intended distribution territory; the lock's short
+  public-domain label is not itself approval.
 - WEB is now bundled from the public-domain Protestant edition. Its source omits or footnotes some verses that appear in KJV/TR traditions; missing rows should be treated as translation-specific absence rather than corpus failure.
 - Douay-Rheims remains deferred. The source is public domain, but direct import would misalign citations because the available DRC JSON uses Vulgate/deuterocanonical versification in places where the app currently uses a 66-book Protestant reference model.
 - The UI translation picker reads actual rows from `translations`, not this document.
@@ -67,7 +70,7 @@ The app treats Strong's and morphology data as study metadata. It does not modif
 
 | Data | Target Table | License in Ingest | Source | Notes |
 |---|---|---|---|---|
-| Cross-reference links | `cross_refs` | Creative Commons Attribution, version unspecified | `https://a.openbible.info/data/cross-references.zip` | Cached as `data/sources/cross_references.txt`; stored with source `openbible`; exact terms pending review. |
+| Cross-reference links | `cross_refs` | CC BY 4.0 | `https://a.openbible.info/data/cross-references.zip` | Cached as `data/sources/cross_references.txt`; stored with source `openbible`; attribution and normalization marking pending named approval. |
 
 Cross-reference rows use:
 
