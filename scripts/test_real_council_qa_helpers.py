@@ -8,9 +8,88 @@ import unittest
 import run_real_council_qa as qa
 
 
+def build_test_corpus() -> sqlite3.Connection:
+    """Create the smallest deterministic corpus needed by retrieval tests."""
+    connection = sqlite3.connect(":memory:")
+    connection.executescript(
+        """
+        CREATE TABLE books (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          osis_code TEXT NOT NULL
+        );
+        CREATE TABLE verses (
+          id INTEGER PRIMARY KEY,
+          book_id INTEGER NOT NULL,
+          chapter INTEGER NOT NULL,
+          verse INTEGER NOT NULL
+        );
+        CREATE TABLE translation_text (
+          translation_code TEXT NOT NULL,
+          verse_id INTEGER NOT NULL,
+          text TEXT NOT NULL
+        );
+        CREATE VIRTUAL TABLE translation_text_fts USING fts5(
+          text,
+          translation_code UNINDEXED,
+          verse_id UNINDEXED
+        );
+        """
+    )
+    books = {
+        40: ("Matthew", "Matt"),
+        42: ("Luke", "Luke"),
+        45: ("Romans", "Rom"),
+        59: ("James", "Jas"),
+    }
+    connection.executemany(
+        "INSERT INTO books (id, name, osis_code) VALUES (?, ?, ?)",
+        [(book_id, name, osis) for book_id, (name, osis) in books.items()],
+    )
+
+    references: set[tuple[int, int, int]] = set()
+
+    def add_range(book_id: int, chapter: int, start: int, end: int) -> None:
+        references.update((book_id, chapter, verse) for verse in range(start, end + 1))
+
+    add_range(59, 2, 1, 26)
+    add_range(45, 4, 1, 25)
+    add_range(40, 5, 17, 20)
+    add_range(40, 5, 38, 48)
+    add_range(40, 6, 33, 33)
+    add_range(40, 7, 12, 12)
+    add_range(40, 7, 21, 27)
+    add_range(42, 6, 27, 36)
+    add_range(45, 12, 1, 21)
+    add_range(59, 1, 22, 27)
+
+    verse_rows = []
+    text_rows = []
+    fts_rows = []
+    for book_id, chapter, verse in sorted(references):
+        verse_id = book_id * 1_000_000 + chapter * 1000 + verse
+        text = f"Fixture text for {books[book_id][0]} {chapter}:{verse}."
+        verse_rows.append((verse_id, book_id, chapter, verse))
+        text_rows.append(("KJV", verse_id, text))
+        fts_rows.append((text, "KJV", verse_id))
+    connection.executemany(
+        "INSERT INTO verses (id, book_id, chapter, verse) VALUES (?, ?, ?, ?)",
+        verse_rows,
+    )
+    connection.executemany(
+        "INSERT INTO translation_text (translation_code, verse_id, text) VALUES (?, ?, ?)",
+        text_rows,
+    )
+    connection.executemany(
+        "INSERT INTO translation_text_fts (text, translation_code, verse_id) VALUES (?, ?, ?)",
+        fts_rows,
+    )
+    return connection
+
+
 class EvidenceSelectionTests(unittest.TestCase):
     def test_chapter_comparison_includes_argument_center(self) -> None:
-        connection = sqlite3.connect(qa.CORPUS_DB)
+        connection = build_test_corpus()
         try:
             evidence = qa.retrieve_evidence(
                 connection,
@@ -26,7 +105,7 @@ class EvidenceSelectionTests(unittest.TestCase):
         self.assertLessEqual(len(evidence), 24)
 
     def test_sermon_question_retrieves_primary_and_parallel_ethics_texts(self) -> None:
-        connection = sqlite3.connect(qa.CORPUS_DB)
+        connection = build_test_corpus()
         try:
             evidence = qa.retrieve_evidence(
                 connection,
