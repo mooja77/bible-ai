@@ -11,6 +11,8 @@ current corpus) and `open-resource-ingestion-plan.md` (the admission pipeline
 for new resources).
 
 This document is an engineering and rights-tracking record, not legal advice.
+The public evidence and unresolved decisions for the exact locked artifacts are
+collected in [`reviews/content-rights-evidence-dossier.md`](reviews/content-rights-evidence-dossier.md).
 
 Artifact versions and checksums below are enforced by `data/corpus-lock.json`.
 Rights assertions are not treated as approved merely because the bytes are
@@ -106,7 +108,7 @@ Decision class for every row below: `bundled_redistributable`.
 
 | source_id | title | version | source_url | maintainer | license | redistribution | modification | share_alike | language | script | canon_scope | versification | checksum | import_script | ocr_quality | release_status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| KJV | King James Version | thiagobodruk/bible@49a869c | pinned raw GitHub artifact (`data/sources/en_kjv.json`) | thiagobodruk (upstream compiler) | Public Domain (territorial review pending) | pending human approval | Yes; do not present altered text as KJV | No | English | Latin | 66-book Protestant | eng-kjv | cb31a8aec26786c967e8cd52c325bbbca82a34d4e6c0aec2d2901166f2dec483 | scripts/ingest_kjv.py | clean | bundled |
+| KJV | King James Version | thiagobodruk/bible@49a869c | pinned raw GitHub artifact (`data/sources/en_kjv.json`) | thiagobodruk (upstream compiler) | Underlying KJV public domain outside UK per eBible; pinned repository states CC BY-NC 2.0 BR; UK Letters Patent and repository-term review pending | pending human approval | Yes; do not present altered text as KJV | unresolved | English | Latin | 66-book Protestant | eng-kjv | cb31a8aec26786c967e8cd52c325bbbca82a34d4e6c0aec2d2901166f2dec483 | scripts/ingest_kjv.py | clean | bundled |
 | ASV | American Standard Version | scrollmapper/bible_databases@ba07bc9 | pinned raw GitHub artifact (`data/sources/ASV.json`) | scrollmapper (upstream compiler) | Public Domain | pending human approval | Yes; do not present altered text as ASV | No | English | Latin | 66-book Protestant | eng-kjv | 61f53a4dd0ae412f7c925ec7113bc02c6de44d0402b94d0cee264bcd69417ea8 | scripts/ingest_asv.py | clean | bundled |
 | WEB | World English Bible (ENGWEBP Protestant edition) | cached 2026-05-02 | eBible.org ENGWEBP USFM (`data/sources/engwebp_usfm.zip`) | eBible.org | Public Domain; WEB naming is trademark-sensitive | pending human approval | Preserve edition bytes and identity | No | English | Latin | 66-book Protestant | eng-kjv; edition omissions retained | 2c77e11f0d26863f7f4a507b40c58651d55399e6d760223b3550908331bc994f | scripts/ingest_web.py | clean | bundled |
 | YLT | Young's Literal Translation | scrollmapper/bible_databases@ba07bc9 | pinned raw GitHub artifact (`data/sources/YLT.json`) | scrollmapper (upstream compiler) | Public Domain | pending human approval | Yes; do not present altered text as YLT | No | English | Latin | 66-book Protestant | eng-kjv | 853fb222c1a32f3f864c4aaed4c68082ec23d0c450135206e7c5c5f014166888 | scripts/ingest_ylt.py | clean | bundled |
@@ -124,15 +126,15 @@ two rules pending review.
 | source_id | title | version | source_url | maintainer | license | redistribution | share_alike | ai_rag_rules | language | script | canon_scope | import_script | checksum | ocr_quality | release_status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | morphhb | OpenScriptures Hebrew morphology and Strong's tags (`word_tokens` for WLC) | openscriptures/morphhb@3d15126 | pinned GitHub XML set (`data/sources/morphhb/*.xml`) | OpenScriptures | WLC text Public Domain; morphology/lemma CC BY 4.0 (approval pending) | pending human approval | No | Study metadata; not modified at runtime | Hebrew | Hebrew | OT-only word tagging | scripts/ingest_morphhb.py | c1b448b47e2a09d7edbf35d845e27be0e9022de7587b73df7745e22e12b66c5c aggregate | clean | bundled |
-| strongs-greek | Strong's Greek dictionary | openscriptures/strongs@0acd2f2 | pinned raw GitHub artifact (`data/sources/strongs-greek-dictionary.js`) | OpenScriptures | CC-BY-SA assertion pending approval | pending human approval | Yes (pending approval) | Study metadata; not modified at runtime | Greek/English | Greek/Latin | Lexicon | scripts/ingest_strongs.py | 7624ee738ae47e80f1a352223e28a26d011c9cd4898822cee52f47a010c04efd | clean | bundled |
-| strongs-hebrew | Strong's Hebrew dictionary | openscriptures/strongs@0acd2f2 | pinned raw GitHub artifact (`data/sources/strongs-hebrew-dictionary.js`) | OpenScriptures | CC-BY-SA assertion pending approval | pending human approval | Yes (pending approval) | Study metadata; not modified at runtime | Hebrew/English | Hebrew/Latin | Lexicon | scripts/ingest_strongs.py | 5ce6aeed551c709f49bcfa341cadf2f34bc7599b85d9de9e6ac2ecbf60fc3739 | clean | bundled |
-| openbible-xrefs | OpenBible.info cross-references (`cross_refs`, source `openbible`) | cached 2026-05-02 | https://a.openbible.info/data/cross-references.zip (`data/sources/cross_references.txt`) | OpenBible.info | Creative Commons attribution variant pending approval | pending human approval | pending human approval | Mapping data; kept separate from Bible text | English | n/a | Cross-reference mapping (66-book) | scripts/ingest_tsk.py | 533e055792af278032f87ab8e4cce6c1b3899f776cea1c711cfd290c2052b4b2 | n/a | bundled |
+| strongs-greek | Strong's Greek dictionary | openscriptures/strongs@0acd2f2 | pinned raw GitHub artifact (`data/sources/strongs-greek-dictionary.js`) | OpenScriptures | File header says CC-BY-SA, version unspecified | pending human approval | Yes (exact obligations pending) | Study metadata; derived/export obligations pending | Greek/English | Greek/Latin | Lexicon | scripts/ingest_strongs.py | 7624ee738ae47e80f1a352223e28a26d011c9cd4898822cee52f47a010c04efd | clean | bundled |
+| strongs-hebrew | Strong's Hebrew dictionary | openscriptures/strongs@0acd2f2 | pinned raw GitHub artifact (`data/sources/strongs-hebrew-dictionary.js`) | OpenScriptures | File header says CC-BY-SA, version unspecified | pending human approval | Yes (exact obligations pending) | Study metadata; derived/export obligations pending | Hebrew/English | Hebrew/Latin | Lexicon | scripts/ingest_strongs.py | 5ce6aeed551c709f49bcfa341cadf2f34bc7599b85d9de9e6ac2ecbf60fc3739 | clean | bundled |
+| openbible-xrefs | OpenBible.info cross-references (`cross_refs`, source `openbible`) | cached 2026-05-02 | https://a.openbible.info/data/cross-references.zip (`data/sources/cross_references.txt`) | OpenBible.info | Creative Commons Attribution, version unspecified | pending human approval | pending human approval | Mapping data; exact attribution/derived obligations pending | English | n/a | Cross-reference mapping (66-book) | scripts/ingest_tsk.py | 533e055792af278032f87ab8e4cce6c1b3899f776cea1c711cfd290c2052b4b2 | n/a | bundled |
 | verse-embeddings | Local semantic search embeddings (`verse_embeddings`) | nomic-embed-text / 768 dimensions | Generated locally from bundled corpus text | This app (derived) | Derived from bundled corpus; follows source license | n/a (not distributed as text) | Inherits source obligations | Local search index only | n/a | n/a | Derived from bundled translations | scripts/embed_corpus.py | row coverage enforced by scripts/verify_corpus.py | n/a | bundled |
 
 Export rules for CC-BY / CC-BY-SA rows (morphhb, Strong's, cross-references):
-exports that surface this data must carry attribution, and CC-BY-SA data must
-carry the share-alike notice. Confirm the exact license variant per row before
-relying on these export rules.
+exports that surface this data must carry the applicable attribution. The
+Strong's share-alike scope and the Strong's/OpenBible license versions are not
+yet resolved, so no public export or release may rely on this provisional rule.
 
 ## Deferred and Blocked Sources
 

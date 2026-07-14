@@ -1,6 +1,6 @@
 # Ship Readiness
 
-Date: 2026-07-13
+Date: 2026-07-14
 Status: Engineering baseline green; **public release blocked by current evidence gates**.
 
 This is the straight answer to "is the product finished / shippable to end users."
@@ -8,11 +8,11 @@ This is the straight answer to "is the product finished / shippable to end users
 ## Bottom line
 
 The remediation engineering is complete and the local automated build, corpus,
-security, and WebView suites pass. The app is not yet approved for public
-distribution because the current real-provider evidence has only one successful
-provider family and the named human rights, safety, accessibility, clean-profile,
-and distribution attestations have not been completed. A private development
-build is usable; a public release is not authorized by the current evidence.
+security, WebView, installer, and two-provider Council machine gates pass. The
+app is not yet approved for public distribution because the named human
+confidence, content-rights, safety, accessibility, clean-profile, and
+distribution attestations have not been completed. A private development build
+is usable; a public release is not authorized by the current evidence.
 
 ## What is verified (done)
 
@@ -27,11 +27,16 @@ build is usable; a public release is not authorized by the current evidence.
   versification mappings; 155,557 mappings; 155,556 text-bearing embeddings;
   no unexplained orphan verses; full source and corpus verifiers pass.
 - AI quality: citation-free output is unverifiable; visible Scripture quotations
-  are hydrated from retrieved corpus rows; five adversarial quality cases pass;
+  are hydrated from retrieved corpus rows; four canonical quality cases pass;
   provider cancellation crosses the sidecar boundary.
-- Automated quality: `npm run check`, 155 sidecar tests, 124 Rust tests, strict
-  Clippy, schema sync, both npm audits, Cargo audit, and CycloneDX SBOM validation
-  pass.
+- Automated quality: `npm run check`, 156 sidecar tests, 3 corpus-backed QA
+  helper tests, 124 Rust tests, strict Clippy, schema sync, npm audit (zero
+  vulnerabilities), and CycloneDX SBOM validation pass. Cargo audit exits zero
+  with 19 allowed warnings: Linux-only GTK3 maintenance notices, one patched-in-
+  newer-GTK `glib` advisory with no current Windows dependency path, and
+  unmaintained transitive text/PDF crates for which the direct `krilla 0.8.2`
+  dependency is already the latest published version. These warnings remain a
+  tracked cross-platform/PDF maintenance risk, not a zero-warning claim.
 - Desktop behavior: all 77 WebView E2E tests pass, including the Reader/Council
   axe scan, keyboard/focus behavior, contrast, and maximum text scaling. The
   run used exact-matched, Microsoft-signed EdgeDriver/WebView2 150.0.4078.65.
@@ -43,31 +48,40 @@ as an untagged visual archive while preferring HTML/Markdown for accessibility,
 and adds Windows E2E plus macOS bundle-smoke CI. The labelled Council
 confidence-review process exists but remains pending named human labels.
 
-The current 20-result Granite/Ollama fixture passes every local grounding, quote,
-primary-passage, stage, and output-weakness check with zero sidecar errors. It
-does **not** pass the release contract because only one non-mock provider succeeds
-per question. This is expected fail-closed behavior; local-model quality cannot
-be presented as cross-family provider evidence.
+The current 20-result Granite/Ollama + Claude Code fixture passes every
+grounding, quote, primary-passage, stage, provider-diversity, and output-weakness
+check with zero sidecar errors. Claude and Ollama each succeeded 20/20. The
+strict machine verifier passes, but its SHA-bound human confidence review is
+still pending and cannot be inferred from the automated result.
+
+Fresh unsigned Windows bundles were built on 2026-07-14 and passed resource
+verification, clean-profile app launch, and NSIS install/launch/uninstall smoke:
+
+- NSIS: `Bible AI_0.1.0_x64-setup.exe`, 493,874,911 bytes,
+  SHA-256 `42e00f7c9c2365f44fd4f6e692ab85efe95485373be33afe4a13f738f6145ec5`.
+- MSI: `Bible AI_0.1.0_x64_en-US.msi`, 612,070,500 bytes,
+  SHA-256 `574d979fe4925057b69df071a00b5a4498c6288e44429609df865f4680e4903e`.
 
 ## The exact steps to ship (human)
 
-1. **Repair one external provider credential and complete multi-provider
-   evidence.** The saved Google, OpenAI, and Anthropic credentials were rejected
-   during the 2026-07-13 live probes. Run the current suite with Granite/Ollama
-   plus one working external family, using `--resume` only when provider/model
-   diagnostics match, then run `cd app && npm run qa:real-council:verify`.
-   Provider names, model IDs, retrieval evidence, and every trust stage must be
-   present; do not edit the fixture by hand to make it pass.
+1. **Complete the human Council confidence review.** The current Granite +
+   Claude machine fixture already passes. Complete every label and blocking-
+   issue field in the generated SHA-bound
+   `app/release/council-confidence-review.json` with a named qualified reviewer,
+   then run `npm run qa:confidence-review:verify`. Do not edit the underlying
+   Council fixture or claim that automated grounding proves theological quality.
 
 2. **Complete content and safety review** with named qualified reviewers:
-   `npm run qa:content-review:template`, record the target territories and every
-   source's redistribution/attribution decision, and run
+   run `npm run qa:content-review:template`, record the target territories and every
+   distribution channel plus every source's evidence, redistribution, and
+   attribution decision, and run
    `npm run qa:content-review:verify`. A pastoral/crisis professional must also
    review the wording and localized resource candidates in
    `docs/sensitive-topic-safety-policy.md`.
 
-3. **Build the release installer** on the target Windows build machine. Record
-   hashes for the exact installer, corpus, sidecar, and SBOM artifacts.
+3. **Retain the exact release artifacts.** The current NSIS/MSI are built and
+   hashed above. If source, corpus, sidecar, SBOM, version, or signing state
+   changes, rebuild and repeat every artifact-bound gate.
 
 4. **Manual clean-profile QA** on a *separate clean Windows user profile or VM*
    (never your dev profile). Install the built installer, then verify and record
@@ -101,8 +115,7 @@ be presented as cross-family provider evidence.
 
 ## What only a human can do (recap)
 
-- Repairing/authorizing a second provider account and accepting any associated
-  API cost; the current local-provider evidence is already captured.
+- Named 20-case Council confidence review against the exact fixture SHA-256.
 - Content/licensing review for the actual target territories.
 - Pastoral/crisis-professional review of safety wording and local resources.
 - Keyboard, screen-reader, zoom, credential-vault, and clean-profile attestation.

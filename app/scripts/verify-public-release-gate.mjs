@@ -18,6 +18,7 @@ for (let i = 2; i < process.argv.length; i += 1) {
 const realCouncilFixture = args.get("council-fixture") ?? "tests/fixtures/council-real-results.json";
 const manualEvidence = args.get("manual-evidence") ?? "release/manual-release-gates.json";
 const contentReview = args.get("content-review") ?? "release/content-review.json";
+const confidenceReview = args.get("confidence-review") ?? "release/council-confidence-review.json";
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 const checks = [
@@ -65,6 +66,15 @@ const checks = [
     ],
   },
   {
+    label: "Human Council confidence-band review",
+    command: [
+      process.execPath,
+      "scripts/verify-council-confidence-review.mjs",
+      "--review",
+      confidenceReview,
+    ],
+  },
+  {
     label: "Manual clean-profile and credential-vault QA",
     command: [process.execPath, "scripts/verify-manual-release-gates.mjs", manualEvidence],
   },
@@ -84,6 +94,9 @@ if (!existsSync(resolve(manualEvidence))) {
 if (!existsSync(resolve(contentReview))) {
   missing.push(`Content review evidence missing: ${resolve(contentReview)}`);
 }
+if (!existsSync(resolve(confidenceReview))) {
+  missing.push(`Confidence review evidence missing: ${resolve(confidenceReview)}`);
+}
 
 if (missing.length > 0) {
   console.error("Public release gate cannot run:");
@@ -93,6 +106,7 @@ if (missing.length > 0) {
   console.error("- python ../scripts/run_real_council_qa.py --limit 20 --continue-on-error");
   console.error("- npm run qa:manual-gates:template");
   console.error("- npm run qa:content-review:template");
+  console.error("- npm run qa:confidence-review:template");
   process.exit(1);
 }
 

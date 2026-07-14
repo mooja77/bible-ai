@@ -4,6 +4,7 @@ import {
   runGroundingFloor,
   collectCitedVerseIds,
   buildRegenNote,
+  repairRetrievedEvidenceQuotes,
 } from "../grounded/grounding-floor.mjs";
 import { buildEvidenceSet } from "../grounded/evidence-set.mjs";
 
@@ -73,6 +74,19 @@ test("a fabricated quotation for a retrieved verse hard-fails", () => {
   const r = runGroundingFloor(synthesis, evidence);
   assert.equal(r.hard_fail, true);
   assert.ok(r.violations.some((v) => v.field === "evidence.quote"));
+});
+
+test("retrieved-id quote drift is repaired before model regeneration", () => {
+  const synthesis = { positions: [position("Formatting drift", [43003016])] };
+  synthesis.positions[0].evidence[0].quote = "This is not in John 3:16";
+  const failed = runGroundingFloor(synthesis, evidence);
+  const repaired = repairRetrievedEvidenceQuotes(synthesis, evidence, failed);
+
+  assert.equal(repaired.quote_hydration_count, 1);
+  assert.equal(repaired.grounding.hard_fail, false);
+  assert.equal(repaired.grounding.verification_status, "verified");
+  assert.equal(synthesis.positions[0].evidence[0].quote, evidence[0].text);
+  assert.equal(synthesis.positions[0].evidence[0].quote_source, "retrieved_corpus");
 });
 
 test("collectCitedVerseIds pulls ids from every field", () => {

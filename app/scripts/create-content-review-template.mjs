@@ -7,10 +7,20 @@ const template = {
   reviewer: "",
   reviewer_role: "",
   completed_at: "",
+  decision_reference: "",
   target_territories: [],
+  distribution_channels: [],
   approved_for_public_distribution: false,
   sources: lock.artifacts.map((artifact) => ({
     source_id: artifact.id,
+    locked_version: artifact.version,
+    locked_checksum: artifact.sha256 ?? artifact.aggregate_sha256,
+    evidence_refs: [artifact.source_url, "../../docs/reviews/content-rights-evidence-dossier.md"],
+    lock_license_label: artifact.license,
+    license_conclusion: "",
+    redistribution_scope: "",
+    attribution_text: artifact.attribution,
+    obligations: [],
     license_confirmed: false,
     redistribution_confirmed: false,
     attribution_confirmed: false,
@@ -19,6 +29,7 @@ const template = {
   notes: [
     "Human rights review only; do not paste private legal correspondence here.",
     "Confirm trademark/naming constraints and export attribution as well as the base license.",
+    "decision_reference should identify the signed review memo, ticket, or counsel docket without embedding privileged advice.",
   ],
 };
 

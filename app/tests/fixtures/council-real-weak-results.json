@@ -1,12 +1,10 @@
 {
-  "captured_at": "2026-07-13T13:57:03Z",
+  "captured_at": "2026-07-14T01:39:58Z",
   "complete": true,
   "mock_mode": false,
   "model": "sonnet",
   "question_count": 0,
-  "run_warnings": [
-    "limited_provider_coverage"
-  ],
+  "run_warnings": [],
   "provider_diagnostics": {
     "sidecar": {
       "ok": true,
@@ -18,7 +16,7 @@
       {
         "name": "claude",
         "display_name": "Claude Code (sonnet)",
-        "available": false
+        "available": true
       },
       {
         "name": "gateway",
@@ -43,10 +41,10 @@
     ],
     "checks": {
       "claude": {
-        "configured": false,
-        "ok": false,
-        "mode": "disabled",
-        "error": "Claude voice disabled (DISABLE_CLAUDE_VOICE=1)"
+        "configured": true,
+        "ok": true,
+        "mode": "subscription",
+        "error": null
       },
       "google": {
         "configured": false,

@@ -49,6 +49,31 @@ if (failures.length === 0) {
     packageSummaryPath,
   );
 
+  await verifyEvidenceContract("RUN-MANUAL-QA.ps1", [
+    "KeyboardOnlyWorkflowPassed",
+    "ScreenReaderSmokePassed",
+    "Zoom200PercentPassed",
+    "SensitiveTopicWordingReviewPassed",
+    "LocalizedCrisisResourcesReviewPassed",
+  ]);
+  await verifyEvidenceContract("README.md", [
+    "using only the keyboard",
+    "screen reader",
+    "200%",
+    "named safety reviewer",
+    "official source for every target locale",
+  ]);
+  await verifyEvidenceContract("scripts/collect-manual-release-gates.ps1", [
+    "Get-FileHash",
+    "sha256",
+    "bytes",
+    "keyboard_only_workflow_passed",
+    "screen_reader_smoke_passed",
+    "zoom_200_percent_passed",
+    "sensitive_topic_wording_review_passed",
+    "localized_crisis_resources_review_passed",
+  ]);
+
   const packageNames = new Set(readdirSync(installersDir));
   for (const artifact of installers) {
     packageNames.delete(lastPathSegment(artifact.path));
@@ -95,6 +120,20 @@ async function verifyCopiedFile(name, sourcePath, packagePath) {
     return;
   }
   successes.push(name);
+}
+
+async function verifyEvidenceContract(relativePath, requiredTokens) {
+  const path = join(packageDir, relativePath);
+  if (!existsSync(path)) return;
+  const text = await readText(path);
+  for (const token of requiredTokens) {
+    if (!text.includes(token)) {
+      failures.push(`${relativePath} omits release-evidence token: ${token}`);
+    }
+  }
+  if (!requiredTokens.some((token) => !text.includes(token))) {
+    successes.push(`${relativePath} evidence contract`);
+  }
 }
 
 function sha256(filePath) {

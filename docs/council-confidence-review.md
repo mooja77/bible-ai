@@ -12,6 +12,8 @@ and `method: deterministic_read_down_v1`.
 3. A named theological-quality reviewer reads each case's retrieved evidence,
    disagreements, limitations, and synthesis, then completes every human field.
 4. Run `npm run qa:confidence-review:verify`.
+5. The public-release orchestrator runs this verifier again and will not pass
+   while the review is missing, pending, stale, below policy, or blocking.
 
 The review is SHA-256-bound to its source fixture and fails if it is anonymous,
 incomplete, stale, below 20 cases, materially different from the human bands,

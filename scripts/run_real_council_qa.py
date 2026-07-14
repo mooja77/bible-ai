@@ -77,6 +77,13 @@ QUESTION_BANK = [
 
 TOPICAL_REFERENCE_SEEDS = [
     {
+        "required_keywords": ["james 2", "romans 4"],
+        # These are the argument centers that a naive opening-verse sample of
+        # two whole chapters misses. The general explicit-reference pass still
+        # supplies the surrounding opening context.
+        "references": "James 2:21-26; Romans 4:3-5; Romans 4:9-12",
+    },
+    {
         "keywords": ["trinity", "triune"],
         "references": (
             "Matthew 28:19; John 1:1-3; John 1:14; John 10:30; "
@@ -93,6 +100,17 @@ TOPICAL_REFERENCE_SEEDS = [
         "references": (
             "John 10:27-30; Romans 8:31-39; Philippians 1:6; "
             "1 John 5:11-13; Hebrews 6:4-6; Hebrews 10:26-31; 2 Peter 1:10"
+        ),
+    },
+    {
+        "keywords": ["sermon on the mount"],
+        # The generic FTS terms otherwise over-rank incidental uses of
+        # "mount". Interleave the primary discourse with close apostolic
+        # ethics parallels so the Council can compare substantive positions.
+        "references": (
+            "Matthew 5:17-20; Matthew 5:38-42; Matthew 5:43-48; Matthew 6:33; "
+            "Matthew 7:12; Matthew 7:21-27; Luke 6:27-36; Romans 12:1-21; "
+            "James 1:22-27"
         ),
     },
 ]
@@ -193,7 +211,11 @@ def topical_reference_evidence(
     lowered = question.lower()
     rows = []
     for seed in TOPICAL_REFERENCE_SEEDS:
-        if not any(keyword in lowered for keyword in seed["keywords"]):
+        required_keywords = seed.get("required_keywords", [])
+        optional_keywords = seed.get("keywords", [])
+        if required_keywords and not all(keyword in lowered for keyword in required_keywords):
+            continue
+        if optional_keywords and not any(keyword in lowered for keyword in optional_keywords):
             continue
         for row in explicit_reference_evidence(
             conn,
@@ -202,7 +224,7 @@ def topical_reference_evidence(
             translation,
         ):
             row["source"] = "qa-topical-reference"
-            row["matched_terms"] = seed["keywords"]
+            row["matched_terms"] = required_keywords or optional_keywords
             rows.append(row)
             if len(rows) >= limit:
                 return rows
@@ -428,6 +450,16 @@ def weakness_flags(response: dict[str, Any]) -> list[str]:
             break
     if any(not (position.get("evidence") or []) for position in positions):
         flags.append("position_without_cited_evidence")
+    required_stages = {"grounding", "scope", "judge", "soft_layer", "kill_test"}
+    if not required_stages.issubset(response):
+        flags.append("missing_trust_stage")
+    grounding = response.get("grounding") or {}
+    if grounding.get("hard_fail") is not False or grounding.get("verification_status") != "verified":
+        flags.append("grounding_failure")
+    for stage_name in ("scope", "judge", "kill_test"):
+        stage = response.get(stage_name) or {}
+        if stage.get("available") is not True or stage.get("parsed") is not True:
+            flags.append(f"{stage_name}_unavailable")
     return sorted(set(flags))
 
 

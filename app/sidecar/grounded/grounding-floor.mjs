@@ -50,6 +50,7 @@ export function collectCitedVerseIds(synthesis) {
  * @property {number} cited_count
  * @property {number} in_corpus_count
  * @property {number} [regen_attempts]
+ * @property {number} [quote_hydration_count]
  */
 
 /**
@@ -163,6 +164,28 @@ export function hydrateEvidenceQuotes(synthesis, evidence) {
     }
   }
   return synthesis;
+}
+
+/**
+ * Deterministically repair only quotation-rendering violations whose verse_id
+ * is already present in retrieved evidence. This never repairs an invented id
+ * or an uncited position; those continue through the bounded regeneration and
+ * hard-fail path. The returned count keeps the correction visible for audit.
+ */
+export function repairRetrievedEvidenceQuotes(synthesis, evidence, report = null) {
+  const before = report ?? runGroundingFloor(synthesis, evidence);
+  const quoteHydrationCount = before.violations.filter(
+    (violation) => violation.field === "evidence.quote",
+  ).length;
+  if (quoteHydrationCount === 0) {
+    return { synthesis, grounding: before, quote_hydration_count: 0 };
+  }
+  hydrateEvidenceQuotes(synthesis, evidence);
+  return {
+    synthesis,
+    grounding: runGroundingFloor(synthesis, evidence),
+    quote_hydration_count: quoteHydrationCount,
+  };
 }
 
 /**

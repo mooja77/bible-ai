@@ -28,6 +28,7 @@ import {
   runGroundingFloor,
   buildRegenNote,
   hydrateEvidenceQuotes,
+  repairRetrievedEvidenceQuotes,
 } from "./grounded/grounding-floor.mjs";
 import { runCrossFamilyJudge } from "./grounded/cross-family-judge.mjs";
 import { runScope } from "./grounded/scope.mjs";
@@ -851,6 +852,11 @@ export async function runCouncil({
   // multi-voice run is required to regen (single-voice is a pass-through).
   emit("grounding_started", {});
   let grounding = runGroundingFloor(synthesis, evidence);
+  let quoteHydrationCount = 0;
+  const initialQuoteRepair = repairRetrievedEvidenceQuotes(synthesis, evidence, grounding);
+  synthesis = initialQuoteRepair.synthesis;
+  grounding = initialQuoteRepair.grounding;
+  quoteHydrationCount += initialQuoteRepair.quote_hydration_count;
   let regenAttempts = 0;
   const MAX_REGEN = 2;
   while (grounding.hard_fail && regenAttempts < MAX_REGEN && ok.length > 1) {
@@ -874,7 +880,10 @@ export async function runCouncil({
       emit("regen_done", { attempt: regenAttempts, adopted: false });
       break;
     }
-    const candidateGrounding = runGroundingFloor(candidate, evidence);
+    let candidateGrounding = runGroundingFloor(candidate, evidence);
+    const candidateQuoteRepair = repairRetrievedEvidenceQuotes(candidate, evidence, candidateGrounding);
+    candidate = candidateQuoteRepair.synthesis;
+    candidateGrounding = candidateQuoteRepair.grounding;
     // Monotonic gate: adopt only if the deterministic issue count improves.
     const issueCount = (report) =>
       report.violations.length + report.uncited_positions.length +
@@ -882,6 +891,7 @@ export async function runCouncil({
     if (issueCount(candidateGrounding) < issueCount(grounding)) {
       synthesis = candidate;
       grounding = candidateGrounding;
+      quoteHydrationCount += candidateQuoteRepair.quote_hydration_count;
       emit("regen_done", {
         attempt: regenAttempts,
         adopted: true,
@@ -894,12 +904,14 @@ export async function runCouncil({
     }
   }
   grounding.regen_attempts = regenAttempts;
+  grounding.quote_hydration_count = quoteHydrationCount;
   synthesis = hydrateEvidenceQuotes(synthesis, evidence);
   emit("grounding_done", {
     hard_fail: grounding.hard_fail,
     citation_accuracy: grounding.citation_accuracy,
     out_of_corpus: grounding.out_of_corpus_verse_ids.length,
     regen_attempts: regenAttempts,
+    quote_hydration_count: quoteHydrationCount,
   });
   // ------------------------------------------------------------------------
 

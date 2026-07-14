@@ -6,33 +6,45 @@ const APP_VERSION = "0.1.0";
 const SOURCE_ATTRIBUTIONS = [
   {
     name: "King James Version",
-    license: "Public Domain",
-    source: "thiagobodruk/bible",
-    detail: "Bundled as KJV verse text.",
+    license: "Rights review pending",
+    source: "thiagobodruk/bible pinned JSON",
+    detail: "Underlying 1769 text is represented as public domain outside the UK; the source repository states CC BY-NC 2.0 BR, and UK Letters Patent require territory-specific review.",
   },
   {
     name: "World English Bible",
-    license: "Public Domain",
+    license: "Public Domain · trademark-sensitive name",
     source: "eBible.org ENGWEBP USFM",
-    detail: "Bundled as the 66-book Protestant WEB edition.",
+    detail: "Bundled as the faithful 66-book Protestant WEB edition; modified text must not be presented under the World English Bible name.",
   },
   {
-    name: "ASV, YLT, WLC, TR, DRC assessment cache",
-    license: "Public Domain in ingest metadata",
+    name: "ASV and Young's Literal Translation",
+    license: "Public Domain · lineage review pending",
     source: "scrollmapper/bible_databases",
-    detail: "DRC remains assessment-only until alternate versification is implemented.",
+    detail: "Pinned JSON transformations from an MIT-licensed repository; exact text lineage and release attribution remain part of the named rights review.",
   },
   {
-    name: "Open Scriptures morphology and Strong's dictionaries",
-    license: "CC-BY / CC-BY-SA in ingest metadata",
-    source: "openscriptures/morphhb and openscriptures/strongs",
-    detail: "Used for word-study metadata and original-language lookup.",
+    name: "Westminster Leningrad Codex and Textus Receptus",
+    license: "Public-domain base texts · lineage review pending",
+    source: "scrollmapper/bible_databases pinned JSON",
+    detail: "Bundled as original-language text; the exact transformation provenance and attribution are pending named rights review.",
+  },
+  {
+    name: "Open Scriptures Hebrew Bible morphology",
+    license: "WLC text Public Domain · lemma/morphology CC BY 4.0",
+    source: "openscriptures/morphhb",
+    detail: "Original work of the Open Scriptures Hebrew Bible, available at https://github.com/openscriptures/morphhb.",
+  },
+  {
+    name: "Open Scriptures Strong's dictionaries",
+    license: "CC-BY-SA · version unresolved",
+    source: "openscriptures/strongs pinned Greek and Hebrew JSON",
+    detail: "The exact files claim CC-BY-SA without a version; attribution, share-alike, export, and redistribution treatment remain pending rights review.",
   },
   {
     name: "OpenBible cross-references",
-    license: "CC-BY",
+    license: "Creative Commons Attribution · version unresolved",
     source: "a.openbible.info cross-reference dataset",
-    detail: "Used for cross-reference retrieval and reader context.",
+    detail: "Used for retrieval and reader context; exact license version and attribution obligations remain pending rights review.",
   },
 ];
 
@@ -79,7 +91,7 @@ export function LicenseAttributionSection() {
           />
           <InfoBlock
             label="Distribution decision"
-            value="Default channel is personal use; public release requires manual clean-profile QA and multi-provider QA."
+            value="Default channel is personal use; public release requires identity-bound rights, confidence, safety, accessibility, clean-profile, and multi-provider evidence."
           />
         </div>
       </section>
@@ -106,7 +118,7 @@ export function AboutDistributionSection() {
           <InfoBlock label="Version" value={`${APP_NAME} ${APP_VERSION}`} />
           <InfoBlock label="Release mode" value="Personal-use release candidate with public-release disclosures included" />
           <InfoBlock label="Privacy" value="User data, provider keys, and backups stay local unless a provider call is submitted." />
-          <InfoBlock label="Public release gate" value="Complete clean-profile installer QA and multi-provider Council QA before publishing." />
+          <InfoBlock label="Public release gate" value="Complete clean-profile/accessibility QA, confidence review, content-rights and safety review, and multi-provider Council QA before publishing." />
         </div>
         <div className="border-t border-neutral-800 pt-3">
           <span className="section-kicker mb-2 block">

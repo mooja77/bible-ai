@@ -5,8 +5,8 @@
   privacy, accessibility, supply chain, release operations, documentation, and
   enhancement priorities
 - Engineering status: implemented and verified
-- Public-release status: blocked by current real-provider and human evidence
-  gates
+- Public-release status (updated 2026-07-14): real-provider machine gate passes;
+  blocked by named human evidence gates
 
 ## Executive verdict
 
@@ -125,7 +125,7 @@ should be decomposed after the release-evidence work.
 | --- | --- | --- | --- |
 | Sensitive routing covered only a subset of policy language | Indirect crisis, abuse, coercion, or high-stakes prompts could reach AI providers | Full ten-category local classifier plus direct/indirect fixture set | Named professional/pastoral review |
 | Crisis copy assumed a US 988 context | Incorrect numbers can be harmful outside the US | Candidate resources for `en-IE`, `en-GB`, and `en-US`; unknown locales use no country-specific number | Review wording, translations, and territories before distribution |
-| Old real-provider QA only proved providers returned prose | It did not prove the current trust pipeline ran | Verifier now requires grounding, scope, judge, route-diversity, soft confidence layer, kill test, persisted evidence, quote hydration, and primary passages | Regenerate real runs with release providers; old fixture correctly fails |
+| Old real-provider QA only proved providers returned prose | It did not prove the current trust pipeline ran | Verifier now requires grounding, scope, judge, route-diversity, soft confidence layer, kill test, persisted evidence, quote hydration, and primary passages | Current 20-case Granite + Claude fixture passes; named human confidence review remains |
 | Content rights existed mainly as prose/TODOs | Checksums cannot determine redistribution rights | Machine-readable corpus lock plus named-review template and public gate | Qualified reviewer must approve every source and territory |
 | Automated checks could be mistaken for human approval | Safety, accessibility, signing, and legal work might be silently skipped | Manual gate schema now requires keyboard, screen reader, 200% zoom, localized safety, content review, clean profile, and operator identity | Humans must perform and sign, never prefill |
 
@@ -181,8 +181,9 @@ Passed on the review machine:
 - `npm run check:trust`
   - schema v14 mirror check;
   - 11-entry lock metadata check;
-  - five adversarial quality cases;
-  - 155 sidecar tests.
+  - four canonical quality cases;
+  - three corpus-backed retrieval/weakness helper tests;
+  - 156 sidecar tests.
 - `npm run check`
   - TypeScript and Vite 8 production build;
   - Rust format/check/test/strict Clippy;
@@ -204,26 +205,29 @@ updates and must not be described as a completely advisory-free graph.
 
 ## Current fail-closed release evidence
 
-The public gate is intentionally red for three independent reasons:
+The Council machine gate is green: `tests/fixtures/council-real-results.json`
+contains 20 current-pipeline Granite/Ollama + Claude Code results, both providers
+succeeded 20/20, grounding is verified 20/20, and there are zero request errors,
+run warnings, or output-level weakness flags. The run also exposed and fixed
+missing James 2/Romans 4 and Sermon-on-the-Mount evidence seeds plus a quote-
+hydration ordering defect. `npm run qa:real-council:verify` passes.
 
-1. `tests/fixtures/council-real-results.json` now contains 20 current-pipeline
-   Granite/Ollama results with zero request errors. All local grounding, quote,
-   primary-passage, stage, and output-weakness checks pass, but the verifier
-   correctly rejects one-provider coverage. A working second provider family is
-   still required. A bounded one-question Granite plus Claude subscription run
-   passed the strict two-provider/stage contract, proving that path works, but
-   it is deliberately not promoted as the required 20-question release fixture.
-2. Earlier saved Google, OpenAI, and Anthropic API credentials were rejected
-   during live probes. The Claude subscription path now probes successfully;
-   credential values were neither printed nor persisted in QA output.
-3. `release/content-review.json` is a blank template and does not contain a named
-   completed rights review.
+The public gate remains intentionally red for three human evidence categories:
+
+1. `release/council-confidence-review.json` is SHA-bound to the current fixture
+   but has no named 20-case theological-confidence labels.
+2. `release/content-review.json` is a blank identity-bound template and does not
+   contain a named completed rights decision for the intended territories and
+   channels.
+3. `release/manual-release-gates.json` lacks clean-profile, credential-vault,
+   keyboard, screen-reader, 200% zoom, sensitive-wording, and localized-resource
+   attestations.
 
 The follow-through run also fixed progress-event handling in the Python harness,
 bounded Ollama context/memory and structured-output retries, made long runs
 resumable without reusing untrusted results, balanced multiple explicit passage
 ranges, corrected numbered-book alias matching, and added topical coverage for
-John 6 and assurance passages.
+John 6, assurance, James 2/Romans 4, and the Sermon on the Mount.
 
 Manual accessibility, safety wording, clean-profile credentials, installer
 hashes, signing/notarization, installed smoke, and target-territory approval also

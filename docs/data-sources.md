@@ -13,6 +13,8 @@ Source decision classes and the full rights bill of materials live in [`content-
 - Keep user-installed modules in `user.sqlite` with module-level `source` and `license` metadata.
 
 This document is an engineering record, not legal advice.
+The evidence dossier for the locked release inputs is
+[`reviews/content-rights-evidence-dossier.md`](reviews/content-rights-evidence-dossier.md).
 
 ## Bundled Corpus Tables
 
@@ -32,7 +34,7 @@ The schema is defined in `data/schema.sql`.
 
 | Code | Name | Kind | Language | License in Ingest | Source |
 |---|---|---|---|---|---|
-| `KJV` | King James Version | translation | English | Public Domain | `thiagobodruk/bible`, cached as `data/sources/en_kjv.json` |
+| `KJV` | King James Version | translation | English | Underlying KJV public domain outside UK; pinned repository says CC BY-NC 2.0 BR; review pending | `thiagobodruk/bible`, cached as `data/sources/en_kjv.json` |
 | `ASV` | American Standard Version | translation | English | Public Domain | `scrollmapper/bible_databases`, cached as `data/sources/ASV.json` |
 | `WEB` | World English Bible | translation | English | Public Domain | `eBible.org` ENGWEBP USFM, cached as `data/sources/engwebp_usfm.zip` |
 | `YLT` | Young's Literal Translation | translation | English | Public Domain | `scrollmapper/bible_databases`, cached as `data/sources/YLT.json` |
@@ -41,6 +43,11 @@ The schema is defined in `data/schema.sql`.
 
 Notes:
 
+- The KJV acquisition repository's pinned README applies CC BY-NC 2.0 BR to
+  the repository and says Bible versions remain the property of their owners.
+  eBible separately identifies UK Letters Patent. The content-review gate must
+  resolve both the repository terms and every intended distribution territory;
+  the lock's short public-domain label is not itself approval.
 - WEB is now bundled from the public-domain Protestant edition. Its source omits or footnotes some verses that appear in KJV/TR traditions; missing rows should be treated as translation-specific absence rather than corpus failure.
 - Douay-Rheims remains deferred. The source is public domain, but direct import would misalign citations because the available DRC JSON uses Vulgate/deuterocanonical versification in places where the app currently uses a 66-book Protestant reference model.
 - The UI translation picker reads actual rows from `translations`, not this document.
@@ -51,8 +58,8 @@ Notes:
 | Data | Target Table | License in Ingest | Source | Notes |
 |---|---|---|---|---|
 | Hebrew morphology and Strong's tags | `word_tokens` for `WLC` | CC-BY 4.0 | `openscriptures/morphhb` | OSIS XML files cached under `data/sources/morphhb/`. |
-| Strong's Greek dictionary | `strongs` | CC-BY-SA in ingest comments, derived from public-domain Strong's | `openscriptures/strongs` | Cached as `data/sources/strongs-greek-dictionary.js`. |
-| Strong's Hebrew dictionary | `strongs` | CC-BY-SA in ingest comments, derived from public-domain Strong's | `openscriptures/strongs` | Cached as `data/sources/strongs-hebrew-dictionary.js`. |
+| Strong's Greek dictionary | `strongs` | Exact file header says CC-BY-SA, version unspecified; derived from public-domain Strong's | `openscriptures/strongs` | Cached as `data/sources/strongs-greek-dictionary.js`; exact terms pending review. |
+| Strong's Hebrew dictionary | `strongs` | Exact file header says CC-BY-SA, version unspecified; derived from public-domain Strong's | `openscriptures/strongs` | Cached as `data/sources/strongs-hebrew-dictionary.js`; exact terms pending review. |
 
 The app treats Strong's and morphology data as study metadata. It does not modify the source lexicon text at runtime.
 
@@ -60,7 +67,7 @@ The app treats Strong's and morphology data as study metadata. It does not modif
 
 | Data | Target Table | License in Ingest | Source | Notes |
 |---|---|---|---|---|
-| Cross-reference links | `cross_refs` | CC-BY | `https://a.openbible.info/data/cross-references.zip` | Cached as `data/sources/cross_references.txt`; stored with source `openbible`. |
+| Cross-reference links | `cross_refs` | Creative Commons Attribution, version unspecified | `https://a.openbible.info/data/cross-references.zip` | Cached as `data/sources/cross_references.txt`; stored with source `openbible`; exact terms pending review. |
 
 Cross-reference rows use:
 

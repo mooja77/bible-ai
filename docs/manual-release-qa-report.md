@@ -1,15 +1,31 @@
 # Manual Release QA Report
 
-Date: 2026-05-02; current status corrected 2026-07-13
+Date: 2026-05-02; current status corrected 2026-07-14
 
 ## Current Status
 
 The May run below is retained as historical evidence only. It is **not valid for
-the current public-release contract**. The current real-Council verifier rejects
-that fixture because it predates the grounding, scope, cross-family judge,
-evidence-route diversity, confidence-adjustment, kill-test, quote-hydration, and
-primary-passage gates. A named content-rights review is also absent. See
-`docs/ship-readiness.md` for the current sequence.
+the current public-release contract**. A new 20-case Granite + Claude fixture
+now passes the grounding, scope, cross-family judge, evidence-route diversity,
+confidence-adjustment, kill-test, quote-hydration, primary-passage, and
+two-provider machine gates. Its named confidence review and the clean-profile,
+accessibility, safety, credential-vault, and content-rights attestations remain
+pending. See `docs/ship-readiness.md` for the current sequence.
+
+Current automated Windows artifact evidence (2026-07-14):
+
+- Tauri produced fresh unsigned NSIS and MSI bundles.
+- `npm run release:verify`, `npm run release:smoke`, and
+  `npm run release:install-smoke` passed; the NSIS installer was installed,
+  launched for 8 seconds, and uninstalled.
+- NSIS: 493,874,911 bytes, SHA-256
+  `42e00f7c9c2365f44fd4f6e692ab85efe95485373be33afe4a13f738f6145ec5`.
+- MSI: 612,070,500 bytes, SHA-256
+  `574d979fe4925057b69df071a00b5a4498c6288e44429609df865f4680e4903e`.
+- The first manual-package verification attempt intentionally rejected the
+  previous manifest's stale installer sizes. Regenerate the source-bound
+  manifest and manual package after the final source commit; never reuse that
+  stale package.
 
 Automated release verification is available through:
 
@@ -74,7 +90,12 @@ npm run qa:manual-gates:collect -- `
   -CredentialVaultUpgradeProfilePassed `
   -ExportsSecretLeakCheckPassed `
   -BackupRestorePassed `
-  -SqliteBackupRestorePassed
+  -SqliteBackupRestorePassed `
+  -KeyboardOnlyWorkflowPassed `
+  -ScreenReaderSmokePassed `
+  -Zoom200PercentPassed `
+  -SensitiveTopicWordingReviewPassed `
+  -LocalizedCrisisResourcesReviewPassed
 ```
 
 7. The collector detects provider credential targets by name only and scans the profile SQLite file for sensitive-string signals.
@@ -114,8 +135,9 @@ The helper creates or resets a temporary `.\\BibleAIQA` local user and writes si
 ## Public Release Gate
 
 Public release remains blocked until the clean-profile, accessibility,
-credential-vault, safety, and content-rights checks are signed off and a new
-real-provider fixture passes the current grounded-pipeline contract.
+credential-vault, safety, content-rights, and human Council confidence checks
+are signed off. The current real-provider machine fixture already passes the
+grounded-pipeline contract.
 
 The final public-release command is:
 
@@ -124,8 +146,9 @@ cd app
 npm run qa:public-release:verify
 ```
 
-It fails until all three evidence files are present and valid:
+It fails until all four evidence files are present and valid:
 
 - `app/tests/fixtures/council-real-results.json`
 - `app/release/manual-release-gates.json`
 - `app/release/content-review.json`
+- `app/release/council-confidence-review.json`

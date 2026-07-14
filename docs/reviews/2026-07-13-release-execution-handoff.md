@@ -1,8 +1,22 @@
-# Release Execution Handoff — 2026-07-13
+# Release Execution Handoff — updated 2026-07-14
 
-Status: **superseded build artifacts; do not publish them**. Engineering changed
-after the hashes below were recorded. Public distribution remains blocked by
-three fail-closed evidence categories.
+Status: **fresh unsigned Windows artifacts verified; do not publish them**.
+Public distribution remains blocked by three fail-closed human evidence
+categories.
+
+## Current built artifacts (still not publication-approved)
+
+Version: `0.1.0`, Windows x64, built 2026-07-14.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `Bible AI_0.1.0_x64-setup.exe` | 493,874,911 | `42e00f7c9c2365f44fd4f6e692ab85efe95485373be33afe4a13f738f6145ec5` |
+| `Bible AI_0.1.0_x64_en-US.msi` | 612,070,500 | `574d979fe4925057b69df071a00b5a4498c6288e44429609df865f4680e4903e` |
+
+`release:verify`, clean-profile binary smoke, and NSIS
+install/launch/uninstall smoke pass. These hashes identify the machine-tested
+artifacts, but they do not substitute for the pending named reviews. Any bundled
+source/corpus/version/signing change requires a rebuild and new hashes.
 
 ## Historical built artifacts (stale)
 
@@ -28,8 +42,8 @@ verifier.
 
 ## Machine verification completed
 
-- `npm run check:trust`: schema v14, 11 source-lock entries, canonical quality
-  cases, 155 sidecar tests.
+- `npm run check:trust`: schema v14, 11 source-lock entries, four canonical
+  quality cases, three corpus-backed QA helper tests, 156 sidecar tests.
 - `npm run check`: production TypeScript/Vite build, Rust format/check/test,
   strict Clippy, script/resource/leak/quality checks, and sidecar tests.
 - Full corpus lock/integrity: 31,310 verses; 155,557 edition mappings; 155,556
@@ -39,8 +53,9 @@ verifier.
   maintenance/unsoundness warnings; npm/Cargo SBOMs validate.
 - Release build: optimized Tauri app plus MSI and NSIS bundles succeeded.
 - Release tree verification and direct clean-profile binary smoke passed.
-- Release manifest, summary, package, archive, and manual-QA package all passed
-  their verifiers.
+- The source-bound release manifest, summary, package, archive, and manual-QA
+  package must be regenerated after the final source commit; the verifier
+  correctly rejected the previous manifest's stale installer sizes.
 - Source/staged hashes match for Council sidecar, shared provider logic, and
   Ollama provider logic.
 - Tauri WebView aggregate suite passed after a fresh rerun. An earlier saturated
@@ -57,46 +72,43 @@ revives the stale installer hashes above.
 
 ## Real Council evidence
 
-The current fixture contains 20 complete non-mock Granite 4.1 8B/Ollama runs,
-zero sidecar request errors, and 20 results that pass local grounding, exact quote
-hydration, primary-passage coverage, scope, judge, evidence-route, soft-layer,
-kill-test, and output-weakness checks.
+The current fixture contains 20 complete non-mock Granite 4.1 8B/Ollama +
+Claude Code (`sonnet`, subscription route) results. Both providers succeeded on
+20/20 questions; all 20 pass grounding, exact quote hydration, primary-passage
+coverage, scope, judge, evidence-route, soft-layer, kill-test, and output-
+weakness checks. There are zero sidecar errors, run warnings, and weak results.
 
-The strict verifier rejects only provider diversity: one successful non-mock
-provider per question and one successful provider across the run, where two are
-required. A bounded one-question Granite plus Claude subscription diagnostic
-did pass the strict two-provider contract, proving the second-provider path is
-usable; it does not replace the required complete 20-question fixture. The
-runner now supports `--resume`, but it reuses a result only when provider/model
-diagnostics match and local trust checks already pass.
+The strict verifier passes. A SHA-bound human confidence template has been
+regenerated for the exact fixture and remains deliberately pending. The runner
+reuses a result only when provider/model diagnostics match and local trust checks
+already pass.
 
 ## Public gate result
 
-All automated corpus, schema, SBOM, npm-audit, and Cargo-audit stages pass. The
-public gate fails only:
+All automated corpus, schema, SBOM, npm-audit, Cargo-audit, real-Council,
+installer, and WebView stages pass. The public gate fails only:
 
-1. **Real Council QA:** repair/authorize one external provider family, rerun with
-   Granite/Ollama plus that provider, then verify.
+1. **Human Council confidence review:** a named qualified reviewer must label
+   all 20 exact fixture cases and resolve blocking findings.
 2. **Manual clean-profile QA:** run the portable packet on a separate Windows
    user or VM; record named operator/profile, installer hashes, install/launch,
    credential vault, secret leakage, backup/restore, keyboard, screen reader,
    200% zoom, safety wording, and locale-resource evidence.
-3. **Human content rights review:** a named qualified reviewer must approve every
-   locked source for the intended territories, including redistribution and
-   attribution obligations.
+3. **Human content rights and safety review:** named qualified reviewers must
+   approve every locked source for the intended territories/channels and review
+   localized sensitive-topic wording/resources.
 
 Do not install onto the development profile to satisfy the clean-profile gate,
 do not infer human approval from automated tests, and do not publish or merge a
 release solely because the artifacts build.
 
-## Exact next commands after human/provider work
+## Exact next commands after human review
 
-From the repository root, with a working second provider configured:
+From `app/`, after the named reviewers complete the generated files:
 
 ```powershell
-python scripts/run_real_council_qa.py --limit 20 --evidence-limit 24 --continue-on-error --resume
-Set-Location app
 npm run qa:real-council:verify
+npm run qa:confidence-review:verify
 npm run qa:manual-gates:verify
 npm run qa:content-review:verify
 npm run qa:public-release:verify
