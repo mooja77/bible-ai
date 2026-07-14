@@ -19,6 +19,11 @@ use tokio::process::{ChildStdin, ChildStdout, Command};
 /// run for many minutes, so this is a deadlock guard, not a UX latency budget.
 const SIDECAR_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1800);
 
+// Prevent the bundled Node sidecar from creating a visible console window in
+// the packaged Windows app. Its stdio remains piped exactly as before.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 /// Why a sidecar request failed. The distinction decides whether the
 /// long-running process is still trustworthy.
 pub enum SidecarError {
@@ -181,6 +186,8 @@ impl Sidecar {
 
         let node_command = node_command_for(&dir)?;
         let mut command = Command::new(&node_command);
+        #[cfg(windows)]
+        command.creation_flags(CREATE_NO_WINDOW);
         // --env-file-if-exists requires Node >= 20.12. In development this
         // loads the project-root .env. Packaged apps rely on inherited env.
         if let Some(env_file) = project_env_file() {

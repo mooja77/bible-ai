@@ -117,9 +117,14 @@ export function CouncilReasoningCanvas({
   const positions = rankedPositions(response);
   const leader = positions[0] as CouncilPosition | undefined;
   const okVoices = (response.voices ?? []).filter((v) => v.status === "ok");
-  const evidence = [...(response.retrieved_evidence ?? [])].sort(
-    (a, b) => (b.score ?? 0) - (a.score ?? 0),
-  );
+  const evidence = [...(response.retrieved_evidence ?? [])].sort((a, b) => {
+    // A passage named by the user is part of the question, not a low-scoring
+    // retrieval accident. Keep it visible before score-ranked discoveries.
+    const explicitPriority = Number(b.source === "explicit-reference")
+      - Number(a.source === "explicit-reference");
+    if (explicitPriority !== 0) return explicitPriority;
+    return (b.score ?? 0) - (a.score ?? 0);
+  });
 
   // Provenance: each verse's role, from the synthesis classification.
   const roleByVerse = new Map<number, EvidenceRole>();
@@ -207,9 +212,9 @@ export function CouncilReasoningCanvas({
           ) : (
             <>
               <p className="reasoning-note">
-                {evidence.length} verses considered — strongest first. The dot shows each verse's role.
+                {evidence.length} verses considered — passages named in the question first, then strongest. The dot shows each verse's role.
               </p>
-              <ul className="flex flex-wrap gap-1.5">
+              <ul className="flex flex-wrap gap-1.5" data-testid="council-retrieved-evidence">
                 {evidence.slice(0, EVIDENCE_SHOWN).map((v) => {
                   const parts = verseScoreParts(v);
                   const role = roleByVerse.get(v.verse_id) ?? "used";

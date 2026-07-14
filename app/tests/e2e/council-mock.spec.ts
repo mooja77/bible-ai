@@ -118,6 +118,14 @@ describe("Council mock workflow", () => {
     const synthesis = await $("h2=Synthesis");
     await synthesis.waitForDisplayed({ timeout: 20_000 });
 
+    const visibleEvidence = await $('[data-testid="council-retrieved-evidence"]');
+    await visibleEvidence.waitForDisplayed({ timeout: 10_000 });
+    const firstVisiblePassage = await visibleEvidence.$("button");
+    await expect(firstVisiblePassage).toHaveText("Acts 2:38", {
+      containing: true,
+      ignoreCase: true,
+    });
+
     const fullAnalysis = await $('[data-testid="council-full-analysis-toggle"]');
     await fullAnalysis.waitForClickable({ timeout: 10_000 });
     await fullAnalysis.click();

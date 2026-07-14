@@ -19,6 +19,9 @@ function resolveBook(rawBook: string, books: Book[]): Book | undefined {
         b.osis_code,
         b.name.replace(/^(\d)\s+/, "$1"),
         b.name.replace(/^(\d)\s+/, "$1 "),
+        // People overwhelmingly type the singular form when citing one psalm
+        // ("Psalm 23"), while the corpus book name is the canonical "Psalms".
+        ...(b.name === "Psalms" ? ["Psalm"] : []),
       ];
       return names.some((name) => normalizeReferenceBook(name) === normalizedBook);
     });

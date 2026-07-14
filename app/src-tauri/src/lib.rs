@@ -4466,6 +4466,7 @@ fn normalize_reference_text(value: &str) -> String {
 
 fn short_book_alias(name: &str) -> Option<String> {
     match name {
+        "Psalms" => Some("psalm".to_string()),
         "1 Timothy" => Some("1 tim".to_string()),
         "2 Timothy" => Some("2 tim".to_string()),
         "1 Corinthians" => Some("1 cor".to_string()),
@@ -4711,6 +4712,18 @@ mod retrieval_filter_tests {
         let ids = ranges.iter().map(|range| range.book.id).collect::<Vec<_>>();
 
         assert_eq!(ids, vec![62, 63]);
+    }
+
+    #[test]
+    fn singular_psalm_reference_matches_the_psalms_book() {
+        let books = vec![test_book(19, "Psalms", "OT")];
+
+        let ranges = extract_reference_ranges("What does Psalm 23:1 mean?", &books);
+
+        assert_eq!(ranges.len(), 1);
+        assert_eq!(ranges[0].book.id, 19);
+        assert_eq!(ranges[0].start_verse_id, 19_023_001);
+        assert_eq!(ranges[0].end_verse_id, 19_023_001);
     }
 
     #[test]

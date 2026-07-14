@@ -29,6 +29,21 @@ async function enableCompare() {
 }
 
 describe("Reader interactions", () => {
+  it("accepts the natural singular Psalm book name", async () => {
+    const reader = await $("button=Reader");
+    await reader.waitForClickable({ timeout: 10_000 });
+    await reader.click();
+
+    const jumpInput = await $('input[aria-label="Jump to reference"]');
+    await jumpInput.waitForDisplayed({ timeout: 5_000 });
+    await jumpInput.setValue("Psalm 23:1");
+    await $("button=Go").click();
+
+    const heading = await $("h1=Psalms 23");
+    await heading.waitForDisplayed({ timeout: 10_000 });
+    await expect(heading).toBeDisplayed();
+  });
+
   it("opens the verse panel when a verse number is clicked", async () => {
     const reader = await $("button=Reader");
     await reader.waitForClickable({ timeout: 10_000 });
