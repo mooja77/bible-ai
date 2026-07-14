@@ -10,8 +10,8 @@ Version: `0.1.0`, Windows x64, built 2026-07-14.
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| `Bible AI_0.1.0_x64-setup.exe` | 493,874,911 | `42e00f7c9c2365f44fd4f6e692ab85efe95485373be33afe4a13f738f6145ec5` |
-| `Bible AI_0.1.0_x64_en-US.msi` | 612,070,500 | `574d979fe4925057b69df071a00b5a4498c6288e44429609df865f4680e4903e` |
+| `Bible AI_0.1.0_x64-setup.exe` | 493,796,392 | `97a4966432b1a9ec459c18fe205280719bef1a47303c2062640df67bca14e055` |
+| `Bible AI_0.1.0_x64_en-US.msi` | 612,086,884 | `5deb52ea2c5443dfe4999522a891358a9d2ed001a8b47b2466adf84258f97d4f` |
 
 `release:verify`, clean-profile binary smoke, and NSIS
 install/launch/uninstall smoke pass. These hashes identify the machine-tested
@@ -54,8 +54,8 @@ verifier.
 - Release build: optimized Tauri app plus MSI and NSIS bundles succeeded.
 - Release tree verification and direct clean-profile binary smoke passed.
 - The source-bound release manifest, summary, package, archive, and manual-QA
-  package must be regenerated after the final source commit; the verifier
-  correctly rejected the previous manifest's stale installer sizes.
+  package were regenerated and verified against the current installers. They
+  must be regenerated again after any tracked source change.
 - Source/staged hashes match for Council sidecar, shared provider logic, and
   Ollama provider logic.
 - Tauri WebView aggregate suite passed after a fresh rerun. An earlier saturated

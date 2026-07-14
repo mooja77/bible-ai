@@ -18,14 +18,13 @@ Current automated Windows artifact evidence (2026-07-14):
 - `npm run release:verify`, `npm run release:smoke`, and
   `npm run release:install-smoke` passed; the NSIS installer was installed,
   launched for 8 seconds, and uninstalled.
-- NSIS: 493,874,911 bytes, SHA-256
-  `42e00f7c9c2365f44fd4f6e692ab85efe95485373be33afe4a13f738f6145ec5`.
-- MSI: 612,070,500 bytes, SHA-256
-  `574d979fe4925057b69df071a00b5a4498c6288e44429609df865f4680e4903e`.
-- The first manual-package verification attempt intentionally rejected the
-  previous manifest's stale installer sizes. Regenerate the source-bound
-  manifest and manual package after the final source commit; never reuse that
-  stale package.
+- NSIS: 493,796,392 bytes, SHA-256
+  `97a4966432b1a9ec459c18fe205280719bef1a47303c2062640df67bca14e055`.
+- MSI: 612,086,884 bytes, SHA-256
+  `5deb52ea2c5443dfe4999522a891358a9d2ed001a8b47b2466adf84258f97d4f`.
+- The source-bound manifest and portable manual-QA package were regenerated
+  and verified against these installers. Regenerate them again after any
+  tracked source change; never reuse a stale package.
 
 Automated release verification is available through:
 
