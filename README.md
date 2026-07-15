@@ -135,6 +135,11 @@ Windows packaging exists, but the public installer is not verified unless clean-
 
 There are currently no downloadable binaries on the GitHub Releases page. Until a release is published, clone the repository and run or build the app from source.
 
+The repository now includes a fail-closed, two-stage GitHub Release pipeline:
+it builds a private immutable candidate, binds manual QA to the exact installer
+hashes, and promotes those same files only after the protected release gates
+pass. See the [GitHub Release Process](docs/github-release-process.md).
+
 macOS source builds are supported: the repository includes a Darwin Node sidecar, native Apple Keychain storage, and `.app`/`.dmg` build scripts. The release-candidate workflow has also built a full-corpus Apple Silicon DMG, mounted it, copied the app, launch-smoked it, and verified local `user.sqlite` creation on a macOS runner. There is not yet a permanent, manually approved, Developer ID-signed/notarized GitHub Release DMG. See [macOS Install Guide](docs/install-macos.md) and [macOS Distribution Plan](docs/macos-distribution-plan.md).
 
 Install guides:
@@ -229,6 +234,7 @@ prompts/             Prompt and planning artifacts
 - [User-Owned AI Provider Setup](docs/user-owned-ai-setup.md)
 - [Privacy And Distribution](docs/privacy-and-distribution.md)
 - [Release Notes](docs/release-notes.md)
+- [GitHub Release Process](docs/github-release-process.md)
 - [2026-07-13 Deep Review and Implementation Report](docs/reviews/2026-07-13-project-deep-review-and-implementation-report.md)
 - [Trust Remediation Programme](docs/reviews/2026-07-13-trust-remediation-programme.md)
 

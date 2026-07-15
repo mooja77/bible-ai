@@ -2,7 +2,14 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createReadStream, existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { appRoot, packageName, productName, releaseRoot, version } from "./release-metadata.mjs";
+import {
+  appRoot,
+  packageName,
+  productName,
+  releaseRoot,
+  releaseRootLabel,
+  version,
+} from "./release-metadata.mjs";
 
 const manifestPath = join(releaseRoot, "release-manifest.json");
 
@@ -17,6 +24,9 @@ const fileArtifacts = [
   ["node_runtime", join(releaseRoot, "sidecar", "node", "node.exe")],
   ["nsis_installer", findFirstFile(join(releaseRoot, "bundle", "nsis"), /\.exe$/i)],
   ["msi_installer", findFirstFile(join(releaseRoot, "bundle", "msi"), /\.msi$/i)],
+  ["sbom_npm", join(appRoot, "release", "sbom-npm.cdx.json")],
+  ["sbom_cargo", join(appRoot, "release", "sbom-cargo.cdx.json")],
+  ["windows_signing", join(appRoot, "release", "windows-signing.json")],
 ];
 
 const directoryArtifacts = [
@@ -59,7 +69,7 @@ const manifest = {
   package_name: packageName,
   version,
   generated_at: new Date().toISOString(),
-  release_root: releaseRoot,
+  release_root: releaseRootLabel,
   source_control: {
     git_commit: git("rev-parse", "HEAD"),
     tracked_worktree_clean: git("status", "--porcelain", "--untracked-files=no") === "",

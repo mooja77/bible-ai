@@ -27,6 +27,7 @@ if (failures.length === 0) {
     "README.md",
     "macos-release-manifest.json",
     "macos-release-summary.md",
+    "macos-signing.json",
   ].sort();
   const actualNames = readdirSync(macosPackageDir)
     .filter((name) => statSync(join(macosPackageDir, name)).isFile())

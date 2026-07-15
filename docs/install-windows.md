@@ -12,6 +12,10 @@ installer; it does not mean the GitHub repository or source code is private.
 
 Use the GitHub Releases page only after a release explicitly says the Windows clean-profile gate has passed.
 
+Maintainers create releases with the immutable candidate/promotion procedure in
+[GitHub Release Process](github-release-process.md). Candidate installers are
+private and must not be linked as public downloads.
+
 ## Option 1: Run From Source
 
 Use this path until a verified public installer is published.

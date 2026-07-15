@@ -1,6 +1,14 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { packageName, productName, releaseRoot, version } from "./release-metadata.mjs";
+import {
+  appRoot,
+  packageName,
+  productName,
+  releaseRoot,
+  releaseRootLabel,
+  version,
+} from "./release-metadata.mjs";
 import { macosManifestPath, sha256, summarizeDirectory } from "./macos-release-utils.mjs";
 
 const requiredFileNames = [
@@ -14,6 +22,7 @@ const requiredFileNames = [
   "sidecar_package",
   "sidecar_lockfile",
   "node_runtime",
+  "macos_signing",
 ];
 const requiredDirectoryNames = ["app_bundle", "sidecar_providers", "sidecar_grounded", "sidecar_dependencies"];
 const sha256Pattern = /^[a-f0-9]{64}$/;
@@ -30,7 +39,23 @@ expectEqual("app", manifest.app, productName);
 expectEqual("version", manifest.version, version);
 expectEqual("package_name", manifest.package_name, packageName);
 expectEqual("platform", manifest.platform, "macos");
-expectEqual("release_root", manifest.release_root, releaseRoot);
+expectEqual("release_root", manifest.release_root, releaseRootLabel);
+
+const currentCommit = git("rev-parse", "HEAD");
+if (!/^[a-f0-9]{40}$/.test(String(manifest.source_control?.git_commit ?? ""))) {
+  failures.push("manifest source_control.git_commit must be a full Git commit SHA");
+} else if (manifest.source_control.git_commit !== currentCommit) {
+  failures.push(`manifest source commit mismatch: expected ${currentCommit}, got ${manifest.source_control.git_commit}`);
+} else {
+  successes.push(`source_commit: ${currentCommit}`);
+}
+if (manifest.source_control?.tracked_worktree_clean !== true) {
+  failures.push("manifest requires a clean tracked worktree at creation time");
+} else if (git("status", "--porcelain", "--untracked-files=no") !== "") {
+  failures.push("tracked worktree changed after the manifest was created");
+} else {
+  successes.push("tracked_worktree_clean");
+}
 
 if (!isValidIsoDate(manifest.generated_at)) {
   failures.push(`manifest generated_at is not a valid ISO timestamp: ${manifest.generated_at}`);
@@ -188,4 +213,13 @@ function verifyUniqueEntries(kind, entries) {
 
 function isValidIsoDate(value) {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function git(...args) {
+  const result = spawnSync("git", args, {
+    cwd: join(appRoot, ".."),
+    encoding: "utf8",
+  });
+  if (result.status !== 0) return "";
+  return String(result.stdout ?? "").trim();
 }

@@ -1,6 +1,14 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { packageName, productName, releaseRoot, version } from "./release-metadata.mjs";
+import {
+  appRoot,
+  packageName,
+  productName,
+  releaseRoot,
+  releaseRootLabel,
+  version,
+} from "./release-metadata.mjs";
 import {
   describeDirectory,
   describeFileWithHash,
@@ -33,6 +41,7 @@ const fileArtifacts = [
   ["sidecar_package", resources ? join(resources, "sidecar", "package.json") : null],
   ["sidecar_lockfile", resources ? join(resources, "sidecar", "package-lock.json") : null],
   ["node_runtime", resources ? join(resources, "sidecar", "node", "bin", "node") : null],
+  ["macos_signing", join(appRoot, "release", "macos-signing.json")],
 ];
 const directoryArtifacts = [
   ["app_bundle", appBundle],
@@ -73,10 +82,26 @@ const manifest = {
   version,
   platform: "macos",
   generated_at: new Date().toISOString(),
-  release_root: releaseRoot,
+  release_root: releaseRootLabel,
+  source_control: {
+    git_commit: git("rev-parse", "HEAD"),
+    tracked_worktree_clean: git("status", "--porcelain", "--untracked-files=no") === "",
+  },
   files,
   directories,
 };
 
 writeFileSync(macosManifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 console.log(`macOS release manifest written: ${macosManifestPath}`);
+
+function git(...args) {
+  const result = spawnSync("git", args, {
+    cwd: join(appRoot, ".."),
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    console.error(`macOS release manifest failed: git ${args.join(" ")} could not be read.`);
+    process.exit(1);
+  }
+  return String(result.stdout ?? "").trim();
+}

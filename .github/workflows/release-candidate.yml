@@ -1,0 +1,283 @@
+name: Build immutable release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Candidate tag matching the app version, for example v0.1.0-rc.1
+        required: true
+        type: string
+      corpus_release_tag:
+        description: Private draft-release tag containing corpus.sqlite
+        required: true
+        type: string
+      corpus_sha256:
+        description: Expected lowercase SHA-256 for corpus.sqlite
+        required: true
+        type: string
+      include_macos:
+        description: Build a Developer ID-signed, notarized, and stapled Apple Silicon DMG
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-candidate-${{ inputs.candidate_tag }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate immutable candidate identity
+    runs-on: ubuntu-latest
+    outputs:
+      source_commit: ${{ steps.identity.outputs.source_commit }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Require the default branch and version-bound candidate tag
+        env:
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          node app/scripts/validate-release-tag.mjs --channel candidate --tag "$CANDIDATE_TAG"
+          if gh release view "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $CANDIDATE_TAG already exists; use a new immutable candidate number." >&2
+            exit 1
+          fi
+          if git rev-parse "refs/tags/$CANDIDATE_TAG" >/dev/null 2>&1; then
+            echo "Tag $CANDIDATE_TAG already exists; use a new immutable candidate number." >&2
+            exit 1
+          fi
+
+      - id: identity
+        name: Record source commit
+        run: echo "source_commit=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+  windows:
+    name: Windows NSIS and MSI candidate
+    needs: preflight
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            app/sidecar/package-lock.json
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Download and checksum-lock the release corpus
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CORPUS_RELEASE_TAG: ${{ inputs.corpus_release_tag }}
+          CORPUS_SHA256: ${{ inputs.corpus_sha256 }}
+        run: |
+          if ($env:CORPUS_SHA256 -notmatch '^[a-f0-9]{64}$') {
+            throw 'corpus_sha256 must be a lowercase 64-character digest'
+          }
+          $corpusDir = Join-Path $env:RUNNER_TEMP 'bible-ai-corpus'
+          New-Item -ItemType Directory -Force $corpusDir | Out-Null
+          gh release download $env:CORPUS_RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern corpus.sqlite --dir $corpusDir
+          $corpus = Join-Path $corpusDir 'corpus.sqlite'
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $corpus).Hash.ToLowerInvariant()
+          if ($actual -ne $env:CORPUS_SHA256) { throw "Corpus SHA-256 mismatch: $actual" }
+          Move-Item -LiteralPath $corpus -Destination ..\data\corpus.sqlite
+
+      - name: Install dependencies and bundled sidecar runtime
+        shell: pwsh
+        run: |
+          npm ci
+          npm ci --prefix sidecar
+          New-Item -ItemType Directory -Force sidecar/node | Out-Null
+          Copy-Item -LiteralPath (Get-Command node).Source -Destination sidecar/node/node.exe
+
+      - name: Run source and trust checks
+        run: npm run check
+
+      - name: Build and install-smoke the exact candidate installers
+        run: npm run release:candidate:build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-release-candidate
+          path: app/src-tauri/target/release/release-package/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  macos:
+    name: Signed and notarized Apple Silicon DMG candidate
+    needs: preflight
+    if: ${{ inputs.include_macos }}
+    runs-on: macos-26-arm64
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: app
+    env:
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            app/sidecar/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Download and checksum-lock the release corpus
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CORPUS_RELEASE_TAG: ${{ inputs.corpus_release_tag }}
+          CORPUS_SHA256: ${{ inputs.corpus_sha256 }}
+        run: |
+          [[ "$CORPUS_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          corpus_dir="$RUNNER_TEMP/bible-ai-corpus"
+          mkdir -p "$corpus_dir"
+          gh release download "$CORPUS_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern corpus.sqlite --dir "$corpus_dir"
+          actual="$(shasum -a 256 "$corpus_dir/corpus.sqlite" | awk '{print $1}')"
+          test "$actual" = "$CORPUS_SHA256"
+          mv "$corpus_dir/corpus.sqlite" ../data/corpus.sqlite
+
+      - name: Require Apple release credentials
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          test -n "$APPLE_CERTIFICATE"
+          test -n "$APPLE_CERTIFICATE_PASSWORD"
+          test -n "$KEYCHAIN_PASSWORD"
+          test -n "$APPLE_ID"
+          test -n "$APPLE_PASSWORD"
+          test -n "$APPLE_TEAM_ID"
+
+      - name: Import Developer ID certificate
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          certificate="$RUNNER_TEMP/developer-id.p12"
+          keychain="$RUNNER_TEMP/bible-ai-build.keychain-db"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security default-keychain -s "$keychain"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security set-keychain-settings -t 7200 -u "$keychain"
+          security import "$certificate" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$keychain"
+          identity="$(security find-identity -v -p codesigning "$keychain" | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
+          test -n "$identity"
+          echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Build, notarize, staple, and package the DMG
+        env:
+          BIBLE_AI_REQUIRE_MACOS_CODESIGN: "true"
+          BIBLE_AI_REQUIRE_MACOS_PUBLIC_SIGNING: "true"
+        run: npm run macos:release:build
+
+      - name: Verify Developer ID, Gatekeeper, and stapling
+        shell: bash
+        run: |
+          app_bundle="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' -type d -print -quit)"
+          dmg="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -type f -print -quit)"
+          test -n "$app_bundle"
+          test -n "$dmg"
+          codesign --verify --deep --strict --verbose=2 "$app_bundle"
+          spctl --assess --type execute --verbose=4 "$app_bundle"
+          xcrun stapler validate "$app_bundle"
+          xcrun stapler validate "$dmg"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-release-candidate
+          path: app/src-tauri/target/release/macos-release-package/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  draft-release:
+    name: Create private draft candidate release
+    needs: [preflight, windows, macos]
+    if: ${{ always() && needs.preflight.result == 'success' && needs.windows.result == 'success' && (!inputs.include_macos || needs.macos.result == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: "*-release-candidate"
+          path: candidate-assets
+          merge-multiple: true
+
+      - name: Create immutable private candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          SOURCE_COMMIT: ${{ needs.preflight.outputs.source_commit }}
+        run: |
+          gh release create "$CANDIDATE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_COMMIT" \
+            --title "Bible AI $CANDIDATE_TAG — unverified release candidate" \
+            --notes $'Private immutable QA candidate.\n\nDo not publish or redistribute these files. Complete the exact-artifact Windows and macOS QA evidence, then run the protected public-release promotion workflow.\n' \
+            --draft \
+            --prerelease
+          while IFS= read -r -d '' asset; do
+            gh release upload "$CANDIDATE_TAG" "$asset" --repo "$GITHUB_REPOSITORY"
+          done < <(find candidate-assets -maxdepth 1 -type f -print0)
+
+      - name: Summarize candidate handoff
+        env:
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+        run: |
+          echo "### Private candidate $CANDIDATE_TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "Built from \`$GITHUB_SHA\`. Download the exact installers from the draft release, complete the manual evidence templates, and upload all four evidence JSON files to this draft release before promotion." >> "$GITHUB_STEP_SUMMARY"

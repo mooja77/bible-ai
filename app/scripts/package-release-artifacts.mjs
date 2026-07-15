@@ -6,9 +6,10 @@ const releaseRoot = join(appRoot, "src-tauri", "target", "release");
 const packageDir = join(releaseRoot, "release-package");
 const manifestPath = join(releaseRoot, "release-manifest.json");
 const summaryPath = join(releaseRoot, "release-summary.md");
-const sbomPaths = [
+const evidencePaths = [
   join(appRoot, "release", "sbom-npm.cdx.json"),
   join(appRoot, "release", "sbom-cargo.cdx.json"),
+  join(appRoot, "release", "windows-signing.json"),
 ];
 
 if (!existsSync(manifestPath)) {
@@ -19,9 +20,9 @@ if (!existsSync(summaryPath)) {
   console.error(`Release package failed: missing ${summaryPath}`);
   process.exit(1);
 }
-for (const sbomPath of sbomPaths) {
-  if (!existsSync(sbomPath)) {
-    console.error(`Release package failed: missing ${sbomPath}; run npm run sbom:generate`);
+for (const evidencePath of evidencePaths) {
+  if (!existsSync(evidencePath)) {
+    console.error(`Release package failed: missing release evidence ${evidencePath}`);
     process.exit(1);
   }
 }
@@ -44,8 +45,8 @@ for (const artifact of installers) {
 }
 copyArtifact(manifestPath, join(packageDir, "release-manifest.json"));
 copyArtifact(summaryPath, join(packageDir, "release-summary.md"));
-for (const sbomPath of sbomPaths) {
-  copyArtifact(sbomPath, join(packageDir, lastPathSegment(sbomPath)));
+for (const evidencePath of evidencePaths) {
+  copyArtifact(evidencePath, join(packageDir, lastPathSegment(evidencePath)));
 }
 
 console.log(`Release package written: ${packageDir}`);

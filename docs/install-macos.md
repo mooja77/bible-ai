@@ -46,6 +46,9 @@ Intel compatibility or a human clean-Mac workflow. It also predates the
 2026-07-15 dependency baseline and must be rebuilt before release.
 
 See [macOS Distribution Plan](macos-distribution-plan.md).
+Maintainers should also follow the exact-artifact
+[GitHub Release Process](github-release-process.md); it requires Developer ID,
+notarization, stapling, and hash-bound clean-Mac evidence before promotion.
 
 ## Run From Source On A Mac
 
