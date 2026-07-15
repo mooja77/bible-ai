@@ -3,6 +3,10 @@
 Date: 2026-07-14
 Status: Engineering baseline green; **public release blocked by current evidence gates**.
 
+Bible AI is a public, MIT-licensed open-source GitHub project. References below
+to private/test builds describe unverified installer artifacts, not repository
+visibility or the source-code licence.
+
 This is the straight answer to "is the product finished / shippable to end users."
 
 ## Bottom line

@@ -153,4 +153,38 @@ mod tests {
             CredentialUpdate::Set("sk-test")
         );
     }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_uses_native_keychain_and_round_trips_a_secret() {
+        use keyring::Entry;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock must follow the Unix epoch")
+            .as_nanos();
+        let service = format!("BibleAI.CI.{unique}");
+        let entry =
+            Entry::new(&service, "keychain-smoke").expect("create a native macOS Keychain entry");
+
+        assert!(
+            entry
+                .get_credential()
+                .downcast_ref::<keyring::macos::MacCredential>()
+                .is_some(),
+            "macOS must use Keychain rather than keyring's in-memory mock store"
+        );
+
+        entry
+            .set_password("disposable-keychain-smoke-secret")
+            .expect("save a disposable Keychain secret");
+        assert_eq!(
+            entry.get_password().expect("read the Keychain secret"),
+            "disposable-keychain-smoke-secret"
+        );
+        entry
+            .delete_credential()
+            .expect("delete the disposable Keychain secret");
+    }
 }

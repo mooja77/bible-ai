@@ -103,6 +103,12 @@ jobs:
           npm run macos:sidecar:prepare
           npm run macos:build-env:verify
 
+      - name: Verify native Apple Keychain backend
+        shell: bash
+        run: |
+          cargo tree --manifest-path src-tauri/Cargo.toml -e features -p keyring | grep -q security-framework
+          cargo test --locked --manifest-path src-tauri/Cargo.toml macos_uses_native_keychain_and_round_trips_a_secret
+
       - name: Build macOS app bundle
         run: npm run tauri -- build --debug --bundles app
 
@@ -115,3 +121,23 @@ jobs:
           test -f "$bundle/Contents/Resources/corpus.sqlite"
           test -x "$bundle/Contents/Resources/sidecar/node/bin/node"
           test -f "$bundle/Contents/Resources/sidecar/index.mjs"
+
+      - name: Launch-smoke the macOS app bundle
+        shell: bash
+        run: |
+          bundle="$(find src-tauri/target/debug/bundle/macos -maxdepth 1 -name '*.app' -type d -print -quit)"
+          executable="$(find "$bundle/Contents/MacOS" -maxdepth 1 -type f -perm -111 -print -quit)"
+          log="$RUNNER_TEMP/bible-ai-macos-smoke.log"
+          profile="$RUNNER_TEMP/bible-ai-macos-smoke-profile"
+          BIBLE_AI_USER_DATA_DIR="$profile" \
+          BIBLE_AI_DISABLE_PROJECT_ENV=1 \
+          BIBLE_AI_MOCK_COUNCIL=1 \
+            "$executable" >"$log" 2>&1 &
+          pid=$!
+          sleep 8
+          if ! kill -0 "$pid" 2>/dev/null; then
+            cat "$log"
+            exit 1
+          fi
+          kill "$pid"
+          wait "$pid" || true

@@ -4,10 +4,12 @@ Sensitive religious and crisis disclosures are governed by [`sensitive-topic-saf
 
 ## Current Privacy Posture
 
-Bible AI is currently treated as a personal-use local app. Any public build is
-intended to be distributed free of charge for non-commercial Bible study. The
-release scope excludes paid access, subscriptions, advertising, and sale of
-the bundled content. A future change to that scope requires a new content-rights
+Bible AI is a public, MIT-licensed open-source project and a local-first desktop
+app. The current distribution plan for builds containing the reviewed bundled
+study data is free of charge and non-commercial. That bundled-data release scope
+excludes paid access, subscriptions, advertising, and sale of the bundled
+content; it does not add a non-commercial restriction to the MIT-licensed source
+code. A future change to the bundled-data scope requires a new content-rights
 review before distribution.
 
 - Provider keys and managed gateway tokens are stored in the operating system credential vault and are intended to belong to the user, team, or app deployment owner.
