@@ -1,10 +1,12 @@
 # Release Execution Handoff — updated 2026-07-15
 
-Status: **fresh unsigned Windows artifacts and an ad-hoc Apple Silicon candidate verified; do not publish them**.
+Status: **current `main` automation is green; the previously verified Windows
+and full-corpus Apple Silicon artifacts are now source-stale—do not publish
+them**.
 Public distribution remains blocked by three fail-closed human evidence
 categories.
 
-## Current macOS candidate (still not publication-approved)
+## Latest full-corpus macOS candidate (historical; not publication-approved)
 
 [GitHub Actions run 29406993816](https://github.com/mooja77/bible-ai/actions/runs/29406993816)
 built commit `9adf30beb3c9ddd8304cbf364b4e4fcaf809d487` on the
@@ -22,11 +24,18 @@ directory, launch-smoked it with an isolated profile, required a non-empty
 This is an expiring CI artifact and audit record, not a permanent release. It is
 Apple Silicon-only, ad-hoc signed, unnotarized, and has not received clean-Mac
 manual, provider, persistent Keychain, accessibility, or Gatekeeper approval.
+It also predates the current dependency baseline and must be rebuilt before any
+release review.
 
-## Current built artifacts (still not publication-approved)
+## Latest fully packaged Windows artifacts (historical; do not publish)
 
 Version: `0.1.0`, Windows x64, built 2026-07-14 from
 `368af6ea6d4ada4af2ebedb2dfc4298f8078c967`.
+
+These artifacts are source-stale relative to the application baseline merged
+through PR #19 at `c04776168e7865788bc9e37034fc19399b3033a3` and later `main`
+commits. They remain useful audit evidence, but they are not current release
+candidates.
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
@@ -43,7 +52,7 @@ pass. These hashes identify the machine-tested artifacts, but they do not
 substitute for the pending named reviews. Any bundled
 source/corpus/version/signing change requires a rebuild and new hashes.
 
-## Historical built artifacts (stale)
+## Earlier historical built artifacts (stale)
 
 The immediately superseded 2026-07-14 bundle is retained only as an audit
 record:
@@ -84,11 +93,12 @@ verifier.
 - Supply chain: npm app and sidecar audits report zero vulnerabilities; Cargo
   audit reports zero vulnerabilities and 19 documented allowed upstream
   maintenance/unsoundness warnings; npm/Cargo SBOMs validate.
-- Release build: optimized Tauri app plus MSI and NSIS bundles succeeded.
+- Historical release build: optimized Tauri app plus MSI and NSIS bundles
+  succeeded for the hashes recorded above.
 - Release tree verification and direct clean-profile binary smoke passed.
 - The source-bound release manifest, summary, package, archive, and manual-QA
-  package were regenerated and verified against the current installers. They
-  must be regenerated again after any tracked source change.
+  package were regenerated and verified against their matching installers.
+  They must be regenerated again for the selected release commit.
 - Source/staged hashes match for Council sidecar, shared provider logic, and
   Ollama provider logic.
 - Tauri WebView aggregate suite passed after a fresh rerun. During the final
@@ -98,10 +108,10 @@ verifier.
   all 80 tests with
   exact-matched, Microsoft-signed EdgeDriver/WebView2 150.0.4078.65.
 
-The current follow-through also passes 126 Rust tests, strict Clippy, both npm
+The current follow-through also passes 127 Rust tests, strict Clippy, both npm
 audits, the full 155,556-embedding identity verifier, all 11 source hashes, and
-SBOM validation for 553 npm and 475 Cargo components. None of those checks or
-the fresh artifact hashes substitutes for the pending human evidence.
+current npm/Cargo SBOM validation. None of those checks or the historical
+artifact hashes substitutes for the pending human evidence.
 
 ## Real Council evidence
 

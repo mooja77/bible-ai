@@ -42,7 +42,8 @@ The 2026-07-15 candidate was built from commit
 
 This is an automated QA record, not a permanent download or public-release
 approval. The candidate is ad-hoc signed, not notarized, and does not prove
-Intel compatibility or a human clean-Mac workflow.
+Intel compatibility or a human clean-Mac workflow. It also predates the
+2026-07-15 dependency baseline and must be rebuilt before release.
 
 See [macOS Distribution Plan](macos-distribution-plan.md).
 
