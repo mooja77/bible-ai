@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
 import { createReadStream, existsSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { readGitCommit, trackedWorktreeClean } from "./git-source-state.mjs";
 import {
   appRoot,
   packageName,
@@ -12,6 +12,7 @@ import {
 } from "./release-metadata.mjs";
 
 const manifestPath = join(releaseRoot, "release-manifest.json");
+const repoRoot = join(appRoot, "..");
 
 const fileArtifacts = [
   ["app", join(releaseRoot, "app.exe")],
@@ -71,8 +72,8 @@ const manifest = {
   generated_at: new Date().toISOString(),
   release_root: releaseRootLabel,
   source_control: {
-    git_commit: git("rev-parse", "HEAD"),
-    tracked_worktree_clean: git("status", "--porcelain", "--untracked-files=no") === "",
+    git_commit: readGitCommit(repoRoot),
+    tracked_worktree_clean: trackedWorktreeClean(repoRoot),
   },
   files,
   directories,
@@ -80,19 +81,6 @@ const manifest = {
 
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 console.log(`Release manifest written: ${manifestPath}`);
-
-function git(...args) {
-  const result = spawnSync("git", args, {
-    cwd: join(appRoot, ".."),
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  if (result.status !== 0) {
-    console.error(`Release manifest failed: git ${args.join(" ")} could not be read.`);
-    process.exit(1);
-  }
-  return String(result.stdout ?? "").trim();
-}
 
 async function describeFile(name, filePath) {
   const stats = statSync(filePath);

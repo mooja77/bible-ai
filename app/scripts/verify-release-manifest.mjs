@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { spawnSync } from "node:child_process";
 import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { readGitCommit, trackedWorktreeClean } from "./git-source-state.mjs";
 import {
   appRoot,
   packageName,
@@ -12,6 +12,7 @@ import {
 } from "./release-metadata.mjs";
 
 const manifestPath = join(releaseRoot, "release-manifest.json");
+const repoRoot = join(appRoot, "..");
 const requiredFileNames = [
   "app",
   "corpus",
@@ -70,7 +71,7 @@ if (!isValidIsoDate(manifest.generated_at)) {
   successes.push(`generated_at: ${manifest.generated_at}`);
 }
 
-const currentCommit = git("rev-parse", "HEAD");
+const currentCommit = readGitCommit(repoRoot);
 if (!/^[a-f0-9]{40}$/.test(String(manifest.source_control?.git_commit ?? ""))) {
   failures.push("manifest source_control.git_commit must be a full Git commit SHA");
 } else if (manifest.source_control.git_commit !== currentCommit) {
@@ -80,7 +81,7 @@ if (!/^[a-f0-9]{40}$/.test(String(manifest.source_control?.git_commit ?? ""))) {
 }
 if (manifest.source_control?.tracked_worktree_clean !== true) {
   failures.push("manifest requires a clean tracked worktree at creation time");
-} else if (git("status", "--porcelain", "--untracked-files=no") !== "") {
+} else if (!trackedWorktreeClean(repoRoot)) {
   failures.push("tracked worktree changed after the manifest was created");
 } else {
   successes.push("tracked_worktree_clean");
@@ -257,14 +258,4 @@ function sha256(filePath) {
     stream.on("error", rejectHash);
     stream.on("end", () => resolveHash(hash.digest("hex")));
   });
-}
-
-function git(...args) {
-  const result = spawnSync("git", args, {
-    cwd: join(appRoot, ".."),
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  if (result.status !== 0) return "";
-  return String(result.stdout ?? "").trim();
 }
