@@ -25,7 +25,8 @@ verified macOS public release.
 The verified 2026-07-15 candidate is Apple Silicon-only and ad-hoc signed. It is
 valid automated QA evidence, but it is not an Intel/universal package and does
 not satisfy Gatekeeper, notarization, provider, Keychain persistence, or human
-accessibility release gates.
+accessibility release gates. It predates the current dependency baseline and
+must be rebuilt before release.
 
 The Windows release bundle includes:
 

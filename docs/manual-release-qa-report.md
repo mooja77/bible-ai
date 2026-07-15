@@ -1,6 +1,6 @@
 # Manual Release QA Report
 
-Date: 2026-05-02; current status corrected 2026-07-14
+Date: 2026-05-02; current status corrected 2026-07-15
 
 ## Current Status
 
@@ -12,11 +12,14 @@ two-provider machine gates. Its named confidence review and the clean-profile,
 accessibility, safety, credential-vault, and content-rights attestations remain
 pending. See `docs/ship-readiness.md` for the current sequence.
 
-Current automated Windows artifact evidence (2026-07-14):
+Most recent fully packaged Windows artifact evidence (2026-07-14; historical):
 
 - Tauri produced fresh unsigned NSIS and MSI bundles.
 - Source commit:
   `368af6ea6d4ada4af2ebedb2dfc4298f8078c967`.
+- These binaries are source-stale relative to current `main` after the
+  2026-07-15 stabilization and dependency merges. Retain the hashes as audit
+  evidence only; rebuild before manual QA or publication.
 - `npm run release:verify`, `npm run release:smoke`, and
   `npm run release:install-smoke` passed; the NSIS installer was installed,
   launched for 8 seconds, and uninstalled.
@@ -34,10 +37,12 @@ Current automated Windows artifact evidence (2026-07-14):
   and verified against these installers. Regenerate them again after any
   tracked source change; never reuse a stale package.
 
-Current automated macOS candidate evidence (2026-07-15):
+Most recent full-corpus macOS candidate evidence (2026-07-15; historical):
 
 - Commit `9adf30beb3c9ddd8304cbf364b4e4fcaf809d487` produced
   `Bible AI_0.1.0_aarch64.dmg` on the `macos-26-arm64` runner.
+- The candidate predates the current dependency baseline and must be rebuilt
+  before release; its hashes remain automated packaging audit evidence.
 - The workflow verified the complete corpus checksum, mounted the DMG, copied
   the app, launched the installed copy with an isolated profile, and required
   non-empty `user.sqlite` creation.

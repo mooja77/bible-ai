@@ -34,7 +34,7 @@ is usable; a public release is not authorized by the current evidence.
   are hydrated from retrieved corpus rows; four canonical quality cases pass;
   provider cancellation crosses the sidecar boundary.
 - Automated quality: `npm run check`, 157 sidecar tests, 3 corpus-backed QA
-  helper tests, 126 Rust tests, strict Clippy, schema sync, npm audit (zero
+  helper tests, 127 Rust tests, strict Clippy, schema sync, npm audit (zero
   vulnerabilities), and CycloneDX SBOM validation pass. Cargo audit exits zero
   with 19 allowed warnings: Linux-only GTK3 maintenance notices, one patched-in-
   newer-GTK `glib` advisory with no current Windows dependency path, and
@@ -63,8 +63,17 @@ check with zero sidecar errors. Claude and Ollama each succeeded 20/20. The
 strict machine verifier passes, but its SHA-bound human confidence review is
 still pending and cannot be inferred from the automated result.
 
-Fresh unsigned Windows bundles built on 2026-07-14 from source commit
-`368af6ea6d4ada4af2ebedb2dfc4298f8078c967` pass resource verification,
+The application baseline merged through PR #19 at
+`c04776168e7865788bc9e37034fc19399b3033a3` passes the
+[CI/trust run](https://github.com/mooja77/bible-ai/actions/runs/29415450243)
+and [platform run](https://github.com/mooja77/bible-ai/actions/runs/29415450341):
+all 80 hosted Windows WebView tests, macOS ad-hoc bundle build and launch smoke,
+dependency audits, SBOM verification, and GitGuardian. It does not yet have a
+source-bound Windows release package or full-corpus macOS DMG.
+
+The most recent fully packaged unsigned Windows evidence was built on
+2026-07-14 from source commit
+`368af6ea6d4ada4af2ebedb2dfc4298f8078c967`. It passed resource verification,
 isolated-profile app launch, and exact-NSIS install/launch/uninstall smoke. The
 source-bound manifest, summary, release package, archive, and portable manual-QA
 package were regenerated and verified against the same files:
@@ -76,16 +85,20 @@ package were regenerated and verified against the same files:
 - Release archive: `Bible AI_0.1.0_release-package.zip`, 1,103,341,590 bytes,
   SHA-256 `71d6676c3c9d9a0e63cb7ae1bfacf52ccd8001a7e1fb96320eb2f6022d500185`.
 
-These are verified private/test artifacts, not publication approval. The named
-human evidence gates below remain intentionally fail-closed.
+These hashes are now source-stale relative to `main`. They remain useful audit
+evidence, but they are private/test artifacts—not upload candidates or
+publication approval. The named human evidence gates below remain intentionally
+fail-closed.
 
-An Apple Silicon candidate was also built from commit `9adf30b` by
+The most recent full-corpus Apple Silicon candidate was built from commit
+`9adf30b` by
 [macOS release-candidate run 29406993816](https://github.com/mooja77/bible-ai/actions/runs/29406993816).
 The workflow verified the full corpus checksum, built
 `Bible AI_0.1.0_aarch64.dmg` (605,836,814 bytes), mounted it, copied the app,
 launch-smoked the installed copy, required non-empty `user.sqlite`, and uploaded
-the candidate artifact. This proves automated Apple Silicon packaging and
-startup, not public approval: the build is ad-hoc signed, unnotarized, not
+the candidate artifact. It predates the current dependency baseline and must be
+rebuilt before release. It proves automated Apple Silicon packaging and startup,
+not public approval: the build is ad-hoc signed, unnotarized, not
 Intel/universal, and has not completed the clean-Mac human gate.
 
 ## The exact steps to ship (human)
@@ -107,10 +120,11 @@ Intel/universal, and has not completed the clean-Mac human gate.
    `npm run qa:confidence-review:verify`. Do not edit the underlying Council
    fixture or claim that automated grounding proves theological quality.
 
-3. **Retain the exact release artifacts.** The current NSIS, MSI, archive, and
-   source commit are identified above. If source, corpus, sidecar, SBOM,
-   version, or signing state changes, rebuild and repeat every artifact-bound
-   gate.
+3. **Build and retain exact release artifacts.** The Windows hashes above are
+   historical audit evidence and must not be reused. After the named reviews,
+   build new NSIS, MSI, archive, and macOS artifacts from the chosen source
+   commit. If source, corpus, sidecar, SBOM, version, or signing state changes,
+   rebuild and repeat every artifact-bound gate.
 
 4. **Manual clean-profile QA** on a *separate clean Windows user profile or VM*
    (never your dev profile). Install the built installer, then verify and record
