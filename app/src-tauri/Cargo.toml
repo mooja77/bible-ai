@@ -22,9 +22,9 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.39.0", features = ["bundled"] }
 tokio = { version = "1", features = ["process", "io-util", "sync", "macros", "time"] }
-reqwest = { version = "0.12", default-features = false, features = ["json"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["json"] }
 tauri-plugin-dialog = "2"
 # Compile the native credential store on both supported desktop platforms.
 # Without apple-native, keyring falls back to its in-memory mock store on macOS

@@ -15,6 +15,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # rusqlite 0.40.0/0.40.1 bundle libsqlite3-sys 0.38, whose build script
+      # requires cfg_select! (stable in Rust 1.95). Re-evaluate on 0.40.2+.
+      - dependency-name: rusqlite
+        versions: ["0.40.0", "0.40.1"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -16,9 +16,9 @@ jobs:
       run:
         working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -26,7 +26,7 @@ jobs:
             app/package-lock.json
             app/sidecar/package-lock.json
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -36,7 +36,7 @@ jobs:
         with:
           workspaces: app/src-tauri
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: data/sources
           key: corpus-sources-${{ hashFiles('data/corpus-lock.json') }}
@@ -75,9 +75,9 @@ jobs:
       # still require the protected Developer ID and notarization workflow.
       APPLE_SIGNING_IDENTITY: "-"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
