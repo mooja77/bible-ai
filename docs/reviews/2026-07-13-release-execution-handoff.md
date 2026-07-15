@@ -1,4 +1,4 @@
-# Release Execution Handoff — updated 2026-07-14
+# Release Execution Handoff — updated 2026-07-15
 
 Status: **fresh unsigned Windows artifacts and an ad-hoc Apple Silicon candidate verified; do not publish them**.
 Public distribution remains blocked by three fail-closed human evidence
