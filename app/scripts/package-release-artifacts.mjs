@@ -1,16 +1,13 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { windowsPackageEvidenceNames } from "./release-package-contract.mjs";
 
 const appRoot = resolve(import.meta.dirname, "..");
 const releaseRoot = join(appRoot, "src-tauri", "target", "release");
 const packageDir = join(releaseRoot, "release-package");
 const manifestPath = join(releaseRoot, "release-manifest.json");
 const summaryPath = join(releaseRoot, "release-summary.md");
-const evidencePaths = [
-  join(appRoot, "release", "sbom-npm.cdx.json"),
-  join(appRoot, "release", "sbom-cargo.cdx.json"),
-  join(appRoot, "release", "windows-signing.json"),
-];
+const evidencePaths = windowsPackageEvidenceNames.map((name) => join(appRoot, "release", name));
 
 if (!existsSync(manifestPath)) {
   console.error(`Release package failed: missing ${manifestPath}`);
