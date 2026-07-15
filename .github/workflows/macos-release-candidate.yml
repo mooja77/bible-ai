@@ -34,9 +34,9 @@ jobs:
       # requires Developer ID signing, notarization, and clean-Mac review.
       APPLE_SIGNING_IDENTITY: "-"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -109,7 +109,7 @@ jobs:
           trap - EXIT
 
       - name: Upload the verified macOS candidate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Bible-AI-macOS-release-candidate
           path: app/src-tauri/target/release/macos-release-package
