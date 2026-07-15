@@ -4,6 +4,7 @@ import packageJson from "../package.json" with { type: "json" };
 
 export const appRoot = resolve(import.meta.dirname, "..");
 export const releaseRoot = join(appRoot, "src-tauri", "target", "release");
+export const releaseRootLabel = "src-tauri/target/release";
 export const tauriConfigPath = join(appRoot, "src-tauri", "tauri.conf.json");
 export const tauriConfig = JSON.parse(readFileSync(tauriConfigPath, "utf8"));
 

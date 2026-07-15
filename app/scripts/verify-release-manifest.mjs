@@ -2,7 +2,14 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { appRoot, packageName, productName, releaseRoot, version } from "./release-metadata.mjs";
+import {
+  appRoot,
+  packageName,
+  productName,
+  releaseRoot,
+  releaseRootLabel,
+  version,
+} from "./release-metadata.mjs";
 
 const manifestPath = join(releaseRoot, "release-manifest.json");
 const requiredFileNames = [
@@ -16,6 +23,9 @@ const requiredFileNames = [
   "node_runtime",
   "nsis_installer",
   "msi_installer",
+  "sbom_npm",
+  "sbom_cargo",
+  "windows_signing",
 ];
 const requiredDirectoryNames = ["sidecar_providers", "sidecar_grounded", "sidecar_dependencies"];
 const forbiddenPaths = [["sidecar_tests", join(releaseRoot, "sidecar", "tests")]];
@@ -48,8 +58,8 @@ if (manifest.package_name !== packageName) {
   successes.push(`package_name: ${manifest.package_name}`);
 }
 
-if (manifest.release_root !== releaseRoot) {
-  failures.push(`manifest release_root mismatch: expected ${releaseRoot}, got ${manifest.release_root}`);
+if (manifest.release_root !== releaseRootLabel) {
+  failures.push(`manifest release_root mismatch: expected ${releaseRootLabel}, got ${manifest.release_root}`);
 } else {
   successes.push("release_root");
 }

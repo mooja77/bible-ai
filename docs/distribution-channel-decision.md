@@ -120,6 +120,7 @@ movement occurs, and report problems without leaking private study content.
 
 ## Related Documents
 
+- `docs/github-release-process.md`
 - `docs/privacy-and-distribution.md`
 - `docs/testing-and-release-plan.md`
 - `docs/community-channel-policy.md`

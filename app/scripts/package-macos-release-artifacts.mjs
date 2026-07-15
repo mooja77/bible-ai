@@ -6,6 +6,7 @@ import {
   macosPackageDir,
   macosSummaryPath,
 } from "./macos-release-utils.mjs";
+import { appRoot } from "./release-metadata.mjs";
 
 const dmg = findMacosDmg();
 if (!dmg) {
@@ -27,6 +28,7 @@ mkdirSync(macosPackageDir, { recursive: true });
 copyArtifact(dmg, join(macosPackageDir, basename(dmg)));
 copyArtifact(macosManifestPath, join(macosPackageDir, "macos-release-manifest.json"));
 copyArtifact(macosSummaryPath, join(macosPackageDir, "macos-release-summary.md"));
+copyArtifact(join(appRoot, "release", "macos-signing.json"), join(macosPackageDir, "macos-signing.json"));
 writeFileSync(join(macosPackageDir, "README.md"), readme(basename(dmg)), "utf8");
 
 console.log(`macOS release package written: ${macosPackageDir}`);
@@ -51,6 +53,7 @@ Release evidence:
 
 - \`macos-release-manifest.json\`
 - \`macos-release-summary.md\`
+- \`macos-signing.json\`
 
 Manual macOS QA must verify:
 

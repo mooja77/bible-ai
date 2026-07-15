@@ -1,0 +1,264 @@
+name: Promote verified public release
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Immutable private candidate tag that passed exact-artifact QA
+        required: true
+        type: string
+      public_tag:
+        description: Public version tag matching the app version, for example v0.1.0
+        required: true
+        type: string
+      corpus_release_tag:
+        description: Private draft-release tag containing the candidate's corpus.sqlite
+        required: true
+        type: string
+      corpus_sha256:
+        description: Expected lowercase SHA-256 for corpus.sqlite
+        required: true
+        type: string
+      include_macos:
+        description: Require and publish the signed/notarized DMG
+        required: true
+        default: false
+        type: boolean
+      acknowledge_unsigned_windows:
+        description: Permit an unsigned Windows beta with an explicit Unknown Publisher warning
+        required: true
+        default: false
+        type: boolean
+      prerelease:
+        description: Mark the GitHub Release as a prerelease
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: public-release-${{ inputs.public_tag }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Verify and publish exact candidate files
+    runs-on: macos-26-arm64
+    timeout-minutes: 120
+    environment:
+      name: public-release
+    steps:
+      - name: Inspect candidate and resolve immutable commit
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          PUBLIC_TAG: ${{ inputs.public_tag }}
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          candidate_json="$(gh release view "$CANDIDATE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName,targetCommitish)"
+          test "$(jq -r '.isDraft' <<< "$candidate_json")" = "true"
+          test "$(jq -r '.isPrerelease' <<< "$candidate_json")" = "true"
+          source_commit="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$CANDIDATE_TAG^{}" | awk '{print $1}')"
+          if [[ -z "$source_commit" ]]; then
+            source_commit="$(git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/tags/$CANDIDATE_TAG" | awk '{print $1}')"
+          fi
+          [[ "$source_commit" =~ ^[a-f0-9]{40}$ ]]
+          if gh release view "$PUBLIC_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Public release $PUBLIC_TAG already exists." >&2
+            exit 1
+          fi
+          echo "source_commit=$source_commit" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.candidate.outputs.source_commit }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            app/sidecar/package-lock.json
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - uses: actions/cache@v6
+        with:
+          path: data/sources
+          key: release-corpus-sources-${{ hashFiles('data/corpus-lock.json') }}
+
+      - name: Validate version-bound tags
+        working-directory: app
+        env:
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          PUBLIC_TAG: ${{ inputs.public_tag }}
+        run: |
+          node scripts/validate-release-tag.mjs --channel candidate --tag "$CANDIDATE_TAG"
+          node scripts/validate-release-tag.mjs --channel public --tag "$PUBLIC_TAG"
+
+      - name: Download exact candidate assets and human evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+        run: |
+          mkdir -p app/release/promotion-assets app/installers
+          gh release download "$CANDIDATE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir app/release/promotion-assets
+          for evidence in manual-release-gates.json content-review.json council-confidence-review.json; do
+            test -f "app/release/promotion-assets/$evidence"
+            cp "app/release/promotion-assets/$evidence" "app/release/$evidence"
+          done
+          if ${{ inputs.include_macos }}; then
+            test -f app/release/promotion-assets/macos-manual-release-gates.json
+            cp app/release/promotion-assets/macos-manual-release-gates.json app/release/macos-manual-release-gates.json
+          fi
+          find app/release/promotion-assets -maxdepth 1 -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \) -exec cp {} app/installers/ \;
+
+      - name: Download corpus and locked source snapshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CORPUS_RELEASE_TAG: ${{ inputs.corpus_release_tag }}
+          CORPUS_SHA256: ${{ inputs.corpus_sha256 }}
+        run: |
+          [[ "$CORPUS_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          corpus_dir="$RUNNER_TEMP/bible-ai-corpus"
+          mkdir -p "$corpus_dir"
+          gh release download "$CORPUS_RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern corpus.sqlite --dir "$corpus_dir"
+          actual="$(shasum -a 256 "$corpus_dir/corpus.sqlite" | awk '{print $1}')"
+          test "$actual" = "$CORPUS_SHA256"
+          mv "$corpus_dir/corpus.sqlite" data/corpus.sqlite
+          python3 scripts/fetch_corpus_sources.py
+
+      - name: Install verification dependencies
+        working-directory: app
+        run: |
+          npm ci
+          npm ci --prefix sidecar
+          cargo install cargo-audit --locked
+
+      - name: Verify all public-release evidence against the exact installers
+        working-directory: app
+        env:
+          INCLUDE_MACOS: ${{ inputs.include_macos }}
+        run: |
+          args=()
+          if [[ "$INCLUDE_MACOS" = "true" ]]; then
+            args+=(--macos-evidence release/macos-manual-release-gates.json)
+          fi
+          npm run qa:public-release:verify -- "${args[@]}"
+
+      - name: Verify candidate provenance, hashes, and signing declarations
+        working-directory: app
+        env:
+          SOURCE_COMMIT: ${{ steps.candidate.outputs.source_commit }}
+          INCLUDE_MACOS: ${{ inputs.include_macos }}
+          ALLOW_UNSIGNED_WINDOWS: ${{ inputs.acknowledge_unsigned_windows }}
+        run: |
+          node scripts/verify-release-promotion.mjs \
+            --assets release/promotion-assets \
+            --expected-commit "$SOURCE_COMMIT" \
+            --require-macos "$INCLUDE_MACOS" \
+            --allow-unsigned-windows "$ALLOW_UNSIGNED_WINDOWS"
+
+      - name: Re-verify notarization and Gatekeeper on the exact DMG
+        if: ${{ inputs.include_macos }}
+        run: |
+          dmg="$(find app/installers -maxdepth 1 -name '*.dmg' -type f -print -quit)"
+          test -n "$dmg"
+          mountpoint="$RUNNER_TEMP/bible-ai-public-dmg"
+          mkdir -p "$mountpoint"
+          hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mountpoint"
+          trap 'hdiutil detach "$mountpoint" -force || true' EXIT
+          app_bundle="$(find "$mountpoint" -maxdepth 1 -name '*.app' -type d -print -quit)"
+          test -n "$app_bundle"
+          codesign --verify --deep --strict --verbose=2 "$app_bundle"
+          spctl --assess --type execute --verbose=4 "$app_bundle"
+          xcrun stapler validate "$app_bundle"
+          xcrun stapler validate "$dmg"
+          hdiutil detach "$mountpoint"
+          trap - EXIT
+
+      - name: Stage public assets and checksums
+        working-directory: app
+        env:
+          INCLUDE_MACOS: ${{ inputs.include_macos }}
+        run: |
+          mkdir -p release/public-assets
+          for pattern in '*.exe' '*.msi' 'release-manifest.json' 'release-summary.md' 'sbom-npm.cdx.json' 'sbom-cargo.cdx.json' 'windows-signing.json'; do
+            find release/promotion-assets -maxdepth 1 -type f -name "$pattern" -exec cp {} release/public-assets/ \;
+          done
+          if [[ "$INCLUDE_MACOS" = "true" ]]; then
+            for pattern in '*.dmg' 'macos-release-manifest.json' 'macos-release-summary.md' 'macos-signing.json'; do
+              find release/promotion-assets -maxdepth 1 -type f -name "$pattern" -exec cp {} release/public-assets/ \;
+            done
+          fi
+          node scripts/create-release-checksums.mjs \
+            --assets release/public-assets \
+            --output release/public-assets/SHA256SUMS.txt \
+            --require-macos "$INCLUDE_MACOS"
+
+      - name: Create final release notes
+        env:
+          PUBLIC_TAG: ${{ inputs.public_tag }}
+          CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          SOURCE_COMMIT: ${{ steps.candidate.outputs.source_commit }}
+          INCLUDE_MACOS: ${{ inputs.include_macos }}
+          UNSIGNED_WINDOWS: ${{ inputs.acknowledge_unsigned_windows }}
+        run: |
+          notes="$RUNNER_TEMP/bible-ai-release-notes.md"
+          {
+            echo "Bible AI $PUBLIC_TAG is an open-source desktop beta built from commit \`$SOURCE_COMMIT\` and promoted without rebuilding from immutable candidate \`$CANDIDATE_TAG\`."
+            echo
+            echo "### Downloads"
+            echo
+            echo "- Windows: NSIS \`.exe\` or MSI \`.msi\`."
+            if [[ "$INCLUDE_MACOS" = "true" ]]; then
+              echo "- macOS: Developer ID-signed, notarized, and stapled Apple Silicon \`.dmg\`."
+            fi
+            echo "- Verify every download against \`SHA256SUMS.txt\`. SBOMs and artifact manifests are attached."
+            echo
+            if [[ "$UNSIGNED_WINDOWS" = "true" ]]; then
+              echo "> **Windows signing notice:** this beta is not Authenticode-signed. Windows may show Unknown Publisher or Microsoft Defender SmartScreen warnings. Verify the SHA-256 checksum before running it."
+              echo
+            fi
+            echo "### Important behavior"
+            echo
+            echo "- Bible reading, search, notes, and local study data work without hosted AI."
+            echo "- AI provider keys are supplied by each user and stored in the operating-system credential vault."
+            echo "- Bible AI has no hidden telemetry; provider requests occur only when the user invokes provider-backed features."
+            echo "- This is a free, non-commercial beta. Bundled content retains its own licences and attribution requirements."
+            echo
+            echo "See the attached release summaries and the repository's installation, privacy, known-issues, and source-attribution documentation before use."
+          } > "$notes"
+          echo "notes=$notes" >> "$GITHUB_ENV"
+
+      - name: Publish the verified GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLIC_TAG: ${{ inputs.public_tag }}
+          SOURCE_COMMIT: ${{ steps.candidate.outputs.source_commit }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          options=(--repo "$GITHUB_REPOSITORY" --target "$SOURCE_COMMIT" --title "Bible AI $PUBLIC_TAG (Beta)" --notes-file "$notes")
+          if [[ "$PRERELEASE" = "true" ]]; then options+=(--prerelease); fi
+          gh release create "$PUBLIC_TAG" app/release/public-assets/* "${options[@]}"
+
+      - name: Summarize published release
+        env:
+          PUBLIC_TAG: ${{ inputs.public_tag }}
+        run: |
+          echo "Published verified release [$PUBLIC_TAG](https://github.com/$GITHUB_REPOSITORY/releases/tag/$PUBLIC_TAG)." >> "$GITHUB_STEP_SUMMARY"
