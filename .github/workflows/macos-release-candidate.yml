@@ -1,0 +1,116 @@
+name: macOS release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      corpus_release_tag:
+        description: Temporary draft-release tag containing corpus.sqlite
+        required: true
+        type: string
+      corpus_sha256:
+        description: Expected SHA-256 for corpus.sqlite
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-release-candidate
+  cancel-in-progress: false
+
+jobs:
+  build-and-smoke:
+    name: Build and smoke real macOS DMG
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: app
+    env:
+      # This produces an ad-hoc-signed QA candidate. A public release still
+      # requires Developer ID signing, notarization, and clean-Mac review.
+      APPLE_SIGNING_IDENTITY: "-"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            app/sidecar/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Download and verify the release corpus
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CORPUS_RELEASE_TAG: ${{ inputs.corpus_release_tag }}
+          CORPUS_SHA256: ${{ inputs.corpus_sha256 }}
+        run: |
+          corpus_dir="$RUNNER_TEMP/bible-ai-corpus"
+          mkdir -p "$corpus_dir"
+          gh release download "$CORPUS_RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern corpus.sqlite \
+            --dir "$corpus_dir"
+          actual="$(shasum -a 256 "$corpus_dir/corpus.sqlite" | awk '{print $1}')"
+          expected="$(printf '%s' "$CORPUS_SHA256" | tr '[:upper:]' '[:lower:]')"
+          test "$actual" = "$expected"
+          mv "$corpus_dir/corpus.sqlite" ../data/corpus.sqlite
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Build and verify the macOS release package
+        run: npm run macos:release:build
+
+      - name: Mount, install, and launch-smoke the DMG
+        shell: bash
+        run: |
+          dmg="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -type f -print -quit)"
+          test -n "$dmg"
+          mountpoint="$RUNNER_TEMP/bible-ai-dmg"
+          installed_root="$RUNNER_TEMP/Applications"
+          profile="$RUNNER_TEMP/bible-ai-installed-profile"
+          log="$RUNNER_TEMP/bible-ai-installed-smoke.log"
+          mkdir -p "$mountpoint" "$installed_root" "$profile"
+          hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$mountpoint"
+          trap 'hdiutil detach "$mountpoint" -force || true' EXIT
+          mounted_app="$(find "$mountpoint" -maxdepth 1 -name '*.app' -type d -print -quit)"
+          test -n "$mounted_app"
+          installed_app="$installed_root/$(basename "$mounted_app")"
+          ditto "$mounted_app" "$installed_app"
+          executable="$(find "$installed_app/Contents/MacOS" -maxdepth 1 -type f -perm -111 -print -quit)"
+          test -n "$executable"
+          BIBLE_AI_USER_DATA_DIR="$profile" \
+          BIBLE_AI_DISABLE_PROJECT_ENV=1 \
+          BIBLE_AI_MOCK_COUNCIL=1 \
+            "$executable" >"$log" 2>&1 &
+          pid=$!
+          sleep 10
+          if ! kill -0 "$pid" 2>/dev/null; then
+            cat "$log"
+            exit 1
+          fi
+          test -n "$(find "$profile" -name user.sqlite -type f -size +0c -print -quit)"
+          kill "$pid"
+          wait "$pid" || true
+          hdiutil detach "$mountpoint"
+          trap - EXIT
+
+      - name: Upload the verified macOS candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bible-AI-macOS-release-candidate
+          path: app/src-tauri/target/release/macos-release-package
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
