@@ -114,7 +114,10 @@ describe("Council failure UX", () => {
 
   it("allows a long run to finish while progress remains active", async () => {
     await browser.execute(() => {
-      (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__ = 900;
+      // The forced run lasts 2s and reports activity every 500ms. Keep the
+      // timeout below the total runtime (so resets are required), while leaving
+      // enough scheduling margin for a loaded CI WebView to deliver each event.
+      (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__ = 1_500;
     });
     try {
       const question = `What does the beginning say about creation? __FORCE_COUNCIL_PROGRESS_SLOW__ e2e ${Date.now()}`;
@@ -130,9 +133,19 @@ describe("Council failure UX", () => {
       await $("button=Ask the Council").click();
 
       const synthesis = await $("h2=Synthesis");
-      await synthesis.waitForDisplayed({ timeout: 30_000 });
+      const error = await $('[data-testid="council-error"]');
+      await browser.waitUntil(
+        async () => (await synthesis.isDisplayed()) || (await error.isDisplayed()),
+        {
+          timeout: 30_000,
+          timeoutMsg: "Council progress run produced neither a synthesis nor an error",
+        },
+      );
+      if (await error.isDisplayed()) {
+        throw new Error(`Council progress run failed: ${await error.getText()}`);
+      }
       await expect(synthesis).toBeDisplayed();
-      await expect(await $('[data-testid="council-error"]')).not.toBeDisplayed();
+      await expect(error).not.toBeDisplayed();
     } finally {
       await browser.execute(() => {
         delete (window as unknown as { __BIBLE_AI_COUNCIL_TIMEOUT_MS__?: number }).__BIBLE_AI_COUNCIL_TIMEOUT_MS__;

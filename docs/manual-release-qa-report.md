@@ -34,6 +34,17 @@ Current automated Windows artifact evidence (2026-07-14):
   and verified against these installers. Regenerate them again after any
   tracked source change; never reuse a stale package.
 
+Current automated macOS candidate evidence (2026-07-15):
+
+- Commit `9adf30beb3c9ddd8304cbf364b4e4fcaf809d487` produced
+  `Bible AI_0.1.0_aarch64.dmg` on the `macos-26-arm64` runner.
+- The workflow verified the complete corpus checksum, mounted the DMG, copied
+  the app, launched the installed copy with an isolated profile, and required
+  non-empty `user.sqlite` creation.
+- This remains ad-hoc signed, unnotarized, Apple Silicon-only machine evidence.
+  Clean-Mac provider, persistent Keychain, accessibility, backup/restore, and
+  Gatekeeper review are still required before public distribution.
+
 Automated release verification is available through:
 
 - `npm run check:full`

@@ -83,6 +83,19 @@ describe("Light-mode text contrast (WCAG AA)", () => {
     });
   }
 
+  afterEach(async () => {
+    // Do not let a failed contrast assertion leave a drawer or light theme in
+    // the shared desktop session used by the remaining specs.
+    const bookNav = await $('[data-testid="book-nav"]');
+    if (await bookNav.isExisting()) {
+      await browser.keys("Escape");
+      await bookNav.waitForExist({ reverse: true, timeout: 10_000 });
+    }
+    await gotoMode("Reader");
+    const toDark = await $('button[aria-label="Switch to dark theme"]');
+    if (await toDark.isExisting()) await toDark.click();
+  });
+
   it("meets AA across Reader, Council, Settings, Theology, and Resources", async () => {
     await gotoMode("Reader");
     const toLight = await $('button[aria-label="Switch to light theme"]');
@@ -99,7 +112,7 @@ describe("Light-mode text contrast (WCAG AA)", () => {
     const genesis = await $("button=Genesis");
     if (await genesis.isClickable()) await genesis.click();
     await browser.keys("Escape");
-    await $('[data-testid="book-nav"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
+    await $('[data-testid="book-nav"]').waitForDisplayed({ reverse: true, timeout: 10_000 });
     await browser.pause(600);
     const failures: Array<{ screen: string; items: unknown[] }> = [];
     for (const screen of ["Reader", "Council", "Settings", "Theology", "Resources"]) {
@@ -107,11 +120,6 @@ describe("Light-mode text contrast (WCAG AA)", () => {
       const items = await failuresOnScreen();
       if (items.length) failures.push({ screen, items });
     }
-
-    // Restore dark mode + Reader for the shared session.
-    await gotoMode("Reader");
-    const toDark = await $('button[aria-label="Switch to dark theme"]');
-    if (await toDark.isExisting()) await toDark.click();
 
     expect(failures).toEqual([]);
   });

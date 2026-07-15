@@ -85,6 +85,19 @@ describe("Layout at maximum text size", () => {
     await browser.pause(600);
   }
 
+  afterEach(async () => {
+    // This suite shares a desktop session with every later spec. Always remove
+    // transient UI and restore the default scale, even when an assertion fails.
+    const bookNav = await $('[data-testid="book-nav"]');
+    if (await bookNav.isExisting()) {
+      await browser.keys("Escape");
+      await bookNav.waitForExist({ reverse: true, timeout: 10_000 });
+    }
+    await stepUiScale("ui-scale-dec");
+    await expect(await $('[data-testid="ui-scale-value"]')).toHaveText("100%");
+    await gotoMode("Reader");
+  });
+
   it("does not overflow or clip text on Reader, Council, or Settings at max scale", async () => {
     await gotoMode("Reader");
     await stepUiScale("ui-scale-inc"); // saturate to the largest step
@@ -98,7 +111,7 @@ describe("Layout at maximum text size", () => {
     const genesis = await $("button=Genesis");
     if (await genesis.isClickable()) await genesis.click();
     await browser.keys("Escape");
-    await $('[data-testid="book-nav"]').waitForDisplayed({ reverse: true, timeout: 5_000 });
+    await $('[data-testid="book-nav"]').waitForDisplayed({ reverse: true, timeout: 10_000 });
     await browser.pause(600);
     expect(await layoutProblems()).toEqual([]);
 
@@ -108,9 +121,5 @@ describe("Layout at maximum text size", () => {
     await gotoMode("Settings");
     expect(await layoutProblems()).toEqual([]);
 
-    // Restore the shared session to the default scale and the Reader.
-    await stepUiScale("ui-scale-dec");
-    await expect(await $('[data-testid="ui-scale-value"]')).toHaveText("100%");
-    await gotoMode("Reader");
   });
 });

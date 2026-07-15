@@ -1,20 +1,19 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Calls `onClose` when the user presses Escape. For non-modal overlays/popups:
- * dismiss-on-Escape without trapping focus. The latest `onClose` is read via a
- * ref so the document listener is attached once (stable across re-renders) and
- * never goes stale — callers commonly pass an inline arrow whose identity
- * changes every render.
+ * Calls `onClose` when the user presses Escape. The latest callback is read via
+ * a ref so an inline callback changing identity cannot create a lost-key window
+ * while an open overlay re-renders.
  */
-export function useEscapeToClose(onClose: () => void) {
+export function useEscapeToClose(onClose: () => void, enabled = true) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   useEffect(() => {
+    if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [enabled]);
 }

@@ -6,13 +6,18 @@ async function openWorkspaces() {
     return $("button=Workspaces");
   }
   const work = await $("button=Workspaces");
-  await work.waitForExist({ timeout: 10_000 });
+  // A cold Windows Tauri launch can spend more than ten seconds starting the
+  // application process after the WebDriver session is ready.
+  await work.waitForExist({ timeout: 30_000 });
   await browser.execute((button) => (button as HTMLButtonElement).click(), work);
   await $("h1=Workspaces").waitForDisplayed({ timeout: 10_000 });
   return work;
 }
 
 async function runSidebarSearch(query: string) {
+  // A focused spec can begin before a cold Tauri process has rendered the app
+  // shell; wait for the same durable readiness signal used by smoke tests.
+  await $("button=Reader").waitForExist({ timeout: 30_000 });
   // Search now lives in the SearchPanel overlay — open it via "/". The "/"
   // shortcut is ignored while a text field holds focus, so blur first (the
   // workspace flow often leaves focus in an input).

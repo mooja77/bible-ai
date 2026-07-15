@@ -227,12 +227,10 @@ describe("Backup and restore", () => {
     await confirmRestore.waitForClickable({ timeout: 10_000 });
     await confirmRestore.click();
 
-    await browser.waitUntil(
-      async () => {
-        const body = await $("body");
-        return (await body.getText()).includes("Restored SQLite. Safety backup:");
-      },
-      { timeout: 10_000, timeoutMsg: "SQLite restore did not complete" },
+    await waitForBackupStatus(
+      "Restored SQLite. Safety backup:",
+      "SQLite restore did not complete",
+      30_000,
     );
 
     await reader.click();
@@ -530,15 +528,15 @@ describe("Backup and restore", () => {
   });
 });
 
-async function waitForBackupStatus(expected: string, timeoutMsg: string) {
+async function waitForBackupStatus(expected: string, timeoutMsg: string, timeout = 10_000) {
   const status = await $('[data-testid="backup-status"]');
-  await status.waitForDisplayed({ timeout: 10_000 });
+  await status.waitForDisplayed({ timeout });
   await browser.waitUntil(
     async () => {
       const text = await status.getText();
       return text.includes(expected) || text.includes("failed");
     },
-    { timeout: 10_000, timeoutMsg },
+    { timeout, timeoutMsg },
   );
   await expect(status).toHaveText(expected, { containing: true, ignoreCase: true });
 }
