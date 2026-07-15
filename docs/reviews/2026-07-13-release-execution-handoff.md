@@ -1,8 +1,27 @@
 # Release Execution Handoff — updated 2026-07-14
 
-Status: **fresh unsigned Windows artifacts verified; do not publish them**.
+Status: **fresh unsigned Windows artifacts and an ad-hoc Apple Silicon candidate verified; do not publish them**.
 Public distribution remains blocked by three fail-closed human evidence
 categories.
+
+## Current macOS candidate (still not publication-approved)
+
+[GitHub Actions run 29406993816](https://github.com/mooja77/bible-ai/actions/runs/29406993816)
+built commit `9adf30beb3c9ddd8304cbf364b4e4fcaf809d487` on the
+`macos-26-arm64` runner. It downloaded and verified the full corpus, built the
+release package, mounted the DMG, copied the app to a temporary Applications
+directory, launch-smoked it with an isolated profile, required a non-empty
+`user.sqlite`, and uploaded the package.
+
+| Artifact | Bytes | Evidence |
+|---|---:|---|
+| `Bible AI_0.1.0_aarch64.dmg` | 605,836,814 | generated package and mounted-DMG smoke passed |
+| `Bible-AI-macOS-release-candidate` Actions artifact | 605,844,042 | ZIP SHA-256 `88b4783d7b3bbd05cc80888fcfdbe513a79bfc02f08a88257a13322dce34dbdf` |
+| bundled `corpus.sqlite` | 819,232,768 | SHA-256 `782991bf79d4488753b82bf4b85ffdf134c59b1c3a9e76797c7d2fc9f788f394` |
+
+This is an expiring CI artifact and audit record, not a permanent release. It is
+Apple Silicon-only, ad-hoc signed, unnotarized, and has not received clean-Mac
+manual, provider, persistent Keychain, accessibility, or Gatekeeper approval.
 
 ## Current built artifacts (still not publication-approved)
 
@@ -75,7 +94,8 @@ verifier.
 - Tauri WebView aggregate suite passed after a fresh rerun. During the final
   hardening pass, a timestamp regression fixture exposed shared-profile cleanup
   and Council-history refresh weaknesses; both were fixed before the complete
-  suite was repeated. The current follow-through run passes all 79 tests with
+  suite was repeated. The current follow-through plus release-work reruns pass
+  all 80 tests with
   exact-matched, Microsoft-signed EdgeDriver/WebView2 150.0.4078.65.
 
 The current follow-through also passes 126 Rust tests, strict Clippy, both npm

@@ -19,6 +19,6 @@
 ## Known Release Blocks
 
 - Clean Windows profile installer QA needs a separate profile or VM. If that gate cannot be completed, Windows installers must be labeled private/test builds rather than public-release-ready installers.
-- macOS has release scripts and a distribution plan, but a public `.dmg` must be built and verified on an Apple computer or macOS CI runner before publication.
+- macOS has release scripts and a full-corpus Apple Silicon DMG has passed automated mount/install/launch smoke on a macOS runner; a public `.dmg` still requires clean-Mac manual QA plus Developer ID signing, notarization, and stapling.
 - OS credential vault migration should be manually verified on an upgraded profile that previously had SQLite-stored provider keys.
 - Douay-Rheims, LXX, and apocrypha remain Phase 13 candidates because alternate versification and deuterocanonical UX are not complete.

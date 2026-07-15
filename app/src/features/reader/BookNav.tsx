@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import type { Book } from "../../lib/bible";
+import { useEscapeToClose } from "../../lib/useEscapeToClose";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 import { BookList } from "./BookList";
 import { ChapterGrid } from "./ChapterGrid";
@@ -33,15 +34,7 @@ export function BookNav({
 }: BookNavProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   useFocusTrap(dialogRef, true);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  useEscapeToClose(onClose, open);
 
   if (!open) return null;
 

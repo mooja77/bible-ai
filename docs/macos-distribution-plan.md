@@ -7,9 +7,11 @@ Darwin-compatible Node sidecar runtime.
 
 The macOS source lane is implemented. GitHub Actions builds and launch-smokes an
 ad-hoc `.app`, verifies the Darwin Node resources, and checks that the native
-Apple Keychain backend is compiled. A public `.dmg` must still be built and
-manually verified on an Apple computer or macOS CI release runner. A Windows
-machine cannot produce the final verified macOS public release.
+Apple Keychain backend is compiled. A full-corpus Apple Silicon `.dmg` candidate
+has also been built, mounted, copied, and launch-smoked on a macOS runner. A
+public `.dmg` must still be Developer ID-signed, notarized, stapled, and manually
+verified on a clean Apple computer. A Windows machine cannot produce the final
+verified macOS public release.
 
 ## Goals
 
@@ -19,6 +21,11 @@ machine cannot produce the final verified macOS public release.
 - Add signing and notarization before public distribution outside local/test use.
 
 ## Current Constraint
+
+The verified 2026-07-15 candidate is Apple Silicon-only and ad-hoc signed. It is
+valid automated QA evidence, but it is not an Intel/universal package and does
+not satisfy Gatekeeper, notarization, provider, Keychain persistence, or human
+accessibility release gates.
 
 The Windows release bundle includes:
 

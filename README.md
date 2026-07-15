@@ -135,7 +135,7 @@ Windows packaging exists, but the public installer is not verified unless clean-
 
 There are currently no downloadable binaries on the GitHub Releases page. Until a release is published, clone the repository and run or build the app from source.
 
-macOS source builds are supported: the repository includes a Darwin Node sidecar, native Apple Keychain storage, `.app`/`.dmg` build scripts, and a macOS CI job that constructs and launch-smokes an ad-hoc `.app` bundle. There is not yet a downloadable, manually verified, signed/notarized `.dmg`. An Apple user can build and run Bible AI from source today, but cannot yet install an official GitHub Release DMG. See [macOS Install Guide](docs/install-macos.md) and [macOS Distribution Plan](docs/macos-distribution-plan.md).
+macOS source builds are supported: the repository includes a Darwin Node sidecar, native Apple Keychain storage, and `.app`/`.dmg` build scripts. The release-candidate workflow has also built a full-corpus Apple Silicon DMG, mounted it, copied the app, launch-smoked it, and verified local `user.sqlite` creation on a macOS runner. There is not yet a permanent, manually approved, Developer ID-signed/notarized GitHub Release DMG. See [macOS Install Guide](docs/install-macos.md) and [macOS Distribution Plan](docs/macos-distribution-plan.md).
 
 Install guides:
 

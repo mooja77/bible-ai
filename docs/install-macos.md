@@ -5,21 +5,44 @@
 Bible AI is a public, MIT-licensed open-source project. Its macOS source path is
 implemented: the project has a Darwin Node sidecar, native Apple Keychain
 credential storage, `.app`/`.dmg` build scripts, and a macOS CI job that builds
-and launch-smokes an ad-hoc `.app` bundle.
+and launch-smokes an ad-hoc `.app` bundle. On 2026-07-15 the release-candidate
+workflow also built the complete Apple Silicon DMG with the checksum-verified
+corpus, mounted it, copied `Bible AI.app`, launched the installed copy, and
+verified non-empty `user.sqlite` creation.
 
 The practical answer is:
 
 - **Build and run from source on a Mac:** supported.
 - **Build a local unsigned `.app`/`.dmg` on a Mac:** supported for development
   and testing.
+- **Automated Apple Silicon DMG install/launch evidence:** passed on the
+  `macos-26-arm64` GitHub runner.
 - **Download an official DMG from GitHub Releases:** not available yet.
 - **Treat macOS as manually verified for normal daily use:** not yet; the clean
   macOS profile, provider, backup/restore, Keychain, and Gatekeeper lap remains.
 
-A public macOS installer must be built and verified on an Apple computer or
-macOS CI runner. A Windows machine cannot produce the final verified macOS
-`.app`/`.dmg` release because the app needs a Darwin-compatible sidecar runtime,
-macOS-native dependencies, Keychain checks, and Gatekeeper/signing verification.
+A final public macOS installer must still be Developer ID-signed, notarized,
+stapled, and manually verified on a clean macOS profile. A Windows machine
+cannot produce that final verified `.app`/`.dmg` release because the app needs a
+Darwin-compatible sidecar runtime, macOS-native dependencies, Keychain checks,
+and Gatekeeper/signing verification.
+
+## Automated Candidate Evidence
+
+The 2026-07-15 candidate was built from commit
+`9adf30beb3c9ddd8304cbf364b4e4fcaf809d487` by
+[GitHub Actions run 29406993816](https://github.com/mooja77/bible-ai/actions/runs/29406993816):
+
+- architecture: Apple Silicon (`aarch64-apple-darwin`);
+- DMG: `Bible AI_0.1.0_aarch64.dmg`, 605,836,814 bytes;
+- corpus SHA-256:
+  `782991bf79d4488753b82bf4b85ffdf134c59b1c3a9e76797c7d2fc9f788f394`;
+- uploaded Actions artifact: 605,844,042 bytes, ZIP SHA-256
+  `88b4783d7b3bbd05cc80888fcfdbe513a79bfc02f08a88257a13322dce34dbdf`.
+
+This is an automated QA record, not a permanent download or public-release
+approval. The candidate is ad-hoc signed, not notarized, and does not prove
+Intel compatibility or a human clean-Mac workflow.
 
 See [macOS Distribution Plan](macos-distribution-plan.md).
 

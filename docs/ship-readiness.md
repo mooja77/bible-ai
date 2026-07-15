@@ -1,6 +1,6 @@
 # Ship Readiness
 
-Date: 2026-07-14
+Date: 2026-07-15
 Status: Engineering baseline green; **public release blocked by current evidence gates**.
 
 Bible AI is a public, MIT-licensed open-source GitHub project. References below
@@ -42,7 +42,7 @@ is usable; a public release is not authorized by the current evidence.
   July 2026 `rustybuzz`/`ttf-parser` notices) for which the direct `krilla
   0.8.2` dependency is already the latest published version. These warnings
   remain tracked cross-platform/PDF maintenance risk, not a zero-warning claim.
-- Desktop behavior: all 79 WebView E2E tests pass, including axe scans across
+- Desktop behavior: all 80 WebView E2E tests pass, including axe scans across
   every primary view and shell overlay, keyboard/focus behavior, contrast, and
   maximum text scaling. The
   run used exact-matched, Microsoft-signed EdgeDriver/WebView2 150.0.4078.65.
@@ -78,6 +78,15 @@ package were regenerated and verified against the same files:
 
 These are verified private/test artifacts, not publication approval. The named
 human evidence gates below remain intentionally fail-closed.
+
+An Apple Silicon candidate was also built from commit `9adf30b` by
+[macOS release-candidate run 29406993816](https://github.com/mooja77/bible-ai/actions/runs/29406993816).
+The workflow verified the full corpus checksum, built
+`Bible AI_0.1.0_aarch64.dmg` (605,836,814 bytes), mounted it, copied the app,
+launch-smoked the installed copy, required non-empty `user.sqlite`, and uploaded
+the candidate artifact. This proves automated Apple Silicon packaging and
+startup, not public approval: the build is ad-hoc signed, unnotarized, not
+Intel/universal, and has not completed the clean-Mac human gate.
 
 ## The exact steps to ship (human)
 
@@ -140,7 +149,9 @@ human evidence gates below remain intentionally fail-closed.
 - Pastoral/crisis-professional review of safety wording and local resources.
 - Keyboard, screen-reader, zoom, credential-vault, and clean-profile attestation.
 - Signing/notarization decisions, installed-build smoke, and publication.
-- A separate macOS build/sign/notarization pass on macOS before any `.dmg` claim.
+- Developer ID signing/notarization plus clean-profile human macOS QA before a
+  public `.dmg` claim; automated Apple Silicon build/install/startup is already
+  proven.
 
 ## Honest verdict
 
