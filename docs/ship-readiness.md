@@ -63,32 +63,36 @@ check with zero sidecar errors. Claude and Ollama each succeeded 20/20. The
 strict machine verifier passes, but its SHA-bound human confidence review is
 still pending and cannot be inferred from the automated result.
 
-The application baseline merged through PR #19 at
-`c04776168e7865788bc9e37034fc19399b3033a3` passes the
-[CI/trust run](https://github.com/mooja77/bible-ai/actions/runs/29415450243)
-and [platform run](https://github.com/mooja77/bible-ai/actions/runs/29415450341):
+The protected GitHub release pipeline and its two release-only verifier fixes
+are merged through PR #23 at
+`60502adb0963eb1683eae15ec5b2991479c43894`. The latest changes pass the
+[CI/trust run](https://github.com/mooja77/bible-ai/actions/runs/29431440472)
+and [platform run](https://github.com/mooja77/bible-ai/actions/runs/29431442006):
 all 80 hosted Windows WebView tests, macOS ad-hoc bundle build and launch smoke,
-dependency audits, SBOM verification, and GitGuardian. It does not yet have a
-source-bound Windows release package or full-corpus macOS DMG.
+dependency audits, SBOM verification, and GitGuardian. The repository now has
+immutable candidate and protected promotion workflows, but no public Release.
 
-The most recent fully packaged unsigned Windows evidence was built on
-2026-07-14 from source commit
-`368af6ea6d4ada4af2ebedb2dfc4298f8078c967`. It passed resource verification,
-isolated-profile app launch, and exact-NSIS install/launch/uninstall smoke. The
-source-bound manifest, summary, release package, archive, and portable manual-QA
-package were regenerated and verified against the same files:
+The freshest local unsigned Windows application binaries were built on
+2026-07-15 at `77d82cd810680f273e7034271b3c85becdb080ee`. They passed resource
+verification, isolated-profile app launch, and exact-NSIS
+install/launch/uninstall smoke. PRs #22 and #23 then changed only release
+verification/package scripts and their tests—not application, sidecar, corpus,
+dependency, or build-configuration inputs. From a clean final `main` at
+`60502adb0963eb1683eae15ec5b2991479c43894`, the SBOMs, signing record,
+manifest, summary, package, archive, and portable manual-QA package were
+regenerated and verified against those same binaries:
 
-- NSIS: `Bible AI_0.1.0_x64-setup.exe`, 493,762,616 bytes,
-  SHA-256 `38151a3fe9253295a1d6da9ec436a09b27b9bac97672d5915a204f7ace5bb5f8`.
-- MSI: `Bible AI_0.1.0_x64_en-US.msi`, 612,086,884 bytes,
-  SHA-256 `19cae56baa5ca8e4c085a65b4c880807e645d34d81a06acaf9aa7a0f726d58f8`.
-- Release archive: `Bible AI_0.1.0_release-package.zip`, 1,103,341,590 bytes,
-  SHA-256 `71d6676c3c9d9a0e63cb7ae1bfacf52ccd8001a7e1fb96320eb2f6022d500185`.
+- NSIS: `Bible AI_0.1.0_x64-setup.exe`, 494,576,058 bytes,
+  SHA-256 `5963fec8083b82cba079af65f13bdd7c9fbe57cea98af7ed36a313c91af38b95`.
+- MSI: `Bible AI_0.1.0_x64_en-US.msi`, 613,327,972 bytes,
+  SHA-256 `2be312318c8e51cb91a460447df9e209140f5a07da6945e7bc6b2908cb836d26`.
+- Release archive: `Bible AI_0.1.0_release-package.zip`, 1,105,383,052 bytes,
+  SHA-256 `9f201be68bdeac9a02dc77f8c41c54167a77167e49b73ef1fcf9e8c1e905c293`.
 
-These hashes are now source-stale relative to `main`. They remain useful audit
-evidence, but they are private/test artifacts—not upload candidates or
-publication approval. The named human evidence gates below remain intentionally
-fail-closed.
+These are private local audit artifacts—not upload candidates or publication
+approval. The official GitHub candidate workflow must still rebuild from final
+`main` after rights review permits private corpus staging. The named human
+evidence gates below remain intentionally fail-closed.
 
 The most recent full-corpus Apple Silicon candidate was built from commit
 `9adf30b` by
@@ -121,10 +125,10 @@ Intel/universal, and has not completed the clean-Mac human gate.
    fixture or claim that automated grounding proves theological quality.
 
 3. **Build and retain exact release artifacts.** The Windows hashes above are
-   historical audit evidence and must not be reused. After the named reviews,
-   build new NSIS, MSI, archive, and macOS artifacts from the chosen source
-   commit. If source, corpus, sidecar, SBOM, version, or signing state changes,
-   rebuild and repeat every artifact-bound gate.
+   local audit evidence and must not be reused for publication. After the named
+   reviews, build new NSIS, MSI, archive, and macOS artifacts from the chosen
+   source commit. If source, corpus, sidecar, SBOM, version, or signing state
+   changes, rebuild and repeat every artifact-bound gate.
 
 4. **Manual clean-profile QA** on a *separate clean Windows user profile or VM*
    (never your dev profile). Install the built installer, then verify and record
