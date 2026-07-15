@@ -1,6 +1,6 @@
-import { spawnSync } from "node:child_process";
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { readGitCommit, trackedWorktreeClean } from "./git-source-state.mjs";
 import {
   appRoot,
   packageName,
@@ -19,6 +19,7 @@ import {
 } from "./macos-release-utils.mjs";
 
 const appBundle = findMacosApp();
+const repoRoot = join(appRoot, "..");
 const dmg = findMacosDmg();
 const missing = [];
 
@@ -84,8 +85,8 @@ const manifest = {
   generated_at: new Date().toISOString(),
   release_root: releaseRootLabel,
   source_control: {
-    git_commit: git("rev-parse", "HEAD"),
-    tracked_worktree_clean: git("status", "--porcelain", "--untracked-files=no") === "",
+    git_commit: readGitCommit(repoRoot),
+    tracked_worktree_clean: trackedWorktreeClean(repoRoot),
   },
   files,
   directories,
@@ -93,15 +94,3 @@ const manifest = {
 
 writeFileSync(macosManifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 console.log(`macOS release manifest written: ${macosManifestPath}`);
-
-function git(...args) {
-  const result = spawnSync("git", args, {
-    cwd: join(appRoot, ".."),
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
-    console.error(`macOS release manifest failed: git ${args.join(" ")} could not be read.`);
-    process.exit(1);
-  }
-  return String(result.stdout ?? "").trim();
-}
