@@ -5,9 +5,22 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
+import {
+  macosPackageEvidenceNames,
+  windowsPackageEvidenceNames,
+} from "../../scripts/release-package-contract.mjs";
 
 const appRoot = resolve(import.meta.dirname, "../..");
 const node = process.execPath;
+
+test("release package contracts include platform signing evidence", () => {
+  assert.deepEqual(windowsPackageEvidenceNames, [
+    "sbom-npm.cdx.json",
+    "sbom-cargo.cdx.json",
+    "windows-signing.json",
+  ]);
+  assert.deepEqual(macosPackageEvidenceNames, ["macos-signing.json"]);
+});
 
 test("version-bound release tags reject drift and mutable candidate names", () => {
   assert.equal(run("scripts/validate-release-tag.mjs", "--channel", "candidate", "--tag", "v0.1.0-rc.1").status, 0);

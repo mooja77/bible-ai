@@ -6,6 +6,7 @@ import {
   macosPackageDir,
   macosSummaryPath,
 } from "./macos-release-utils.mjs";
+import { macosPackageEvidenceNames } from "./release-package-contract.mjs";
 import { appRoot } from "./release-metadata.mjs";
 
 const dmg = findMacosDmg();
@@ -28,7 +29,9 @@ mkdirSync(macosPackageDir, { recursive: true });
 copyArtifact(dmg, join(macosPackageDir, basename(dmg)));
 copyArtifact(macosManifestPath, join(macosPackageDir, "macos-release-manifest.json"));
 copyArtifact(macosSummaryPath, join(macosPackageDir, "macos-release-summary.md"));
-copyArtifact(join(appRoot, "release", "macos-signing.json"), join(macosPackageDir, "macos-signing.json"));
+for (const evidenceName of macosPackageEvidenceNames) {
+  copyArtifact(join(appRoot, "release", evidenceName), join(macosPackageDir, evidenceName));
+}
 writeFileSync(join(macosPackageDir, "README.md"), readme(basename(dmg)), "utf8");
 
 console.log(`macOS release package written: ${macosPackageDir}`);

@@ -7,15 +7,21 @@ import {
   macosSummaryPath,
   sha256,
 } from "./macos-release-utils.mjs";
+import { macosPackageEvidenceNames } from "./release-package-contract.mjs";
+import { appRoot } from "./release-metadata.mjs";
 
 const failures = [];
 const successes = [];
 const dmg = findMacosDmg();
+const evidencePaths = macosPackageEvidenceNames.map((name) => join(appRoot, "release", name));
 
 if (!existsSync(macosPackageDir)) failures.push(`missing macOS package directory: ${macosPackageDir}`);
 if (!dmg) failures.push("missing release DMG");
 if (!existsSync(macosManifestPath)) failures.push(`missing macOS manifest: ${macosManifestPath}`);
 if (!existsSync(macosSummaryPath)) failures.push(`missing macOS summary: ${macosSummaryPath}`);
+for (const evidencePath of evidencePaths) {
+  if (!existsSync(evidencePath)) failures.push(`missing macOS release evidence: ${evidencePath}`);
+}
 
 if (failures.length === 0) {
   const manifest = JSON.parse(readFileSync(macosManifestPath, "utf8"));
@@ -27,7 +33,7 @@ if (failures.length === 0) {
     "README.md",
     "macos-release-manifest.json",
     "macos-release-summary.md",
-    "macos-signing.json",
+    ...macosPackageEvidenceNames,
   ].sort();
   const actualNames = readdirSync(macosPackageDir)
     .filter((name) => statSync(join(macosPackageDir, name)).isFile())
@@ -42,6 +48,9 @@ if (failures.length === 0) {
   if (dmgEntry) await verifyCopiedFile(basename(dmg), Number(dmgEntry.bytes), dmgEntry.sha256);
   await verifySameHash("macos-release-manifest.json", macosManifestPath);
   await verifySameHash("macos-release-summary.md", macosSummaryPath);
+  for (const evidencePath of evidencePaths) {
+    await verifySameHash(basename(evidencePath), evidencePath);
+  }
 }
 
 if (failures.length > 0) {
