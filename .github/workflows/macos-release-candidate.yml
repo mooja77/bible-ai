@@ -13,7 +13,9 @@ on:
         type: string
 
 permissions:
-  contents: read
+  # Draft releases are hidden from tokens without push-level contents access.
+  # This manual workflow only reads the temporary asset and never writes via API.
+  contents: write
 
 concurrency:
   group: macos-release-candidate
