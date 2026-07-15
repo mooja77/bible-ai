@@ -1,8 +1,15 @@
 # macOS Distribution Plan
 
-Bible AI is currently release-packaged for Windows. macOS distribution is supported as a separate release lane because the app must be built on macOS and must bundle a Darwin-compatible Node sidecar runtime.
+Bible AI is a public, MIT-licensed open-source project currently
+release-packaged for Windows. macOS distribution is supported as a separate
+release lane because the app must be built on macOS and must bundle a
+Darwin-compatible Node sidecar runtime.
 
-Public note: macOS release scripts and plans are present, but a public `.dmg` must be built and verified on an Apple computer or macOS CI runner. A Windows machine cannot produce the final verified macOS public release.
+The macOS source lane is implemented. GitHub Actions builds and launch-smokes an
+ad-hoc `.app`, verifies the Darwin Node resources, and checks that the native
+Apple Keychain backend is compiled. A public `.dmg` must still be built and
+manually verified on an Apple computer or macOS CI release runner. A Windows
+machine cannot produce the final verified macOS public release.
 
 ## Goals
 
@@ -22,6 +29,7 @@ macOS needs:
 
 - `sidecar/node/bin/node`
 - macOS-native `node_modules` optional packages
+- the `apple-native` keyring feature for persistent Keychain storage
 - Tauri `.app` and `.dmg` outputs from a macOS build host
 
 The Rust sidecar launcher already supports this path: on non-Windows platforms it looks for `sidecar/node/bin/node`, then falls back to `BIBLE_AI_NODE` or system `node`.

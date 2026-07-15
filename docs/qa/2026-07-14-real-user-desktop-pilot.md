@@ -2,12 +2,12 @@
 
 ## Purpose and scope
 
-This was a genuine desktop-use review of the private, non-commercial Bible AI
-app. The release and debug executables were operated through the Windows UI with
-isolated user-data profiles. The pass covered first-run experience, reading,
-provider setup, Council use, workspaces, theology, resources, settings, and the
-most important data-safety paths. Automated checks were then used to broaden the
-coverage and guard each fix.
+This was a genuine desktop-use review of the public, MIT-licensed Bible AI
+open-source project. The release and debug executables were operated locally
+through the Windows UI with isolated user-data profiles. The pass covered
+first-run experience, reading, provider setup, Council use, workspaces,
+theology, resources, settings, and the most important data-safety paths.
+Automated checks were then used to broaden the coverage and guard each fix.
 
 This report records what was actually exercised. It is not a claim that public
 distribution, signing, human accessibility review, or multi-provider evaluation
@@ -94,8 +94,9 @@ as a transient shared-session/test-harness failure rather than an app regression
   pilot. Mock-provider coverage remains in the automated suite.
 - A human screen-reader/keyboard-only accessibility pass is still required before
   making accessibility release claims.
-- Installer signing and public-distribution gates are intentionally outside this
-  private, non-commercial app pilot.
+- Installer signing and public-distribution gates were not covered by this local
+  desktop pilot. The repository being public and open source does not by itself
+  verify downloadable Windows or macOS installers.
 - A calm bad-key/offline failure-path lap should be repeated manually when a
   dedicated, interruption-free desktop is available, even though automated error
   handling coverage passes.

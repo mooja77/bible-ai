@@ -4,6 +4,8 @@ Bible AI is an offline-first desktop Bible study app for reading Scripture, comp
 
 The app is designed around one principle: AI should assist learning and judgment, not replace them. Its Council workflow makes provider voices, retrieved evidence, disagreement, confidence, and source data visible so users can inspect why one argument worked better than another.
 
+Bible AI is a [public open-source project on GitHub](https://github.com/mooja77/bible-ai). The application source code is licensed under MIT. Bundled Bible texts, lexicons, cross-references, and imported study resources retain their own licences and attribution requirements; references to a free/non-commercial release scope apply to those distribution decisions, not to the MIT source-code licence.
+
 ## What You Can Do
 
 - Read and search public-domain Bible translations in a local desktop app.
@@ -127,13 +129,13 @@ See [Data Sources](docs/data-sources.md) and [Notice](NOTICE.md).
 
 ## Installation Status
 
-This project is currently open-source and Windows-first.
+Bible AI is an open-source, Windows-first project hosted publicly on GitHub.
 
 Windows packaging exists, but the public installer is not verified unless clean-profile installer QA and credential-vault verification have been completed. If that gate cannot be completed, generated Windows installers should be treated as private/test builds only.
 
-When public releases are available, they should be distributed through the GitHub Releases page. Until then, run the app from source.
+There are currently no downloadable binaries on the GitHub Releases page. Until a release is published, clone the repository and run or build the app from source.
 
-macOS distribution is planned and scripted, but a public `.dmg` must be built and verified on an Apple computer or macOS CI runner. A Windows build cannot produce the verified macOS public release. See [macOS Install Guide](docs/install-macos.md) and [macOS Distribution Plan](docs/macos-distribution-plan.md).
+macOS source builds are supported: the repository includes a Darwin Node sidecar, native Apple Keychain storage, `.app`/`.dmg` build scripts, and a macOS CI job that constructs and launch-smokes an ad-hoc `.app` bundle. There is not yet a downloadable, manually verified, signed/notarized `.dmg`. An Apple user can build and run Bible AI from source today, but cannot yet install an official GitHub Release DMG. See [macOS Install Guide](docs/install-macos.md) and [macOS Distribution Plan](docs/macos-distribution-plan.md).
 
 Install guides:
 
@@ -148,6 +150,7 @@ Prerequisites:
 - Rust stable toolchain
 - Tauri 2 prerequisites for your operating system
 - Python 3 for corpus ingestion scripts
+- Ollama with the corpus lock's embedding model when generating a full corpus
 
 Install dependencies (the Node sidecar has its own `package.json`):
 
@@ -157,11 +160,14 @@ npm install
 cd sidecar && npm install && cd ..
 ```
 
-Start development mode:
+Start the full desktop application in development mode:
 
 ```bash
-npm run dev
+npm run tauri -- dev
 ```
+
+`npm run dev` starts only the Vite frontend. The Tauri command above starts the
+desktop shell, local database, credential vault, and Council sidecar as well.
 
 Run checks:
 

@@ -26,5 +26,8 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 tokio = { version = "1", features = ["process", "io-util", "sync", "macros", "time"] }
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 tauri-plugin-dialog = "2"
-keyring = { version = "3", features = ["windows-native"] }
+# Compile the native credential store on both supported desktop platforms.
+# Without apple-native, keyring falls back to its in-memory mock store on macOS
+# and provider credentials disappear when the app exits.
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
 krilla = { version = "0.8.2", default-features = false, features = ["simple-text"] }

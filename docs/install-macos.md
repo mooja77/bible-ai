@@ -2,13 +2,59 @@
 
 ## Current Status
 
-Bible AI has macOS distribution scripts and a macOS release plan, but there is not yet a verified public `.dmg` release.
+Bible AI is a public, MIT-licensed open-source project. Its macOS source path is
+implemented: the project has a Darwin Node sidecar, native Apple Keychain
+credential storage, `.app`/`.dmg` build scripts, and a macOS CI job that builds
+and launch-smokes an ad-hoc `.app` bundle.
 
-A public macOS installer must be built and verified on an Apple computer or macOS CI runner. A Windows machine cannot produce the final verified macOS `.app`/`.dmg` release because the app needs a Darwin-compatible sidecar runtime, macOS-native dependencies, Keychain checks, and Gatekeeper/signing verification.
+The practical answer is:
 
-Until a release explicitly provides a verified macOS DMG, Apple users should treat macOS support as planned rather than public-release-ready.
+- **Build and run from source on a Mac:** supported.
+- **Build a local unsigned `.app`/`.dmg` on a Mac:** supported for development
+  and testing.
+- **Download an official DMG from GitHub Releases:** not available yet.
+- **Treat macOS as manually verified for normal daily use:** not yet; the clean
+  macOS profile, provider, backup/restore, Keychain, and Gatekeeper lap remains.
+
+A public macOS installer must be built and verified on an Apple computer or
+macOS CI runner. A Windows machine cannot produce the final verified macOS
+`.app`/`.dmg` release because the app needs a Darwin-compatible sidecar runtime,
+macOS-native dependencies, Keychain checks, and Gatekeeper/signing verification.
 
 See [macOS Distribution Plan](macos-distribution-plan.md).
+
+## Run From Source On A Mac
+
+Install these prerequisites first:
+
+- Xcode command-line tools (`xcode-select --install`).
+- Node.js 22 and npm.
+- Rust stable through `rustup`.
+- Python 3 for the reproducible corpus build.
+- Ollama with the checksum-locked embedding model when building the full corpus.
+
+Then clone and prepare the repository:
+
+```bash
+git clone https://github.com/mooja77/bible-ai.git
+cd bible-ai
+python3 scripts/build_corpus.py
+cd app
+npm ci
+npm run macos:sidecar:prepare
+npm run macos:build-env:verify
+npm run tauri -- dev
+```
+
+The corpus is generated rather than committed because of its size and source
+review requirements. The build is resumable, downloads only checksum-locked
+sources, and includes Ollama embedding stages; see the
+[reproducible corpus guide](corpus-build.md) before starting it. If a verified
+`data/corpus.sqlite` has already been supplied locally, do not rebuild it.
+
+`npm run tauri -- dev` starts the complete desktop app. `npm run dev` by itself
+starts only the Vite frontend and is not a functional substitute for the Tauri
+desktop process.
 
 ## Future Public DMG Install
 
@@ -36,7 +82,7 @@ Use an Apple computer or macOS CI runner with:
 Commands from `app/`:
 
 ```bash
-npm install
+npm ci
 npm run macos:release:build
 ```
 

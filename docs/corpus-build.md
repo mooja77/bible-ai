@@ -6,6 +6,13 @@ The release corpus is produced by one resumable command:
 python scripts/build_corpus.py
 ```
 
+A full build requires Python 3 and a running Ollama service with the embedding
+model identified by `data/corpus-lock.json` (currently `nomic-embed-text`). The
+recorded model digest is part of the build identity; a different model artifact
+is rejected rather than silently producing a different corpus. If a verified
+`data/corpus.sqlite` was supplied with a release/test package, a source user does
+not need to regenerate it.
+
 The build has four trust boundaries:
 
 1. `fetch_corpus_sources.py` obtains only versions named in

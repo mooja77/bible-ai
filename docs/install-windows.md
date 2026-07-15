@@ -2,9 +2,13 @@
 
 ## Current Status
 
-Bible AI is Windows-first and can be run from source today.
+Bible AI is a public, MIT-licensed open-source project. It is Windows-first and
+can be run from source today.
 
 Windows installer packaging exists, but the installer is not a verified public release unless clean-profile manual QA has been completed. If that QA gate cannot be completed, treat generated NSIS/MSI installers as private test builds only.
+
+“Private test build” describes the verification and distribution status of that
+installer; it does not mean the GitHub repository or source code is private.
 
 Use the GitHub Releases page only after a release explicitly says the Windows clean-profile gate has passed.
 
@@ -19,14 +23,23 @@ Prerequisites:
 - Rust stable toolchain.
 - Tauri 2 Windows prerequisites.
 - Python 3 if running corpus ingestion scripts.
+- Ollama with the corpus lock's embedding model when generating a full corpus.
 
 Commands:
 
 ```powershell
-cd "C:\path\to\bible-ai\app"
-npm install
-npm run dev
+cd "C:\path\to\bible-ai"
+python scripts\build_corpus.py
+cd app
+npm ci
+npm ci --prefix sidecar
+npm run tauri -- dev
 ```
+
+The generated corpus is not committed. See the
+[reproducible corpus guide](corpus-build.md) before starting its resumable build.
+`npm run dev` starts only the Vite frontend; use the Tauri command above to run
+the complete desktop application.
 
 Run checks:
 
