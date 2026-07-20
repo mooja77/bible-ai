@@ -252,7 +252,7 @@ jobs:
     if: ${{ always() && needs.preflight.result == 'success' && needs.windows.result == 'success' && (!inputs.include_macos || needs.macos.result == 'success') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: "*-release-candidate"
           path: candidate-assets
