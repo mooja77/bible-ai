@@ -92,7 +92,7 @@
     "@wdio/spec-reporter": "^9.29.1",
     "tailwindcss": "^4.3.2",
     "typescript": "~7.0.2",
-    "vite": "^8.1.4",
+    "vite": "^8.1.5",
     "webdriverio": "^9.29.1"
   }
 }
