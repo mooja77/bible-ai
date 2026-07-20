@@ -84,7 +84,7 @@ jobs:
             app/package-lock.json
             app/sidecar/package-lock.json
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
